@@ -1,0 +1,7 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Optional: ignore env files in subfolders
+**/.env
