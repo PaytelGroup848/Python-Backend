@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from app.services.llm_service import get_fastest_response
+from app.services.llm_service import redis_client
 
 #  Rate limiting imports
 from slowapi import Limiter
@@ -40,3 +41,20 @@ def home():
 async def chat(request: Request, req: ChatRequest):
     response = await get_fastest_response(req.message, req.user_id)
     return response
+
+##user token and cost
+@app.get("/usage/{user_id}")
+def get_usage(user_id: str):
+    key = f"usage:{user_id}"
+    usage = redis_client.get(key)
+
+    if not usage:
+        return {"tokens": 0, "cost": 0}
+
+    tokens = int(usage)
+    cost = (tokens / 1000) * 0.002
+
+    return {
+        "tokens": tokens,
+        "estimated_cost_usd": round(cost, 6)
+    }

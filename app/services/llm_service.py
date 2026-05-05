@@ -30,6 +30,8 @@ import json
 redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
 
 MAX_HISTORY = 5
+ ## cost tracking
+COST_PER_1K_TOKENS = 0.002
 
 def get_chat_history(user_id):
     data = redis_client.get(user_id)
@@ -47,6 +49,26 @@ def update_chat_history(user_id, user_msg, bot_msg):
     history = history[-MAX_HISTORY:]
 
     redis_client.setex(user_id, 3600, json.dumps(history))  # expires in 1 hour
+
+#cost tracking and token according to users 
+
+def estimate_tokens(text):
+    return int(len(text) / 4)
+
+
+def track_usage(user_id, tokens):
+    key = f"usage:{user_id}"
+
+    current = redis_client.get(key)
+    if current:
+        current = int(current)
+    else:
+        current = 0
+
+    current += tokens
+
+    # store for 1 day
+    redis_client.setex(key, 86400, current)
 
 # =========================
 # SBERT MODEL
@@ -305,13 +327,18 @@ async def get_fastest_response(query, user_id="default"):
         ):
            if model_choice != "mistral":
              print(" Fallback → Mistral")
-             result = await call_mistral(query)
+             result = await call_model_with_messages(messages, "mistral")
            else:
             print(" Fallback → Llama")
-            result = await call_llama(query)
+            result = await call_model_with_messages(messages, "llama")
 
     except Exception as e:
         result = f"All models failed: {str(e)}"
+
+    #  Cost tracking (ADD HERE)
+    if isinstance(result, dict):
+       tokens = estimate_tokens(result["response"])
+       track_usage(user_id, tokens)
 
     #  Save cache
     cache[normalized_query] = {
