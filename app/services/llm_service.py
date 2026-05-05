@@ -37,6 +37,21 @@ MAX_TOKENS_PER_DAY = 10000
  ## cost tracking
 COST_PER_1K_TOKENS = 0.002
 
+##plan based limit
+
+USER_PLANS = {
+    "free": 10000,
+    "pro": 100000,
+    "enterprise": 1000000
+}
+
+#now currently store user normally in future upgarde and store in database 
+
+USER_PLAN_MAP = {
+    "user1": "free",
+    "user2": "pro"
+}
+
 
 def get_chat_history(user_id):
     data = redis_client.get(user_id)
@@ -76,12 +91,15 @@ def track_usage(user_id, tokens):
     redis_client.setex(key, 86400, current)
 
 def check_usage_limit(user_id):
+    plan = USER_PLAN_MAP.get(user_id, "free")
+    max_tokens = USER_PLANS[plan]
+
     key = f"usage:{user_id}"
     usage = redis_client.get(key)
 
     if usage:
         usage = int(usage)
-        if usage >= MAX_TOKENS_PER_DAY:
+        if usage >= max_tokens:
             return False
 
     return True
@@ -296,11 +314,12 @@ async def get_fastest_response(query, user_id="default"):
 
     # HARD LIMIT CHECK (ADD HERE)
     if not check_usage_limit(user_id):
-       return {
-        "model": "system",
-        "response": "Daily usage limit exceeded. Please try again tomorrow."
-       }
+       plan = USER_PLAN_MAP.get(user_id, "free")
 
+       return {
+            "model": "system",
+            "response": f"Daily limit reached for {plan} plan. Upgrade to continue."
+        }
     #  Cache check
     if normalized_query in cache:
         cached_data = cache[normalized_query]
