@@ -3,3 +3,7 @@ Artificial Intelligence (AI) is the simulation of human intelligence in machines
 Machine Learning is a subset of AI that allows systems to learn from data.
 
 Deep Learning is a type of machine learning using neural networks.
+
+Nitish Kumar was the cm(chief minister) of Bihar ,currently he is the Mp of Rajya Sabha.
+
+Cosine Similarity shines because it focuses on the meaning, regardless of how "strong" or "long" the vector is.
