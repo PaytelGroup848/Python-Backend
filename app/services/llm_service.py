@@ -30,8 +30,13 @@ import json
 redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
 
 MAX_HISTORY = 5
+
+##token limit per day
+MAX_TOKENS_PER_DAY = 10000
+
  ## cost tracking
 COST_PER_1K_TOKENS = 0.002
+
 
 def get_chat_history(user_id):
     data = redis_client.get(user_id)
@@ -69,6 +74,17 @@ def track_usage(user_id, tokens):
 
     # store for 1 day
     redis_client.setex(key, 86400, current)
+
+def check_usage_limit(user_id):
+    key = f"usage:{user_id}"
+    usage = redis_client.get(key)
+
+    if usage:
+        usage = int(usage)
+        if usage >= MAX_TOKENS_PER_DAY:
+            return False
+
+    return True
 
 # =========================
 # SBERT MODEL
@@ -277,6 +293,13 @@ async def call_model_with_messages(messages, model_choice):
 # =========================
 async def get_fastest_response(query, user_id="default"):
     normalized_query = query.strip().lower()
+
+    # HARD LIMIT CHECK (ADD HERE)
+    if not check_usage_limit(user_id):
+       return {
+        "model": "system",
+        "response": "Daily usage limit exceeded. Please try again tomorrow."
+       }
 
     #  Cache check
     if normalized_query in cache:
