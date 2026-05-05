@@ -18,9 +18,36 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY is missing in .env")
 
+
 #  Cache setup
 cache = {}
 CACHE_TTL = 60 * 5  # 5 minutes
+
+#simple in-memory store
+import redis
+import json
+
+redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
+
+MAX_HISTORY = 5
+
+def get_chat_history(user_id):
+    data = redis_client.get(user_id)
+    if data:
+        return json.loads(data)
+    return []
+
+def update_chat_history(user_id, user_msg, bot_msg):
+    history = get_chat_history(user_id)
+
+    history.append({"role": "user", "content": user_msg})
+    history.append({"role": "assistant", "content": bot_msg})
+
+    # keep last N messages
+    history = history[-MAX_HISTORY:]
+
+    redis_client.setex(user_id, 3600, json.dumps(history))  # expires in 1 hour
+
 # =========================
 # SBERT MODEL
 # =========================
@@ -185,11 +212,48 @@ async def call_llama(query):
 #     await asyncio.sleep(2)
 #     return "Backup response (second API)"
 
+#memory and call
 
+async def call_model_with_messages(messages, model_choice):
+    async with httpx.AsyncClient(timeout=10.0) as client:
+
+        if model_choice == "openai":
+            url = "https://api.openai.com/v1/chat/completions"
+            headers = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
+            model = "gpt-4o-mini"
+
+        elif model_choice == "mistral":
+            url = "https://api.mistral.ai/v1/chat/completions"
+            headers = {"Authorization": f"Bearer {MISTRAL_API_KEY}"}
+            model = "mistral-small"
+
+        else:
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
+            model = "llama-3.1-8b-instant"
+
+        response = await client.post(
+            url,
+            headers={**headers, "Content-Type": "application/json"},
+            json={"model": model, "messages": messages}
+        )
+
+        data = response.json()
+
+        if "choices" not in data:
+            return {
+                "model": model_choice,
+                "response": str(data)
+            }
+
+        return {
+            "model": model_choice,
+            "response": data["choices"][0]["message"]["content"]
+        }
 # =========================
 #  MAIN ORCHESTRATOR
 # =========================
-async def get_fastest_response(query):
+async def get_fastest_response(query, user_id="default"):
     normalized_query = query.strip().lower()
 
     #  Cache check
@@ -201,11 +265,23 @@ async def get_fastest_response(query):
 
     print(" Cache miss")
 
-    #  RAG: retrieve knowledge
+    #  RAG
     context = retrieve_context(query)
 
-# Combine query + context
-    enhanced_query = f"""Context:{context} Question:{query}"""
+    #  Memory
+    history = get_chat_history(user_id)
+
+    messages = [
+    {"role": "system", "content": "You are a helpful AI assistant."}
+]
+
+# add previous conversation
+    messages.extend(history)
+
+# add current query with context
+    messages.append({
+    "role": "user",
+    "content": f"""Context:{context} Question:{query}"""})
 
     #  Smart routing
     model_choice = route_query_semantic(query)
@@ -213,13 +289,13 @@ async def get_fastest_response(query):
 
     try:
         if model_choice == "llama":
-            result = await call_llama(enhanced_query)
+            result = await call_model_with_messages(messages, model_choice)
 
         elif model_choice == "mistral":
-            result = await call_llama(enhanced_query)
+            result = await call_model_with_messages(messages, model_choice)
 
         else:
-            result = await call_llama(enhanced_query)
+            result = await call_model_with_messages(messages, model_choice)
 
         #  Fallback if failed
         if (

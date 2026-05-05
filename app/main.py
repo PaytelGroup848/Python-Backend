@@ -6,6 +6,7 @@ app = FastAPI()
 
 class ChatRequest(BaseModel):
     message: str
+    user_id: str = "default"
 
 @app.get("/")
 def home():
@@ -13,5 +14,5 @@ def home():
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
-    response = await get_fastest_response(req.message)
-    return {"response": response}
+    response = await get_fastest_response(req.message, req.user_id)
+    return response
