@@ -1,7 +1,16 @@
-# Environment variables
+# secrets
 .env
 .env.*
-!.env.example
 
-# Optional: ignore env files in subfolders
-**/.env
+# python
+venv/
+__pycache__/
+*.pyc
+
+# large files
+*.log
+*.sqlite3
+*.db
+
+# OS
+.DS_Store
