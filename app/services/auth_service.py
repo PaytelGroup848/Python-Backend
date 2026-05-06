@@ -5,18 +5,18 @@ from app.models.user import User
 pwd_context = CryptContext(schemes=["bcrypt"])
 
 def hash_password(password: str):
-    password = password.encode("utf-8")[:72]  #  FIX
+    password = password.encode("utf-8")[:72]  
     return pwd_context.hash(password)
 
 def verify_password(password: str, hashed: str):
-    password = password.encode("utf-8")[:72]  #  FIX
+    password = password.encode("utf-8")[:72]  
     return pwd_context.verify(password, hashed)
 
 def create_user(db: Session, email: str, password: str):
     user = User(
         email=email,
         password=hash_password(password),
-        role="employee"   #  ADD THIS LINE
+        role="employee"   
     )
     db.add(user)
     db.commit()

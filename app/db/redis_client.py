@@ -7,7 +7,7 @@ redis_client = redis.Redis(
     decode_responses=True
 )
 
-# 🔥 Check connection (optional fallback)
+# Check connection (optional fallback)
 try:
     redis_client.ping()
     REDIS_AVAILABLE = True

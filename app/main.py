@@ -12,7 +12,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from app.models import audit   #  VERY IMPORTANT
+from app.models import audit   
 
 
 
@@ -33,7 +33,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  #  restrict in production
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -106,7 +106,7 @@ async def chat(request: Request, req: ChatRequest, user=Depends(verify_token)):
 @limiter.limit("20/minute")
 async def get_usage(request: Request, user=Depends(verify_token)):
 
-    user_id = user["user_id"]   #  ADD THIS
+    user_id = user["user_id"]   
 
     key = f"usage:{user_id}"
     usage = redis_client.get(key)
