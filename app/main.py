@@ -4,6 +4,18 @@ from app.services.llm_service import get_fastest_response
 from app.db.redis_client import redis_client
 from app.core.security import verify_token
 
+from app.services.audit_service import log_action   
+
+
+
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+from app.models import audit   #  VERY IMPORTANT
+
+
+
 #  Rate limiting imports
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -13,7 +25,19 @@ from fastapi.responses import JSONResponse
 from app.routes.auth import router as auth_router
 from app.db.database import Base, engine
 
+
+
 app = FastAPI()
+
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  #  restrict in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 def startup():
@@ -44,6 +68,7 @@ async def security_headers(request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
 ##models(pydantic)
@@ -63,6 +88,8 @@ async def chat(request: Request, req: ChatRequest, user=Depends(verify_token)):
 
     user_id = user["user_id"]
 
+    logger.info(f"User {user_id} checked usage")
+
     # Input validation
     if not req.message.strip():
         return {"error": "Empty message"}
@@ -71,11 +98,13 @@ async def chat(request: Request, req: ChatRequest, user=Depends(verify_token)):
         return {"error": "Message too long"}
 
     response = await get_fastest_response(req.message, user_id)
+    log_action(user_id, "chat_request", "/chat")   
     
     return response
 ##user token and cost
 @app.get("/usage")
-async def get_usage(user=Depends(verify_token)):
+@limiter.limit("20/minute")
+async def get_usage(request: Request, user=Depends(verify_token)):
 
     user_id = user["user_id"]   #  ADD THIS
 
@@ -92,3 +121,31 @@ async def get_usage(user=Depends(verify_token)):
         "tokens": tokens,
         "estimated_cost_usd": round(cost, 6)
     }
+
+from app.core.security import require_role
+
+
+#  Admin-only API
+@app.get("/admin")
+async def admin_only(user=Depends(require_role("admin"))):
+    return {"message": "Admin access granted"}
+
+
+#  Manager-only API
+@app.get("/manager")
+async def manager_only(user=Depends(require_role("manager"))):
+    return {"message": "Manager access granted"}
+
+from app.core.security import require_permission
+
+
+@app.get("/admin-dashboard")
+async def admin_dashboard(user=Depends(require_permission("view_admin_dashboard"))):
+    log_action(user["user_id"], "view_admin_dashboard", "/admin-dashboard")   
+    return {"message": "Admin dashboard"}
+
+
+@app.get("/reports")
+async def reports(user=Depends(require_permission("view_reports"))):
+    log_action(user["user_id"], "view_reports", "/reports")   
+    return {"message": "Reports data"}

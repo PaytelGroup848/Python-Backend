@@ -63,3 +63,31 @@ def require_role(required_role: str):
         return user
 
     return checker
+
+# =========================
+# PERMISSION CHECK 
+# =========================
+
+from app.db.database import SessionLocal
+from app.models.user import RolePermission, Permission
+from fastapi import Depends, HTTPException
+
+def require_permission(permission_name: str):
+    def checker(user=Depends(verify_token)):
+        db = SessionLocal()
+
+        role = user["role"]
+
+        perms = db.query(RolePermission).join(Permission).filter(
+            RolePermission.role == role,
+            Permission.name == permission_name
+        ).first()
+
+        db.close()
+
+        if not perms:
+            raise HTTPException(status_code=403, detail="Permission denied")
+
+        return user
+
+    return checker
