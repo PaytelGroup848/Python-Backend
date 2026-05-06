@@ -1,7 +1,8 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Depends, Request
 from pydantic import BaseModel
 from app.services.llm_service import get_fastest_response
-from app.services.llm_service import redis_client
+from app.db.redis_client import redis_client
+from app.core.security import verify_api_key
 
 #  Rate limiting imports
 from slowapi import Limiter
@@ -27,7 +28,7 @@ def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 class ChatRequest(BaseModel):
     message: str
-    user_id: str = "default"
+    
 
 
 @app.get("/")
@@ -38,13 +39,22 @@ def home():
 #  Apply rate limit here
 @app.post("/chat")
 @limiter.limit("10/minute")
-async def chat(request: Request, req: ChatRequest):
-    response = await get_fastest_response(req.message, req.user_id)
-    return response
+async def chat(request: Request, req: ChatRequest, user_id: str = Depends(verify_api_key)):
+    
+    #  Input validation
+    if not req.message.strip():
+        return {"error": "Empty message"}
 
+    if len(req.message) > 1000:
+        return {"error": "Message too long"}
+
+    #  Use SECURE user_id from API key (NOT request body)
+    response = await get_fastest_response(req.message, user_id)
+    
+    return response
 ##user token and cost
-@app.get("/usage/{user_id}")
-def get_usage(user_id: str):
+@app.get("/usage")
+async def get_usage(user_id: str = Depends(verify_api_key)):
     key = f"usage:{user_id}"
     usage = redis_client.get(key)
 

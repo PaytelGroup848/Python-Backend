@@ -1,12 +1,13 @@
 import os
 import httpx
-import asyncio
+
 import time
 from dotenv import load_dotenv
 
 from sentence_transformers import SentenceTransformer
 import numpy as np
 from app.services.rag_service import retrieve_context
+from app.db.redis_client import redis_client, REDIS_AVAILABLE
 
 load_dotenv()
 
@@ -18,16 +19,16 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY is missing in .env")
 
-
+##memory use if redis down
+chat_memory = {}
 #  Cache setup
 cache = {}
 CACHE_TTL = 60 * 5  # 5 minutes
 
 #simple in-memory store
-import redis
+
 import json
 
-redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
 
 MAX_HISTORY = 5
 
@@ -54,21 +55,30 @@ USER_PLAN_MAP = {
 
 
 def get_chat_history(user_id):
-    data = redis_client.get(user_id)
-    if data:
-        return json.loads(data)
-    return []
+    if REDIS_AVAILABLE:
+        data = redis_client.get(user_id)
+        if data:
+            return json.loads(data)
+        return []
+    else:
+        return chat_memory.get(user_id, [])
 
 def update_chat_history(user_id, user_msg, bot_msg):
-    history = get_chat_history(user_id)
+    if REDIS_AVAILABLE:
+        history = get_chat_history(user_id)
 
-    history.append({"role": "user", "content": user_msg})
-    history.append({"role": "assistant", "content": bot_msg})
+        history.append({"role": "user", "content": user_msg})
+        history.append({"role": "assistant", "content": bot_msg})
 
-    # keep last N messages
-    history = history[-MAX_HISTORY:]
+        redis_client.setex(user_id, 3600, json.dumps(history[-5:]))
 
-    redis_client.setex(user_id, 3600, json.dumps(history))  # expires in 1 hour
+    else:
+        history = chat_memory.get(user_id, [])
+
+        history.append({"role": "user", "content": user_msg})
+        history.append({"role": "assistant", "content": bot_msg})
+
+        chat_memory[user_id] = history[-5:]
 
 #cost tracking and token according to users 
 
@@ -77,29 +87,28 @@ def estimate_tokens(text):
 
 
 def track_usage(user_id, tokens):
-    key = f"usage:{user_id}"
+    if REDIS_AVAILABLE:
+        key = f"usage:{user_id}"
 
-    current = redis_client.get(key)
-    if current:
-        current = int(current)
+        current = redis_client.get(key)
+        current = int(current) if current else 0
+
+        current += tokens
+        redis_client.setex(key, 86400, current)
+
     else:
-        current = 0
-
-    current += tokens
-
-    # store for 1 day
-    redis_client.setex(key, 86400, current)
+        # fallback (optional simple memory)
+        pass
 
 def check_usage_limit(user_id):
     plan = USER_PLAN_MAP.get(user_id, "free")
     max_tokens = USER_PLANS[plan]
 
-    key = f"usage:{user_id}"
-    usage = redis_client.get(key)
+    if REDIS_AVAILABLE:
+        key = f"usage:{user_id}"
+        usage = redis_client.get(key)
 
-    if usage:
-        usage = int(usage)
-        if usage >= max_tokens:
+        if usage and int(usage) >= max_tokens:
             return False
 
     return True
@@ -108,6 +117,23 @@ def check_usage_limit(user_id):
 # SBERT MODEL
 # =========================
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+
+# =========================
+# ROUTES (ADD HERE)
+# =========================
+ROUTES = {
+    "llama": "coding programming debugging errors software development",
+    "mistral": "general knowledge explanation definition concept learning",
+    "openai": "creative writing storytelling imagination conversation"
+}
+
+# =========================
+# PRECOMPUTED EMBEDDINGS (ADD HERE)
+# =========================
+ROUTE_EMBEDDINGS = {
+    model: embedding_model.encode(text)
+    for model, text in ROUTES.items()
+}
 
 #routing based on the query
 
@@ -132,18 +158,10 @@ def route_query(query):
 def route_query_semantic(query):
     query_vec = embedding_model.encode(query)
 
-    routes = {
-        "llama": "coding programming debugging errors software development",
-        "mistral": "general knowledge explanation definition concept learning",
-        "openai": "creative writing storytelling imagination conversation"
-    }
-
     best_model = None
     best_score = -1
 
-    for model, text in routes.items():
-        vec = embedding_model.encode(text)
-
+    for model, vec in ROUTE_EMBEDDINGS.items():   #  USE PRECOMPUTED
         score = np.dot(query_vec, vec) / (
             np.linalg.norm(query_vec) * np.linalg.norm(vec)
         )
@@ -291,8 +309,12 @@ async def call_model_with_messages(messages, model_choice):
         response = await client.post(
             url,
             headers={**headers, "Content-Type": "application/json"},
-            json={"model": model, "messages": messages}
-        )
+            json={
+                "model": model,
+                "messages": messages,
+                "max_tokens": 150
+}
+            )
 
         data = response.json()
 
@@ -311,6 +333,7 @@ async def call_model_with_messages(messages, model_choice):
 # =========================
 async def get_fastest_response(query, user_id="default"):
     normalized_query = query.strip().lower()
+    cache_key = f"{user_id}:{normalized_query}"
 
     # HARD LIMIT CHECK (ADD HERE)
     if not check_usage_limit(user_id):
@@ -321,13 +344,15 @@ async def get_fastest_response(query, user_id="default"):
             "response": f"Daily limit reached for {plan} plan. Upgrade to continue."
         }
     #  Cache check
-    if normalized_query in cache:
-        cached_data = cache[normalized_query]
+    if cache_key in cache:
+        cached_data = cache[cache_key]
         if time.time() - cached_data["time"] < CACHE_TTL:
             print(" Cache hit")
             return cached_data["response"]
 
     print(" Cache miss")
+
+    
 
     #  RAG
     context = retrieve_context(query)
@@ -336,8 +361,11 @@ async def get_fastest_response(query, user_id="default"):
     history = get_chat_history(user_id)
 
     messages = [
-    {"role": "system", "content": "You are a helpful AI assistant."}
-]
+        {
+            "role": "system",
+            "content": "You are a helpful AI assistant. Keep answers short, clear, and under 100 words unless necessary."
+        }
+    ]
 
 # add previous conversation
     messages.extend(history)
@@ -352,14 +380,7 @@ async def get_fastest_response(query, user_id="default"):
     print(f" Routed to: {model_choice}")
 
     try:
-        if model_choice == "llama":
-            result = await call_model_with_messages(messages, model_choice)
-
-        elif model_choice == "mistral":
-            result = await call_model_with_messages(messages, model_choice)
-
-        else:
-            result = await call_model_with_messages(messages, model_choice)
+        result = await call_model_with_messages(messages, model_choice)
 
         #  Fallback if failed
         if (
@@ -375,20 +396,29 @@ async def get_fastest_response(query, user_id="default"):
             result = await call_model_with_messages(messages, "llama")
 
     except Exception as e:
-        result = f"All models failed: {str(e)}"
+        result = {
+            "model": "system",
+            "response": "All models failed"
+        }
 
     #  Cost tracking (ADD HERE)
     if isinstance(result, dict):
        tokens = estimate_tokens(result["response"])
        track_usage(user_id, tokens)
 
+    if isinstance(result, dict):
+        update_chat_history(user_id, query, result["response"])
+
     #  Save cache
-    cache[normalized_query] = {
+    cache[cache_key] = {
         "response": result,
         "time": time.time()
     }
+
     if isinstance(result, dict):
         print(" Final response from:", result.get("model"))
     else:
        print(" Final response is string:", result)
     return result
+    
+   
