@@ -1,17 +1,65 @@
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPBearer
+from jose import jwt, JWTError
+from datetime import datetime, timedelta, timezone 
 import os
-from fastapi import Header, HTTPException
 
-# Store multiple API keys (later from DB)
-VALID_API_KEYS = {
-    "sk_live_a8x92kLmPq21": "user1",
-    "sk_live_a8x92kLmPq23": "user2"
-}
+from dotenv import load_dotenv
+load_dotenv()
 
-async def verify_api_key(x_api_key: str = Header(None)):
-    if not x_api_key:
-        raise HTTPException(status_code=401, detail="API key missing")
+#  Load secrets from env
+SECRET_KEY = os.getenv("SECRET_KEY")
 
-    if x_api_key not in VALID_API_KEYS:
-        raise HTTPException(status_code=401, detail="Invalid API key")
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY is not set in environment")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
-    return VALID_API_KEYS[x_api_key]   # returns user_id
+#  Auth scheme
+security = HTTPBearer()
+
+
+# =========================
+# CREATE TOKEN
+# =========================
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+# =========================
+# VERIFY TOKEN
+# =========================
+def verify_token(token=Depends(security)):
+    try:
+        payload = jwt.decode(token.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+
+        user_id = payload.get("sub")
+        role = payload.get("role")
+
+        if not user_id or not role:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+
+        return {
+            "user_id": user_id,
+            "role": role
+        }
+
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+
+# =========================
+# ROLE BASED ACCESS
+# =========================
+def require_role(required_role: str):
+    def checker(user=Depends(verify_token)):
+        if user["role"] != required_role:
+            raise HTTPException(status_code=403, detail="Forbidden")
+
+        return user
+
+    return checker
