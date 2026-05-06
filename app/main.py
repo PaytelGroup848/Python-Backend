@@ -88,7 +88,7 @@ async def chat(request: Request, req: ChatRequest, user=Depends(verify_token)):
 
     user_id = user["user_id"]
 
-    logger.info(f"User {user_id} checked usage")
+    logger.info(f"User {user_id} sent chat request")
 
     # Input validation
     if not req.message.strip():
@@ -98,7 +98,10 @@ async def chat(request: Request, req: ChatRequest, user=Depends(verify_token)):
         return {"error": "Message too long"}
 
     response = await get_fastest_response(req.message, user_id)
-    log_action(user_id, "chat_request", "/chat")   
+    try:
+        log_action(user_id, "chat_request", "/chat")
+    except Exception as e:
+        logger.error(f"Audit log failed: {e}")  
     
     return response
 ##user token and cost
@@ -141,11 +144,17 @@ from app.core.security import require_permission
 
 @app.get("/admin-dashboard")
 async def admin_dashboard(user=Depends(require_permission("view_admin_dashboard"))):
-    log_action(user["user_id"], "view_admin_dashboard", "/admin-dashboard")   
+    try:
+       log_action(user["user_id"], "view_admin_dashboard", "/admin-dashboard")
+    except Exception as e:
+       logger.error(f"Audit log failed: {e}")  
     return {"message": "Admin dashboard"}
 
 
 @app.get("/reports")
 async def reports(user=Depends(require_permission("view_reports"))):
-    log_action(user["user_id"], "view_reports", "/reports")   
+    try:
+       log_action(user["user_id"], "view_reports", "/reports")
+    except Exception as e:
+       logger.error(f"Audit log failed: {e}") 
     return {"message": "Reports data"}
