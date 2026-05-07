@@ -8,6 +8,7 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 from app.services.rag_service import retrieve_context
 from app.db.redis_client import redis_client, REDIS_AVAILABLE
+from app.services.conversation_service import save_conversation
 
 load_dotenv()
 
@@ -416,9 +417,15 @@ async def get_fastest_response(query, user_id="default"):
     }
 
     if isinstance(result, dict):
-        print(" Final response from:", result.get("model"))
-    else:
-       print(" Final response is string:", result)
+       print(" Final response from:", result.get("model"))
+
+       save_conversation(
+           user_id=user_id,
+           query=query,
+           response=result["response"],
+           model_used=result["model"]
+        )
+
     return result
     
    

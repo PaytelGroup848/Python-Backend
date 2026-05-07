@@ -13,6 +13,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 from app.models import audit   
+from app.models import conversation
+from app.models import session
 
 
 
