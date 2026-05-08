@@ -4,7 +4,9 @@ from app.services.llm_service import get_fastest_response
 from app.db.redis_client import redis_client
 from app.core.security import verify_token
 
-from app.services.audit_service import log_action   
+from app.services.audit_service import log_action  
+
+ 
 
 
 
@@ -25,6 +27,7 @@ from slowapi.errors import RateLimitExceeded
 from fastapi.responses import JSONResponse
 
 from app.routes.auth import router as auth_router
+from app.routes.vector_routes import router as vector_router
 from app.db.database import Base, engine
 
 
@@ -46,6 +49,7 @@ def startup():
     Base.metadata.create_all(bind=engine)
 
 app.include_router(auth_router, prefix="/auth")
+app.include_router(vector_router)
 
 #  Initialize limiter
 def get_user_key(request: Request):
