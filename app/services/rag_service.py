@@ -7,6 +7,11 @@ from app.services.vector_service import (
     store_document,
     semantic_search
 )
+
+from app.services.job_service import (
+    complete_job,
+    fail_job
+)
 # -----------------------------
 # TEXT CLEANING
 # -----------------------------
@@ -92,60 +97,77 @@ def ingest_text_file(
 # -----------------------------
 # INGEST PDF FILE
 # -----------------------------
-
 def ingest_pdf_file(
     db: Session,
-    pdf_path: str
+    pdf_path: str,
+    job_id: int
 ):
 
-    if not os.path.exists(pdf_path):
+    try:
 
-        raise FileNotFoundError(
-            f"PDF not found: {pdf_path}"
+        if not os.path.exists(pdf_path):
+
+            raise FileNotFoundError(
+                f"PDF not found: {pdf_path}"
+            )
+
+        if os.path.getsize(pdf_path) == 0:
+
+            raise ValueError(
+                "PDF file is empty"
+            )
+
+        reader = PdfReader(pdf_path)
+
+        total_chunks = 0
+
+        for page_num, page in enumerate(reader.pages):
+
+            text = page.extract_text()
+
+            if text:
+                text = clean_text(text)
+
+            if not text:
+                continue
+
+            chunks = chunk_text(text)
+
+            for chunk in chunks:
+
+                chunk = clean_text(chunk)
+
+                if chunk:
+
+                    store_document(
+                        db=db,
+                        content=chunk,
+                        source_file=os.path.basename(pdf_path),
+                        page_number=page_num + 1
+                    )
+
+                    total_chunks += 1
+
+        complete_job(
+            db=db,
+            job_id=job_id,
+            chunks_stored=total_chunks
         )
 
-    if os.path.getsize(pdf_path) == 0:
+        return {
+            "status": "success",
+            "chunks_stored": total_chunks
+        }
 
-        raise ValueError(
-            "PDF file is empty"
+    except Exception as e:
+
+        fail_job(
+            db=db,
+            job_id=job_id,
+            error=str(e)
         )
 
-    reader = PdfReader(pdf_path)
-
-    total_chunks = 0
-
-    for page_num, page in enumerate(reader.pages):
-
-        text = page.extract_text()
-
-        if text:
-           text = clean_text(text)
-
-        if not text:
-            continue
-
-        chunks = chunk_text(text)
-
-        for chunk in chunks:
-
-            chunk = clean_text(chunk)
-
-            if chunk:
-
-                store_document(
-                    db=db,
-                    content=chunk,
-                    source_file=os.path.basename(pdf_path),
-                    page_number=page_num + 1
-                )
-
-                total_chunks += 1
-
-    return {
-        "status": "success",
-        "chunks_stored": total_chunks
-    }
-
+        raise e
 
 # -----------------------------
 # BUILD RAG CONTEXT
@@ -182,6 +204,8 @@ def retrieve_context(
             "source_file": r.source_file,
             "page_number": r.page_number
         })
+
+        
 
     return {
         "context": "\n\n".join(context_parts),

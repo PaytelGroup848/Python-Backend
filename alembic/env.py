@@ -1,5 +1,6 @@
 from logging.config import fileConfig
 from app.models.document import Document
+from app.models.document_job import DocumentJob
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
