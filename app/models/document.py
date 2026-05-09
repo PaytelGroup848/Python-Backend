@@ -1,14 +1,48 @@
-from sqlalchemy import Column, Integer, Text
+from sqlalchemy import (
+    Column,
+    Integer,
+    Text,
+    String,
+    DateTime
+)
+
+from sqlalchemy.sql import func
+
 from pgvector.sqlalchemy import Vector
 
 from app.db.database import Base
+
 
 class Document(Base):
 
     __tablename__ = "documents"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
 
-    content = Column(Text)
+    content = Column(
+        Text,
+        nullable=False
+    )
 
-    embedding = Column(Vector(384))
+    embedding = Column(
+        Vector(384)
+    )
+
+    source_file = Column(
+        String,
+        nullable=True
+    )
+
+    page_number = Column(
+        Integer,
+        nullable=True
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )

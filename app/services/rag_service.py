@@ -1,76 +1,189 @@
-from sentence_transformers import SentenceTransformer
-import faiss
-import numpy as np
 from pypdf import PdfReader
 import os
 
-# Load model
-model = SentenceTransformer("all-MiniLM-L6-v2")
+from sqlalchemy.orm import Session
 
-documents = []
+from app.services.vector_service import (
+    store_document,
+    semantic_search
+)
+# -----------------------------
+# TEXT CLEANING
+# -----------------------------
 
-#  Smart chunking function
-def chunk_text(text, chunk_size=300, overlap=50):
+def clean_text(text: str):
+
+    return (
+        text
+        .replace("\x00", "")
+        .strip()
+    )
+# -----------------------------
+# SMART CHUNKING
+# -----------------------------
+
+def chunk_text(
+    text: str,
+    chunk_size: int = 500,
+    overlap: int = 100
+):
+
     chunks = []
+
     start = 0
 
     while start < len(text):
+
         end = start + chunk_size
+
         chunk = text[start:end]
+
         chunks.append(chunk.strip())
+
         start += chunk_size - overlap
 
     return chunks
 
 
-#  Load TEXT file
-if os.path.exists("knowledge/data.txt"):
-    with open("knowledge/data.txt", "r", encoding="utf-8") as f:
+# -----------------------------
+# INGEST TXT FILE
+# -----------------------------
+
+def ingest_text_file(
+    db: Session,
+    file_path: str
+):
+
+    if not os.path.exists(file_path):
+
+        raise FileNotFoundError(
+            f"File not found: {file_path}"
+        )
+
+    with open(
+        file_path,
+        "r",
+        encoding="utf-8"
+    ) as f:
+
         text = f.read()
-        chunks = chunk_text(text)
-        documents.extend(chunks)
-        print(f" Loaded {len(chunks)} chunks from data.txt")
+
+    chunks = chunk_text(text)
+
+    stored_count = 0
+
+    for chunk in chunks:
+
+        if chunk.strip():
+
+            store_document(
+                db=db,
+                content=chunk
+            )
+
+            stored_count += 1
+
+    return {
+        "status": "success",
+        "chunks_stored": stored_count
+    }
 
 
-#  Load PDF (SAFE)
-pdf_path = "knowledge/sample.pdf"
+# -----------------------------
+# INGEST PDF FILE
+# -----------------------------
 
-if os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 0:
-    print(f" Loading PDF: {pdf_path}")
+def ingest_pdf_file(
+    db: Session,
+    pdf_path: str
+):
+
+    if not os.path.exists(pdf_path):
+
+        raise FileNotFoundError(
+            f"PDF not found: {pdf_path}"
+        )
+
+    if os.path.getsize(pdf_path) == 0:
+
+        raise ValueError(
+            "PDF file is empty"
+        )
+
     reader = PdfReader(pdf_path)
 
+    total_chunks = 0
+
     for page_num, page in enumerate(reader.pages):
+
         text = page.extract_text()
 
         if text:
-            chunks = chunk_text(text)
-            documents.extend(chunks)
-            print(f" Page {page_num+1}: {len(chunks)} chunks added")
-        else:
-            print(f" Page {page_num+1}: No text found")
-else:
-    print(" No valid PDF found, skipping...")
+           text = clean_text(text)
+
+        if not text:
+            continue
+
+        chunks = chunk_text(text)
+
+        for chunk in chunks:
+
+            chunk = clean_text(chunk)
+
+            if chunk:
+
+                store_document(
+                    db=db,
+                    content=chunk,
+                    source_file=os.path.basename(pdf_path),
+                    page_number=page_num + 1
+                )
+
+                total_chunks += 1
+
+    return {
+        "status": "success",
+        "chunks_stored": total_chunks
+    }
 
 
-#  Safety check
-if not documents:
-    raise ValueError(" No documents found in knowledge folder")
+# -----------------------------
+# BUILD RAG CONTEXT
+# -----------------------------
 
-print(f"Total documents loaded: {len(documents)}")
+def retrieve_context(
+    db: Session,
+    query: str,
+    top_k: int = 3
+):
 
+    results = semantic_search(
+        db=db,
+        query=query,
+        limit=top_k
+    )
 
-# Normalize embeddings (IMPORTANT)
-doc_embeddings = model.encode(documents, normalize_embeddings=True)
+    if not results:
 
-# Create FAISS index
-dimension = doc_embeddings.shape[1]
-index = faiss.IndexFlatIP(dimension)   # cosine similarity
-index.add(np.array(doc_embeddings))
+        return {
+            "context": "",
+            "sources": []
+        }
 
+    context_parts = []
 
-def retrieve_context(query, top_k=3):
-    query_vec = model.encode([query], normalize_embeddings=True)
-    distances, indices = index.search(np.array(query_vec), top_k)
+    sources = []
 
-    results = [documents[i] for i in indices[0]]
-    return " ".join(results)
+    for r in results:
+
+        context_parts.append(r.content)
+
+        sources.append({
+            "source_file": r.source_file,
+            "page_number": r.page_number
+        })
+
+    return {
+        "context": "\n\n".join(context_parts),
+        "sources": sources
+    }

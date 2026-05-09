@@ -29,6 +29,7 @@ class DocumentRequest(BaseModel):
 class SearchRequest(BaseModel):
 
     query: str
+    limit: int = 5
 
 
 @router.post("/documents")
@@ -38,10 +39,18 @@ def add_document(
     db: Session = Depends(get_db)
 ):
 
-    doc = store_document(
-        db,
-        req.content
-    )
+    try:
+
+       doc = store_document(
+          db,
+          req.content
+       )
+
+    except Exception as e:
+
+       return {
+          "error": str(e)
+       }
 
     return {
         "message": "stored",
@@ -57,8 +66,9 @@ def search(
 ):
 
     results = semantic_search(
-        db,
-        req.query
+       db,
+       req.query,
+       req.limit
     )
 
     return {

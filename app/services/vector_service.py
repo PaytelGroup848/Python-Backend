@@ -6,19 +6,24 @@ from app.services.embedding_service import generate_embedding
 
 def store_document(
     db: Session,
-    content: str
+    content: str,
+    source_file: str = None,
+    page_number: int = None
 ):
 
     embedding = generate_embedding(content)
 
     doc = Document(
         content=content,
-        embedding=embedding
+        embedding=embedding,
+        source_file=source_file,
+        page_number=page_number
     )
-
     db.add(doc)
 
     db.commit()
+
+    db.refresh(doc)
 
     return doc
 
@@ -35,10 +40,15 @@ def semantic_search(
         SELECT
             id,
             content,
+            source_file,
+            page_number,
             embedding <=> CAST(:embedding AS vector)
             AS distance
 
         FROM documents
+
+        WHERE
+           content ILIKE :keyword
 
         ORDER BY embedding <=> CAST(:embedding AS vector)
 
@@ -49,6 +59,7 @@ def semantic_search(
         sql,
         {
             "embedding": str(embedding),
+            "keyword": f"%{query}%",
             "limit": limit
         }
     )

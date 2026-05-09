@@ -36,8 +36,26 @@ class UserRequest(BaseModel):
 #  SIGNUP
 @router.post("/signup")
 def signup(req: UserRequest, db: Session = Depends(get_db)):
-    user = create_user(db, req.email, req.password)
-    return {"message": "User created", "user_id": user.id}
+
+    try:
+
+        user = create_user(
+            db,
+            req.email,
+            req.password
+        )
+
+        return {
+            "message": "User created",
+            "user_id": user.id
+        }
+
+    except ValueError as e:
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
 
 #  LOGIN
 @router.post("/login")

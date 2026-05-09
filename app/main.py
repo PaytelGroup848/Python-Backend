@@ -1,6 +1,9 @@
 from fastapi import FastAPI, Depends, Request
 from pydantic import BaseModel
-from app.services.llm_service import get_fastest_response
+from app.services.llm_service import (
+    get_fastest_response,
+    stream_response
+)
 from app.db.redis_client import redis_client
 from app.core.security import verify_token
 
@@ -25,10 +28,12 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from fastapi.responses import JSONResponse
+from fastapi.responses import StreamingResponse
 
 from app.routes.auth import router as auth_router
 from app.routes.vector_routes import router as vector_router
 from app.db.database import Base, engine
+from app.routes.pdf_routes import router as pdf_router
 
 
 
@@ -50,6 +55,7 @@ def startup():
 
 app.include_router(auth_router, prefix="/auth")
 app.include_router(vector_router)
+app.include_router(pdf_router)
 
 #  Initialize limiter
 def get_user_key(request: Request):
@@ -110,6 +116,26 @@ async def chat(request: Request, req: ChatRequest, user=Depends(verify_token)):
         logger.error(f"Audit log failed: {e}")  
     
     return response
+
+@app.post("/chat-stream")
+@limiter.limit("10/minute")
+async def chat_stream(
+    request: Request,
+    req: ChatRequest,
+    user=Depends(verify_token)
+):
+
+    user_id = user["user_id"]
+
+    result = await get_fastest_response(
+        req.message,
+        user_id
+    )
+
+    return StreamingResponse(
+        stream_response(result["response"]),
+        media_type="text/plain"
+    )
 ##user token and cost
 @app.get("/usage")
 @limiter.limit("20/minute")

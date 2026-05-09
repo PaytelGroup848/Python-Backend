@@ -13,14 +13,26 @@ def verify_password(password: str, hashed: str):
     return pwd_context.verify(password, hashed)
 
 def create_user(db: Session, email: str, password: str):
+
+    existing_user = db.query(User).filter(
+        User.email == email
+    ).first()
+
+    if existing_user:
+        raise ValueError("Email already registered")
+
     user = User(
         email=email,
         password=hash_password(password),
-        role="employee"   
+        role="employee"
     )
+
     db.add(user)
+
     db.commit()
+
     db.refresh(user)
+
     return user
 
 def authenticate_user(db: Session, email: str, password: str):

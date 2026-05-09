@@ -1,5 +1,6 @@
 import os
 import httpx
+import asyncio
 
 import time
 from dotenv import load_dotenv
@@ -9,6 +10,7 @@ import numpy as np
 from app.services.rag_service import retrieve_context
 from app.db.redis_client import redis_client, REDIS_AVAILABLE
 from app.services.conversation_service import save_conversation
+from app.db.database import SessionLocal
 
 load_dotenv()
 
@@ -356,7 +358,22 @@ async def get_fastest_response(query, user_id="default"):
     
 
     #  RAG
-    context = retrieve_context(query)
+    db = SessionLocal()
+
+    try:
+
+       rag_result = retrieve_context(
+           db=db,
+           query=query,
+           top_k=3
+       )
+
+       context = rag_result["context"]
+
+       sources = rag_result["sources"]
+
+    finally:
+      db.close()
 
     #  Memory
     history = get_chat_history(user_id)
@@ -364,7 +381,14 @@ async def get_fastest_response(query, user_id="default"):
     messages = [
         {
             "role": "system",
-            "content": "You are a helpful AI assistant. Keep answers short, clear, and under 100 words unless necessary."
+            "content": """You are an enterprise AI assistant.
+
+                          Use retrieved context when available.
+
+                         If context is insufficient,
+                         say you do not have enough information.
+
+                         Avoid hallucinations."""
         }
     ]
 
@@ -426,6 +450,20 @@ async def get_fastest_response(query, user_id="default"):
            model_used=result["model"]
         )
 
-    return result
+    return {
+    "model": result.get("model"),
+    "response": result.get("response"),
+    "sources": sources
+}
+
+async def stream_response(text):
+
+    words = text.split()
+
+    for word in words:
+
+        yield word + " "
+
+        await asyncio.sleep(0.03)
     
    
