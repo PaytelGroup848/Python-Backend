@@ -46,6 +46,12 @@ class AgentState(TypedDict):
 
     memory_context: str
 
+    plan: str
+
+    current_step: str
+
+    execution_results: str
+
     response: str
 
 
@@ -79,7 +85,13 @@ def decide_rag(state: AgentState):
         "search",
         "documents",
         "policy",
-        "report"
+        "report",
+        "analyze",
+        "summary",
+        "summarize",
+        "risk",
+        "review",
+        "finance"
     ]
 
     use_search_tool = any(
@@ -159,6 +171,12 @@ async def rewrite_query(state: AgentState):
 
        "memory_context": state.get("memory_context", ""),
 
+       "plan":state.get("plan",""),
+
+       "current_step":state.get("current_step",""),
+
+       "execution_results":state.get("execution_results",""),
+
        "response": state.get("response", "")
     }
 
@@ -180,6 +198,41 @@ def load_memory(state: AgentState):
     return {
         **state,
         "memory_context": formatted
+    }
+
+
+# -----------------------------
+# PLANNER NODE
+# -----------------------------
+
+async def planner_node(state: AgentState):
+
+    query = state["query"]
+
+    planning_prompt = f"""
+    You are an autonomous enterprise AI planner.
+
+    Break the user's request into
+    logical execution steps.
+
+    User Request:
+    {query}
+
+    Return concise numbered steps only.
+    """
+
+    response = await get_fastest_response(
+        planning_prompt,
+        user_id=0
+    )
+
+    plan = response["response"]
+
+    print("PLAN:", plan)
+
+    return {
+        **state,
+        "plan": plan
     }
 # -----------------------------
 # RETRIEVAL NODE
@@ -261,6 +314,13 @@ async def generate_response(state: AgentState):
        ""
     )
 
+    plan = state.get(
+    "plan",
+    ""
+    )
+
+    
+
     retrieved_docs = state.get(
         "retrieved_docs",
         ""
@@ -282,6 +342,9 @@ async def generate_response(state: AgentState):
 
         If relevant information exists,
         summarize it clearly.
+
+        Execution Plan:
+        {plan}
 
         Conversation Memory:
         {memory_context}
@@ -385,6 +448,11 @@ graph.add_node(
 )
 
 graph.add_node(
+    "planner",
+    planner_node
+)
+
+graph.add_node(
     "retrieve",
     retrieve_docs
 )
@@ -412,6 +480,11 @@ graph.add_edge(
 
 graph.add_edge(
     "memory",
+    "planner"
+)
+
+graph.add_edge(
+    "planner",
     "rewrite"
 )
 
@@ -465,6 +538,12 @@ async def run_agent(
       "session_id": session_id,
 
       "memory_context": "",
+
+      "plan": "",
+
+      "current_step": "",
+
+      "execution_results": "",
 
       "rewritten_query": "",
 

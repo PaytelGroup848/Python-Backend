@@ -1,5 +1,7 @@
 from logging.config import fileConfig
 from app.models.document import Document
+from app.models.analytics import AnalyticsLog
+from app.models.conversation import Conversation
 from app.models.document_job import DocumentJob
 
 from sqlalchemy import engine_from_config

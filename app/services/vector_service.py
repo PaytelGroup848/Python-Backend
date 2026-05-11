@@ -36,7 +36,7 @@ def semantic_search(
 
     embedding = generate_embedding(query)
 
-    sql = text("""
+    vector_sql = text("""
         SELECT
             id,
             content,
@@ -47,21 +47,54 @@ def semantic_search(
 
         FROM documents
 
-        WHERE
-           content ILIKE :keyword
-
         ORDER BY embedding <=> CAST(:embedding AS vector)
 
         LIMIT :limit
     """)
 
-    results = db.execute(
-        sql,
+    keyword_sql = text("""
+        SELECT
+            id,
+            content,
+            source_file,
+            page_number,
+            0.0 AS distance
+
+        FROM documents
+
+        WHERE content ILIKE :keyword
+
+        LIMIT :limit
+    """)
+
+    vector_results = db.execute(
+        vector_sql,
         {
             "embedding": str(embedding),
+            "limit": limit
+        }
+    ).fetchall()
+
+    keyword_results = db.execute(
+        keyword_sql,
+        {
             "keyword": f"%{query}%",
             "limit": limit
         }
-    )
+    ).fetchall()
 
-    return results.fetchall()
+    combined = {}
+
+    for r in vector_results:
+
+        combined[r.id] = r
+
+    for r in keyword_results:
+
+        combined[r.id] = r
+
+    print("VECTOR RESULTS:", len(vector_results))
+    print("KEYWORD RESULTS:", len(keyword_results))
+    print("COMBINED RESULTS:", len(combined))    
+
+    return list(combined.values())
