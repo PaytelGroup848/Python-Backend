@@ -12,6 +12,11 @@ from app.services.job_service import (
     complete_job,
     fail_job
 )
+
+from sentence_transformers import CrossEncoder
+reranker = CrossEncoder(
+    "cross-encoder/ms-marco-MiniLM-L-6-v2"
+)
 # -----------------------------
 # TEXT CLEANING
 # -----------------------------
@@ -48,6 +53,26 @@ def chunk_text(
         start += chunk_size - overlap
 
     return chunks
+
+def rerank_results(
+    query: str,
+    results
+):
+
+    pairs = [
+        (query, r.content)
+        for r in results
+    ]
+
+    scores = reranker.predict(pairs)
+
+    reranked = sorted(
+        zip(results, scores),
+        key=lambda x: x[1],
+        reverse=True
+    )
+
+    return [r[0] for r in reranked]
 
 
 # -----------------------------
@@ -176,13 +201,17 @@ def ingest_pdf_file(
 def retrieve_context(
     db: Session,
     query: str,
-    top_k: int = 3
+    top_k: int = 10
 ):
 
     results = semantic_search(
         db=db,
         query=query,
         limit=top_k
+    )
+    results = rerank_results(
+        query,
+        results
     )
 
     if not results:

@@ -4,6 +4,7 @@ from app.services.llm_service import (
     get_fastest_response,
     stream_response
 )
+from app.services.agent_service import run_agent
 from app.db.redis_client import redis_client
 from app.core.security import verify_token
 
@@ -49,9 +50,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
-def startup():
-    Base.metadata.create_all(bind=engine)
+#@app.on_event("startup")
+#def startup():
+ #   Base.metadata.create_all(bind=engine)
 
 app.include_router(auth_router, prefix="/auth")
 app.include_router(vector_router)
@@ -85,6 +86,9 @@ async def security_headers(request, call_next):
 
 ##models(pydantic)
 class ChatRequest(BaseModel):
+
+    session_id: str
+
     message: str
     
 
@@ -116,6 +120,21 @@ async def chat(request: Request, req: ChatRequest, user=Depends(verify_token)):
         logger.error(f"Audit log failed: {e}")  
     
     return response
+
+@app.post("/agent-chat")
+
+async def agent_chat(
+    req: ChatRequest
+):
+
+    response = await run_agent(
+        query=req.message,
+        session_id=req.session_id
+    )
+
+    return {
+        "response": response
+    }
 
 @app.post("/chat-stream")
 @limiter.limit("10/minute")

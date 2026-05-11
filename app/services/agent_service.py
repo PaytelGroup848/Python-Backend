@@ -1,0 +1,486 @@
+from typing import TypedDict
+
+from langgraph.graph import StateGraph, END
+
+from app.services.rag_service import retrieve_context
+import asyncio
+
+from app.services.llm_service import (
+    get_fastest_response
+)
+
+from app.db.database import SessionLocal
+from app.services.tool_service import (
+    get_system_stats,
+    search_documents_tool
+)
+from app.services.memory_service import (
+    save_memory,
+    get_memory
+)
+
+
+# -----------------------------
+# AGENT STATE
+# -----------------------------
+
+class AgentState(TypedDict):
+
+    query: str
+
+    rewritten_query: str
+
+    use_rag: bool
+
+    use_tool: bool
+
+    use_search_tool: bool
+
+    context: str
+
+    tool_result: str
+
+    retrieved_docs: str
+
+    session_id: str
+
+    memory_context: str
+
+    response: str
+
+
+# -----------------------------
+# DECISION NODE
+# -----------------------------
+
+def decide_rag(state: AgentState):
+
+    query = state["query"].lower()
+
+    keywords = [
+        "policy",
+        "document",
+        "pdf",
+        "report",
+        "leave",
+        "finance"
+    ]
+
+    analytics_keywords = [
+        "stats",
+        "analytics",
+        "jobs",
+        "documents",
+        "system"
+    ]
+
+    search_keywords = [
+        "find",
+        "search",
+        "documents",
+        "policy",
+        "report"
+    ]
+
+    use_search_tool = any(
+        k in query
+        for k in search_keywords
+    )
+
+    use_rag = any(
+        k in query
+        for k in keywords
+    )
+
+    use_tool = any(
+        k in query
+        for k in analytics_keywords
+    )
+
+    return {
+       **state,
+       "use_rag": use_rag,
+       "use_tool": use_tool,
+       "use_search_tool": use_search_tool
+    }
+
+# -----------------------------
+# QUERY REWRITER
+# -----------------------------
+
+async def rewrite_query(state: AgentState):
+
+    query = state["query"]
+
+    rewrite_prompt = f"""
+    Rewrite the following user query into a short
+    optimized semantic search query.
+
+    Focus only on:
+    - key topics
+    - important entities
+    - semantic meaning
+
+    Remove conversational words.
+
+    User Query:
+    {query}
+
+    Optimized Query:
+    """
+
+    response = await get_fastest_response(
+        rewrite_prompt,
+        user_id=0
+    )
+
+    rewritten_query = response["response"].strip()
+
+    print("REWRITTEN QUERY:", rewritten_query)
+
+    return {
+       "query": state["query"],
+
+       "rewritten_query": rewritten_query,
+
+       "use_rag": state["use_rag"],
+
+       "use_tool": state["use_tool"],
+
+       "use_search_tool": state["use_search_tool"],
+
+       "context": state.get("context", ""),
+
+       "tool_result": state.get("tool_result", ""),
+
+       "retrieved_docs": state.get("retrieved_docs", ""),
+
+       "session_id": state["session_id"],
+
+       "memory_context": state.get("memory_context", ""),
+
+       "response": state.get("response", "")
+    }
+
+# -----------------------------
+# MEMORY NODE
+# -----------------------------
+
+def load_memory(state: AgentState):
+
+    session_id = state["session_id"]
+
+    memory = get_memory(session_id)
+
+    formatted = "\n".join([
+        f"{m['role']}: {m['message']}"
+        for m in memory[-10:]
+    ])
+
+    return {
+        **state,
+        "memory_context": formatted
+    }
+# -----------------------------
+# RETRIEVAL NODE
+# -----------------------------
+
+def retrieve_docs(state: AgentState):
+
+    db = SessionLocal()
+
+    try:
+
+        result = retrieve_context(
+            db=db,
+            query=state.get("rewritten_query",state["query"])
+        )
+
+        return {
+            **state,
+            "context": result["context"]
+        }
+
+    finally:
+
+        db.close()
+
+# -----------------------------
+# TOOL NODE
+# -----------------------------
+
+def analytics_tool(state: AgentState):
+
+    db = SessionLocal()
+
+    try:
+
+        stats = get_system_stats(db)
+
+        return {
+            **state,
+            "tool_result": str(stats)
+        }
+
+    finally:
+
+        db.close()
+
+
+def document_search_tool(state: AgentState):
+
+    db = SessionLocal()
+
+    try:
+
+        results = search_documents_tool(
+            db=db,
+            query=state.get("rewritten_query",state["query"])
+        )
+
+        return {
+            **state,
+            "retrieved_docs": str(results)
+        }
+
+    finally:
+
+        db.close()
+# -----------------------------
+# GENERATION NODE
+# -----------------------------
+
+async def generate_response(state: AgentState):
+
+    query = state["query"]
+
+    context = state.get("context", "")
+
+    memory_context = state.get(
+       "memory_context",
+       ""
+    )
+
+    retrieved_docs = state.get(
+        "retrieved_docs",
+        ""
+    )
+
+    tool_result = state.get(
+        "tool_result",
+        ""
+    
+    )
+
+    if context or tool_result or retrieved_docs:
+
+        prompt = f"""
+        You are an enterprise AI assistant.
+ 
+        Use the retrieved documents and context below
+        to answer the user's question accurately.
+
+        If relevant information exists,
+        summarize it clearly.
+
+        Conversation Memory:
+        {memory_context}
+
+        Retrieved Documents:
+        {retrieved_docs}
+
+        Context:
+        {context}
+
+        Tool Result:
+        {tool_result}
+
+        Question:
+        {query}
+
+        Answer:
+        """
+
+    else:
+
+        prompt = query
+
+    response = await get_fastest_response(
+        prompt,
+        user_id=0
+    )
+
+    print("CONTEXT:", context)
+    print("RETRIEVED DOCS:", retrieved_docs)
+
+    print("LLM RESPONSE:", response)
+
+    save_memory(
+       session_id=state["session_id"],
+       role="user",
+       message=query
+    )
+
+    save_memory(
+        session_id=state["session_id"],
+        role="assistant",
+        message=response["response"]
+    )
+
+    return {
+        **state,
+        "response": response["response"]
+    }
+
+
+# -----------------------------
+# ROUTER
+# -----------------------------
+
+def rag_router(state: AgentState):
+
+    if state["use_rag"]:
+
+        return "retrieve"
+
+    return "generate"
+
+# -----------------------------
+# TOOL ROUTER
+# -----------------------------
+
+def tool_router(state: AgentState):
+
+    if state.get("use_search_tool"):
+
+        return "doc_search"
+
+    if state["use_tool"]:
+
+        return "tool"
+
+    if state["use_rag"]:
+
+        return "retrieve"
+
+    return "generate"
+# -----------------------------
+# BUILD GRAPH
+# -----------------------------
+
+graph = StateGraph(AgentState)
+
+graph.add_node(
+    "decide",
+    decide_rag
+)
+
+graph.add_node(
+    "rewrite",
+    rewrite_query
+)
+graph.add_node(
+    "memory",
+    load_memory
+)
+
+graph.add_node(
+    "retrieve",
+    retrieve_docs
+)
+graph.add_node(
+    "tool",
+    analytics_tool
+)
+
+graph.add_node(
+    "doc_search",
+    document_search_tool
+)
+
+graph.add_node(
+    "generate",
+    generate_response
+)
+
+graph.set_entry_point("decide")
+
+graph.add_edge(
+    "decide",
+    "memory"
+)
+
+graph.add_edge(
+    "memory",
+    "rewrite"
+)
+
+graph.add_conditional_edges(
+    "rewrite",
+    tool_router,
+    {
+        "doc_search": "doc_search",
+        "tool": "tool",
+        "retrieve": "retrieve",
+        "generate": "generate"
+    }
+)
+
+graph.add_edge(
+    "retrieve",
+    "generate"
+)
+
+graph.add_edge(
+    "tool",
+    "generate"
+)
+
+graph.add_edge(
+    "doc_search",
+    "generate"
+)
+
+graph.add_edge(
+    "generate",
+    END
+)
+
+agent = graph.compile()
+
+
+# -----------------------------
+# PUBLIC FUNCTION
+# -----------------------------
+
+async def run_agent(
+    query: str,
+    session_id: str
+):
+
+    result = await agent.ainvoke({
+
+      "query": query,
+
+      "session_id": session_id,
+
+      "memory_context": "",
+
+      "rewritten_query": "",
+
+      "use_rag": False,
+
+      "use_tool": False,
+
+      "use_search_tool": False,
+
+      "context": "",
+
+      "tool_result": "",
+
+      "retrieved_docs": "",
+
+      "response": ""
+    })
+
+    return result["response"]
