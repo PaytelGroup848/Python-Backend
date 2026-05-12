@@ -124,12 +124,16 @@ async def chat(request: Request, req: ChatRequest, user=Depends(verify_token)):
 @app.post("/agent-chat")
 
 async def agent_chat(
-    req: ChatRequest
+    req: ChatRequest,
+    user=Depends(verify_token)
 ):
 
     response = await run_agent(
         query=req.message,
-        session_id=req.session_id
+        session_id=req.session_id,
+        user_id=user["user_id"],
+        user_role=user["role"],
+        user_department=user["department"]
     )
 
     return {

@@ -8,7 +8,10 @@ def store_document(
     db: Session,
     content: str,
     source_file: str = None,
-    page_number: int = None
+    page_number: int = None,
+    department: str = "general",
+    access_level: str = "internal",
+    uploaded_by: int = 0
 ):
 
     embedding = generate_embedding(content)
@@ -17,7 +20,10 @@ def store_document(
         content=content,
         embedding=embedding,
         source_file=source_file,
-        page_number=page_number
+        page_number=page_number,
+        department=department,
+        access_level=access_level,
+        uploaded_by=uploaded_by
     )
     db.add(doc)
 
@@ -31,6 +37,8 @@ def store_document(
 def semantic_search(
     db: Session,
     query: str,
+    user_department: str,
+    user_role: str,
     limit: int = 5
 ):
 
@@ -47,6 +55,11 @@ def semantic_search(
 
         FROM documents
 
+        WHERE (
+           department = :user_department
+           OR :user_role = 'admin'
+        )
+
         ORDER BY embedding <=> CAST(:embedding AS vector)
 
         LIMIT :limit
@@ -62,7 +75,13 @@ def semantic_search(
 
         FROM documents
 
-        WHERE content ILIKE :keyword
+        WHERE (
+            content ILIKE :keyword
+            AND (
+                department = :user_department
+                OR :user_role = 'admin'
+            )
+        )
 
         LIMIT :limit
     """)
@@ -70,16 +89,20 @@ def semantic_search(
     vector_results = db.execute(
         vector_sql,
         {
-            "embedding": str(embedding),
-            "limit": limit
+          "embedding": str(embedding),
+          "limit": limit,
+          "user_department": user_department,
+          "user_role": user_role
         }
     ).fetchall()
 
     keyword_results = db.execute(
         keyword_sql,
         {
-            "keyword": f"%{query}%",
-            "limit": limit
+          "keyword": f"%{query}%",
+          "limit": limit,
+          "user_department": user_department,
+          "user_role": user_role
         }
     ).fetchall()
 

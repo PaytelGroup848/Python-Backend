@@ -201,14 +201,18 @@ def ingest_pdf_file(
 def retrieve_context(
     db: Session,
     query: str,
+    user_department: str,
+    user_role: str,
     top_k: int = 10
 ):
 
     results = semantic_search(
         db=db,
         query=query,
+        user_department=user_department,
+        user_role=user_role,
         limit=top_k
-    )
+     )
     results = rerank_results(
         query,
         results

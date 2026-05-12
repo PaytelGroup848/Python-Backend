@@ -41,12 +41,16 @@ def get_system_stats(
 
 def search_documents_tool(
     db: Session,
-    query: str
+    query: str,
+    user_department: str,
+    user_role: str
 ):
 
     results = semantic_search(
         db=db,
         query=query,
+        user_department=user_department,
+        user_role=user_role,
         limit=10
     )
 

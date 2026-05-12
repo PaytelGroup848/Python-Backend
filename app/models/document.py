@@ -42,6 +42,21 @@ class Document(Base):
         nullable=True
     )
 
+    department = Column(
+        String,
+        nullable=True
+    )
+
+    access_level = Column(
+       String,
+       nullable=True
+    )
+
+    uploaded_by = Column(
+       Integer,
+       nullable=True
+    )
+
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now()

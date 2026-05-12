@@ -19,6 +19,12 @@ from app.services.memory_service import (
     get_memory
 )
 
+from app.services.language_service import (
+    detect_language,
+    translate_to_english,
+    translate_response
+)
+
 
 # -----------------------------
 # AGENT STATE
@@ -44,6 +50,12 @@ class AgentState(TypedDict):
 
     session_id: str
 
+    user_id: int
+
+    user_role: str
+
+    user_department: str
+
     memory_context: str
 
     plan: str
@@ -53,6 +65,8 @@ class AgentState(TypedDict):
     execution_results: str
 
     response: str
+
+    language: str
 
 
 # -----------------------------
@@ -146,6 +160,8 @@ async def rewrite_query(state: AgentState):
         user_id=0
     )
 
+    
+
     rewritten_query = response["response"].strip()
 
     print("REWRITTEN QUERY:", rewritten_query)
@@ -169,6 +185,12 @@ async def rewrite_query(state: AgentState):
 
        "session_id": state["session_id"],
 
+       "user_id": state["user_id"],
+
+       "user_role": state["user_role"],
+
+       "user_department": state["user_department"],
+
        "memory_context": state.get("memory_context", ""),
 
        "plan":state.get("plan",""),
@@ -176,6 +198,8 @@ async def rewrite_query(state: AgentState):
        "current_step":state.get("current_step",""),
 
        "execution_results":state.get("execution_results",""),
+
+       "language": state["language"],
 
        "response": state.get("response", "")
     }
@@ -234,6 +258,31 @@ async def planner_node(state: AgentState):
         **state,
         "plan": plan
     }
+
+
+# -----------------------------
+# LANGUAGE NODE
+# -----------------------------
+
+def language_node(state: AgentState):
+
+    query = state["query"]
+
+    language = detect_language(query)
+
+    translated_query = query
+
+    if language != "en":
+
+        translated_query = translate_to_english(
+            query
+        )
+
+    return {
+        **state,
+        "query": translated_query,
+        "language": language
+    }
 # -----------------------------
 # RETRIEVAL NODE
 # -----------------------------
@@ -246,7 +295,12 @@ def retrieve_docs(state: AgentState):
 
         result = retrieve_context(
             db=db,
-            query=state.get("rewritten_query",state["query"])
+            query=state.get(
+                "rewritten_query",
+                 state["query"]
+            ),
+            user_department=state["user_department"],
+            user_role=state["user_role"]
         )
 
         return {
@@ -288,7 +342,12 @@ def document_search_tool(state: AgentState):
 
         results = search_documents_tool(
             db=db,
-            query=state.get("rewritten_query",state["query"])
+            query=state.get(
+                "rewritten_query",
+                state["query"]
+            ),
+            user_department=state["user_department"],
+            user_role=state["user_role"]
         )
 
         return {
@@ -373,6 +432,21 @@ async def generate_response(state: AgentState):
         user_id=0
     )
 
+    language = state.get(
+       "language",
+       "en"
+    )
+
+    final_response = response["response"]
+
+    if language != "en":
+
+        final_response = translate_response(
+            final_response,
+            language
+        )
+    #final_response = response["response"]    
+
     print("CONTEXT:", context)
     print("RETRIEVED DOCS:", retrieved_docs)
 
@@ -392,7 +466,7 @@ async def generate_response(state: AgentState):
 
     return {
         **state,
-        "response": response["response"]
+        "response": final_response
     }
 
 
@@ -453,6 +527,11 @@ graph.add_node(
 )
 
 graph.add_node(
+    "language",
+    language_node
+)
+
+graph.add_node(
     "retrieve",
     retrieve_docs
 )
@@ -485,8 +564,18 @@ graph.add_edge(
 
 graph.add_edge(
     "planner",
+    "language"
+)
+
+graph.add_edge(
+    "language",
     "rewrite"
 )
+
+#graph.add_edge(
+ #   "planner",
+  #  "rewrite"
+#)
 
 graph.add_conditional_edges(
     "rewrite",
@@ -528,7 +617,10 @@ agent = graph.compile()
 
 async def run_agent(
     query: str,
-    session_id: str
+    session_id: str,
+    user_id: int,
+    user_role: str,
+    user_department: str
 ):
 
     result = await agent.ainvoke({
@@ -536,6 +628,14 @@ async def run_agent(
       "query": query,
 
       "session_id": session_id,
+
+      "user_id": user_id,
+
+      "user_role": user_role,
+
+      "user_department": user_department,
+
+      "language": "en",
 
       "memory_context": "",
 

@@ -33,9 +33,9 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_analytics_logs_id'), 'analytics_logs', ['id'], unique=False)
-    op.drop_index(op.f('ix_conversations_id'), table_name='conversations')
-    op.drop_index(op.f('ix_conversations_session_id'), table_name='conversations')
-    op.drop_table('conversations')
+    #op.drop_index(op.f('ix_conversations_id'), table_name='conversations')
+    #op.drop_index(op.f('ix_conversations_session_id'), table_name='conversations')
+    #op.drop_table('conversations')
     # ### end Alembic commands ###
 
 
