@@ -9,7 +9,7 @@ from app.services.llm_service import (
     get_fastest_response
 )
 
-from app.db.database import SessionLocal
+from app.db.database import AsyncSessionLocal
 from app.services.tool_service import (
     get_system_stats,
     search_documents_tool
@@ -162,7 +162,10 @@ async def rewrite_query(state: AgentState):
 
     
 
-    rewritten_query = response["response"].strip()
+    rewritten_query = response.get(
+       "response",
+        state["query"]
+    ).strip()
 
     print("REWRITTEN QUERY:", rewritten_query)
 
@@ -287,17 +290,15 @@ def language_node(state: AgentState):
 # RETRIEVAL NODE
 # -----------------------------
 
-def retrieve_docs(state: AgentState):
+async def retrieve_docs(state: AgentState):
 
-    db = SessionLocal()
+    async with AsyncSessionLocal() as db:
 
-    try:
-
-        result = retrieve_context(
+        result = await retrieve_context(
             db=db,
             query=state.get(
                 "rewritten_query",
-                 state["query"]
+                state["query"]
             ),
             user_department=state["user_department"],
             user_role=state["user_role"]
@@ -308,39 +309,27 @@ def retrieve_docs(state: AgentState):
             "context": result["context"]
         }
 
-    finally:
-
-        db.close()
-
 # -----------------------------
 # TOOL NODE
 # -----------------------------
 
-def analytics_tool(state: AgentState):
+async def analytics_tool(state: AgentState):
 
-    db = SessionLocal()
+    async with AsyncSessionLocal() as db:
 
-    try:
-
-        stats = get_system_stats(db)
+        stats = await get_system_stats(db)
 
         return {
             **state,
             "tool_result": str(stats)
         }
 
-    finally:
 
-        db.close()
+async def document_search_tool(state: AgentState):
 
+    async with AsyncSessionLocal() as db:
 
-def document_search_tool(state: AgentState):
-
-    db = SessionLocal()
-
-    try:
-
-        results = search_documents_tool(
+        results = await search_documents_tool(
             db=db,
             query=state.get(
                 "rewritten_query",
@@ -354,10 +343,6 @@ def document_search_tool(state: AgentState):
             **state,
             "retrieved_docs": str(results)
         }
-
-    finally:
-
-        db.close()
 # -----------------------------
 # GENERATION NODE
 # -----------------------------
@@ -461,7 +446,7 @@ async def generate_response(state: AgentState):
     save_memory(
         session_id=state["session_id"],
         role="assistant",
-        message=response["response"]
+        message=final_response
     )
 
     return {

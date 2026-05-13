@@ -80,26 +80,39 @@ def require_role(required_role: str):
 # PERMISSION CHECK 
 # =========================
 
-from app.db.database import SessionLocal
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.database import AsyncSessionLocal
 from app.models.user import RolePermission, Permission
 from fastapi import Depends, HTTPException
 
 def require_permission(permission_name: str):
-    def checker(user=Depends(verify_token)):
-        db = SessionLocal()
 
-        role = user["role"]
+    async def checker(
+        user=Depends(verify_token)
+    ):
 
-        perms = db.query(RolePermission).join(Permission).filter(
-            RolePermission.role == role,
-            Permission.name == permission_name
-        ).first()
+        async with AsyncSessionLocal() as db:
 
-        db.close()
+            result = await db.execute(
+                select(RolePermission)
+                .join(Permission)
+                .where(
+                    RolePermission.role == user["role"],
+                    Permission.name == permission_name
+                )
+            )
 
-        if not perms:
-            raise HTTPException(status_code=403, detail="Permission denied")
+            perms = result.scalar_one_or_none()
 
-        return user
+            if not perms:
+
+                raise HTTPException(
+                    status_code=403,
+                    detail="Permission denied"
+                )
+
+            return user
 
     return checker

@@ -1,9 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
+#from pydantic import BaseModel
+#from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.database import SessionLocal
-from app.services.auth_service import create_user, authenticate_user
+
+from app.schemas.auth_schema import (
+    TokenResponse,
+    UserRequest,
+    RefreshTokenResponse
+)
+
+from app.schemas.user_schema import UserResponse
+from app.schemas.common_schema import MessageResponse
+
+from app.services.auth_service import AuthService
+from app.db.database import AsyncSessionLocal
+#from app.services.auth_service import create_user, authenticate_user
 from app.core.security import (
     create_access_token,
     create_refresh_token
@@ -19,36 +32,46 @@ from app.services.security_service import (
     clear_failed_attempts
 )
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/auth",
+    tags=["Authentication"]
+)
+
+auth_service = AuthService()
 
 # DB dependency
-def get_db():
-    db = SessionLocal()
+async def get_db():
+
+    db = AsyncSessionLocal()
+
     try:
         yield db
-    finally:
-        db.close()
 
-class UserRequest(BaseModel):
-    email: str
-    password: str
+    finally:
+        await db.close()
+
+
 
 #  SIGNUP
-@router.post("/signup")
-def signup(req: UserRequest, db: Session = Depends(get_db)):
+@router.post(
+    "/signup",
+    status_code=201,
+    response_model=UserResponse
+)
+async def signup(
+    req: UserRequest,
+    db: AsyncSession = Depends(get_db)
+):
 
     try:
 
-        user = create_user(
-            db,
-            req.email,
-            req.password
+        user = await auth_service.create_user(
+            db=db,
+            email=req.email,
+            password=req.password
         )
 
-        return {
-            "message": "User created",
-            "user_id": user.id
-        }
+        return UserResponse.model_validate(user)
 
     except ValueError as e:
 
@@ -57,9 +80,28 @@ def signup(req: UserRequest, db: Session = Depends(get_db)):
             detail=str(e)
         )
 
+    except Exception:
+
+        await db.rollback()
+
+        raise
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+
 #  LOGIN
-@router.post("/login")
-def login(request: Request,req: UserRequest,db: Session = Depends(get_db)):
+@router.post(
+    "/login",
+    status_code=200,
+    response_model=TokenResponse
+)
+async def login(
+    request: Request,
+    req: UserRequest,
+    db: AsyncSession = Depends(get_db)
+):
     ip = request.client.host
     if is_locked(req.email, ip):
        raise HTTPException(
@@ -68,7 +110,7 @@ def login(request: Request,req: UserRequest,db: Session = Depends(get_db)):
         )
 
     # authenticate user
-    user = authenticate_user(db, req.email, req.password)
+    user = await auth_service.authenticate_user(db, req.email, req.password)
 
     if not user:
 
@@ -99,8 +141,19 @@ def login(request: Request,req: UserRequest,db: Session = Depends(get_db)):
         refresh_token=refresh_token
     )
 
-    db.add(session)
-    db.commit()
+    try:
+
+        db.add(session)
+
+        await db.commit()
+
+        await db.refresh(session)
+
+    except Exception:
+
+        await db.rollback()
+
+        raise
 
     # return tokens
     return {
@@ -109,15 +162,23 @@ def login(request: Request,req: UserRequest,db: Session = Depends(get_db)):
         "token_type": "bearer"
     }
 
-@router.post("/refresh")
-def refresh_access_token(
+@router.post(
+    "/refresh",
+    status_code=200,
+    response_model=RefreshTokenResponse
+)
+async def refresh_access_token(
     refresh_token: str,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
 
-    session = db.query(UserSession).filter(
-        UserSession.refresh_token == refresh_token
-    ).first()
+    result = await db.execute(
+        select(UserSession).where(
+            UserSession.refresh_token == refresh_token
+        )
+     )
+
+    session = result.scalar_one_or_none()
 
     if not session:
         raise HTTPException(
@@ -151,19 +212,37 @@ def refresh_access_token(
         "token_type": "bearer"
     }
 
-@router.post("/logout")
-def logout(
+@router.post(
+    "/logout",
+    status_code=200,
+    response_model=MessageResponse
+)
+async def logout(
     refresh_token: str,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
 
-    session = db.query(UserSession).filter(
-        UserSession.refresh_token == refresh_token
-    ).first()
+    result = await db.execute(
+        select(UserSession).where(
+            UserSession.refresh_token == refresh_token
+        )
+    )
+
+    session = result.scalar_one_or_none()
 
     if session:
-        db.delete(session)
-        db.commit()
+
+        try:
+
+           await db.delete(session)
+
+           await db.commit()
+
+        except Exception:
+
+            await db.rollback()
+
+            raise
 
     return {
         "message": "Logged out successfully"

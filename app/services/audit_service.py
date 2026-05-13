@@ -1,15 +1,25 @@
-from app.db.database import SessionLocal
+from app.db.database import AsyncSessionLocal
 from app.models.audit import AuditLog
 
-def log_action(user_id: int, action: str, endpoint: str):
-    db = SessionLocal()
 
-    log = AuditLog(
-        user_id=user_id,
-        action=action,
-        endpoint=endpoint
-    )
+async def log_action(
+    user_id: int,
+    action: str,
+    endpoint: str
+):
 
-    db.add(log)
-    db.commit()
-    db.close()
+    async with AsyncSessionLocal() as db:
+
+        log = AuditLog(
+            user_id=user_id,
+            action=action,
+            endpoint=endpoint
+        )
+
+        db.add(log)
+
+        await db.commit()
+
+        await db.refresh(log)
+
+        return log

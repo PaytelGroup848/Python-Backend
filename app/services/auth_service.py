@@ -1,47 +1,105 @@
 from passlib.context import CryptContext
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.user import User
+from app.repositories.user_repository import UserRepository
 
-pwd_context = CryptContext(schemes=["bcrypt"])
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto"
+)
 
-def hash_password(password: str):
-    password = password.encode("utf-8")[:72]  
-    return pwd_context.hash(password)
 
-def verify_password(password: str, hashed: str):
-    password = password.encode("utf-8")[:72]  
-    return pwd_context.verify(password, hashed)
+class AuthService:
 
-def create_user(db: Session, email: str, password: str):
+    def __init__(self):
 
-    existing_user = db.query(User).filter(
-        User.email == email
-    ).first()
+        self.user_repository = UserRepository()
 
-    if existing_user:
-        raise ValueError("Email already registered")
+    def hash_password(
+        self,
+        password: str
+    ) -> str:
 
-    user = User(
-        email=email,
-        password=hash_password(password),
-        role="employee"
-    )
+        password_bytes = password.encode("utf-8")
 
-    db.add(user)
+        if len(password_bytes) > 72:
+            raise ValueError(
+                "Password exceeds bcrypt limit"
+            )
 
-    db.commit()
+        return pwd_context.hash(password)
 
-    db.refresh(user)
+    def verify_password(
+        self,
+        password: str,
+        hashed_password: str
+    ) -> bool:
 
-    return user
+        return pwd_context.verify(
+            password,
+            hashed_password
+        )
 
-def authenticate_user(db: Session, email: str, password: str):
-    user = db.query(User).filter(User.email == email).first()
+    async def create_user(
+        self,
+        db: AsyncSession,
+        email: str,
+        password: str
+    ) -> User:
 
-    if not user:
-        return None
+        existing_user = await self.user_repository.get_by_email(
+            db=db,
+            email=email
+        )
 
-    if not verify_password(password, user.password):
-        return None
+        if existing_user:
+            raise ValueError(
+                "Email already registered"
+            )
 
-    return user
+        hashed_password = self.hash_password(password)
+
+        user = User(
+            email=email,
+            password=hashed_password,
+            role="employee"
+        )
+
+        try:
+
+           return await self.user_repository.create(
+               db=db,
+               user=user
+            )
+
+        except Exception:
+
+            await db.rollback()
+
+            raise
+
+    async def authenticate_user(
+        self,
+        db: AsyncSession,
+        email: str,
+        password: str
+    ) -> User | None:
+
+        user = await self.user_repository.get_by_email(
+            db=db,
+            email=email
+        )
+
+        if not user:
+            return None
+
+        is_valid = self.verify_password(
+            password,
+            user.password
+        )
+
+        if not is_valid:
+            return None
+
+        return user

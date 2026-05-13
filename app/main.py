@@ -7,6 +7,7 @@ from app.services.llm_service import (
 from app.services.agent_service import run_agent
 from app.db.redis_client import redis_client
 from app.core.security import verify_token
+from app.core.config import settings
 
 from app.services.audit_service import log_action  
 
@@ -44,7 +45,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=settings.ALLOWED_ORIGINS, 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -54,7 +55,7 @@ app.add_middleware(
 #def startup():
  #   Base.metadata.create_all(bind=engine)
 
-app.include_router(auth_router, prefix="/auth")
+app.include_router(auth_router)
 app.include_router(vector_router)
 app.include_router(pdf_router)
 
@@ -85,10 +86,10 @@ async def security_headers(request, call_next):
     return response
 
 ##models(pydantic)
+from typing import Optional
+
 class ChatRequest(BaseModel):
-
-    session_id: str
-
+    session_id: Optional[str] = None
     message: str
     
 
@@ -133,7 +134,7 @@ async def agent_chat(
         session_id=req.session_id,
         user_id=user["user_id"],
         user_role=user["role"],
-        user_department=user["department"]
+        user_department=user.get("department", "general")
     )
 
     return {

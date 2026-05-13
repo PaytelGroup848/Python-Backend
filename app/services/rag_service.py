@@ -1,19 +1,23 @@
-from pypdf import PdfReader
+import logging
 import os
-
-from sqlalchemy.orm import Session
-
-from app.services.vector_service import (
-    store_document,
-    semantic_search
-)
+from typing import Sequence
+from pypdf import PdfReader
+from sqlalchemy.ext.asyncio import AsyncSession
+from sentence_transformers import CrossEncoder
 
 from app.services.job_service import (
     complete_job,
     fail_job
 )
 
-from sentence_transformers import CrossEncoder
+from app.services.vector_service import (
+    semantic_search,
+    store_document
+)
+
+logger = logging.getLogger(__name__)
+
+
 reranker = CrossEncoder(
     "cross-encoder/ms-marco-MiniLM-L-6-v2"
 )
@@ -21,7 +25,7 @@ reranker = CrossEncoder(
 # TEXT CLEANING
 # -----------------------------
 
-def clean_text(text: str):
+def clean_text(text: str) -> str:
 
     return (
         text
@@ -36,7 +40,7 @@ def chunk_text(
     text: str,
     chunk_size: int = 500,
     overlap: int = 100
-):
+) -> list[str]:
 
     chunks = []
 
@@ -56,8 +60,8 @@ def chunk_text(
 
 def rerank_results(
     query: str,
-    results
-):
+    results: Sequence
+) -> list:
 
     pairs = [
         (query, r.content)
@@ -79,10 +83,10 @@ def rerank_results(
 # INGEST TXT FILE
 # -----------------------------
 
-def ingest_text_file(
-    db: Session,
+async def ingest_text_file(
+    db: AsyncSession,
     file_path: str
-):
+) -> dict:
 
     if not os.path.exists(file_path):
 
@@ -106,7 +110,7 @@ def ingest_text_file(
 
         if chunk.strip():
 
-            store_document(
+            await store_document(
                 db=db,
                 content=chunk
             )
@@ -122,11 +126,11 @@ def ingest_text_file(
 # -----------------------------
 # INGEST PDF FILE
 # -----------------------------
-def ingest_pdf_file(
-    db: Session,
+async def ingest_pdf_file(
+    db: AsyncSession,
     pdf_path: str,
     job_id: int
-):
+) -> dict:
 
     try:
 
@@ -144,9 +148,14 @@ def ingest_pdf_file(
 
         reader = PdfReader(pdf_path)
 
+        MAX_CHUNKS = 5000
+
         total_chunks = 0
 
         for page_num, page in enumerate(reader.pages):
+
+            if total_chunks >= MAX_CHUNKS:
+                break
 
             text = page.extract_text()
 
@@ -162,9 +171,17 @@ def ingest_pdf_file(
 
                 chunk = clean_text(chunk)
 
+                if total_chunks >= MAX_CHUNKS:
+
+                    logger.warning(
+                        f"Chunk limit exceeded: {pdf_path}"
+                    )
+
+                    break
+
                 if chunk:
 
-                    store_document(
+                    await store_document(
                         db=db,
                         content=chunk,
                         source_file=os.path.basename(pdf_path),
@@ -173,10 +190,14 @@ def ingest_pdf_file(
 
                     total_chunks += 1
 
-        complete_job(
+        await complete_job(
             db=db,
             job_id=job_id,
             chunks_stored=total_chunks
+        )
+
+        logger.info(
+            f"PDF ingestion completed: {pdf_path}"
         )
 
         return {
@@ -186,27 +207,40 @@ def ingest_pdf_file(
 
     except Exception as e:
 
-        fail_job(
+        await db.rollback()
+
+        logger.exception(
+           f"PDF ingestion failed: {pdf_path}"
+        )
+
+        await fail_job(
             db=db,
             job_id=job_id,
             error=str(e)
         )
 
-        raise e
+        raise 
 
 # -----------------------------
 # BUILD RAG CONTEXT
 # -----------------------------
 
-def retrieve_context(
-    db: Session,
+async def retrieve_context(
+    db: AsyncSession,
     query: str,
     user_department: str,
     user_role: str,
     top_k: int = 10
-):
+) -> dict:
+    
+    if not query.strip():
 
-    results = semantic_search(
+        return {
+            "context": "",
+            "sources": []
+        }
+
+    results = await semantic_search(
         db=db,
         query=query,
         user_department=user_department,
@@ -240,7 +274,13 @@ def retrieve_context(
 
         
 
+    MAX_CONTEXT_CHARS = 12000
+
+    context = "\n\n".join(context_parts)
+
+    context = context[:MAX_CONTEXT_CHARS]
+
     return {
-        "context": "\n\n".join(context_parts),
+        "context": context,
         "sources": sources
     }

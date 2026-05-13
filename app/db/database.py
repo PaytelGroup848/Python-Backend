@@ -1,15 +1,29 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-#from app.models.analytics import AnalyticsLog
-import os
-from dotenv import load_dotenv
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    create_async_engine,
+    async_sessionmaker
+)
 
-load_dotenv()
+from sqlalchemy.orm import declarative_base
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+from app.core.config import settings
 
-engine = create_engine(DATABASE_URL)
 
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+DATABASE_URL = settings.DATABASE_URL.replace(
+    "postgresql://",
+    "postgresql+asyncpg://"
+)
+
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=False,
+    future=True
+)
+
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
 
 Base = declarative_base()

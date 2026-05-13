@@ -10,7 +10,7 @@ import numpy as np
 from app.services.rag_service import retrieve_context
 from app.db.redis_client import redis_client, REDIS_AVAILABLE
 from app.services.conversation_service import save_conversation
-from app.db.database import SessionLocal
+from app.db.database import AsyncSessionLocal
 
 load_dotenv()
 
@@ -57,23 +57,31 @@ USER_PLAN_MAP = {
 }
 
 
-def get_chat_history(user_id):
+async def get_chat_history(user_id):
     if REDIS_AVAILABLE:
-        data = redis_client.get(user_id)
+        data = await redis_client.get(user_id)
         if data:
             return json.loads(data)
         return []
     else:
         return chat_memory.get(user_id, [])
 
-def update_chat_history(user_id, user_msg, bot_msg):
+async def update_chat_history(
+    user_id,
+    user_msg,
+    bot_msg
+):
     if REDIS_AVAILABLE:
-        history = get_chat_history(user_id)
+        history = await get_chat_history(user_id)
 
         history.append({"role": "user", "content": user_msg})
         history.append({"role": "assistant", "content": bot_msg})
 
-        redis_client.setex(user_id, 3600, json.dumps(history[-5:]))
+        await redis_client.setex(
+           user_id,
+           3600,
+           json.dumps(history[-5:])
+        )
 
     else:
         history = chat_memory.get(user_id, [])
@@ -89,29 +97,36 @@ def estimate_tokens(text):
     return int(len(text) / 4)
 
 
-def track_usage(user_id, tokens):
+async def track_usage(
+    user_id,
+    tokens
+):
     if REDIS_AVAILABLE:
         key = f"usage:{user_id}"
 
-        current = redis_client.get(key)
-        current = int(current) if current else 0
+        current = await redis_client.get(key)
+        current = int(current.decode()) if current else 0
 
         current += tokens
-        redis_client.setex(key, 86400, current)
+        await redis_client.setex(
+           key,
+           86400,
+           current
+        )
 
     else:
         # fallback (optional simple memory)
         pass
 
-def check_usage_limit(user_id):
+async def check_usage_limit(user_id):
     plan = USER_PLAN_MAP.get(user_id, "free")
     max_tokens = USER_PLANS[plan]
 
     if REDIS_AVAILABLE:
         key = f"usage:{user_id}"
-        usage = redis_client.get(key)
+        usage = await redis_client.get(key)
 
-        if usage and int(usage) >= max_tokens:
+        if usage and int(usage.decode()) >= max_tokens:
             return False
 
     return True
@@ -339,7 +354,7 @@ async def get_fastest_response(query, user_id="default"):
     cache_key = f"{user_id}:{normalized_query}"
 
     # HARD LIMIT CHECK (ADD HERE)
-    if not check_usage_limit(user_id):
+    if not await check_usage_limit(user_id):
        plan = USER_PLAN_MAP.get(user_id, "free")
 
        return {
@@ -358,25 +373,22 @@ async def get_fastest_response(query, user_id="default"):
     
 
     #  RAG
-    db = SessionLocal()
+    async with AsyncSessionLocal() as db:
 
-    try:
-
-       rag_result = retrieve_context(
+       rag_result = await retrieve_context(
            db=db,
            query=query,
+           user_department="general",
+           user_role="employee",
            top_k=3
-       )
+        )
 
        context = rag_result["context"]
 
        sources = rag_result["sources"]
 
-    finally:
-      db.close()
-
     #  Memory
-    history = get_chat_history(user_id)
+    history = await get_chat_history(user_id)
 
     messages = [
         {
@@ -429,10 +441,14 @@ async def get_fastest_response(query, user_id="default"):
     #  Cost tracking (ADD HERE)
     if isinstance(result, dict):
        tokens = estimate_tokens(result["response"])
-       track_usage(user_id, tokens)
+       await track_usage(user_id, tokens)
 
     if isinstance(result, dict):
-        update_chat_history(user_id, query, result["response"])
+        await update_chat_history(
+           user_id,
+           query,
+           result["response"]
+        )
 
     #  Save cache
     cache[cache_key] = {
@@ -443,7 +459,7 @@ async def get_fastest_response(query, user_id="default"):
     if isinstance(result, dict):
        print(" Final response from:", result.get("model"))
 
-       save_conversation(
+       await save_conversation(
            user_id=user_id,
            query=query,
            response=result["response"],
