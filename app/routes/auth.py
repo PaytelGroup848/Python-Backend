@@ -31,6 +31,8 @@ from app.services.security_service import (
     record_failed_attempt,
     clear_failed_attempts
 )
+from app.db.redis_client import redis_client
+from app.services.memory_service import clear_memory
 
 router = APIRouter(
     prefix="/auth",
@@ -103,7 +105,7 @@ async def login(
     db: AsyncSession = Depends(get_db)
 ):
     ip = request.client.host
-    if is_locked(req.email, ip):
+    if await is_locked(req.email, ip):
        raise HTTPException(
            status_code=403,
            detail="Too many failed attempts. Try again later."
@@ -114,14 +116,14 @@ async def login(
 
     if not user:
 
-       record_failed_attempt(req.email, ip)
+       await record_failed_attempt(req.email, ip)
 
        raise HTTPException(
            status_code=401,
            detail="Invalid credentials"
         )
     
-    clear_failed_attempts(req.email, ip)
+    await clear_failed_attempts(req.email, ip)
 
     # create access token
     access_token = create_access_token({
@@ -219,6 +221,7 @@ async def refresh_access_token(
 )
 async def logout(
     refresh_token: str,
+    session_id: str,
     db: AsyncSession = Depends(get_db)
 ):
 
@@ -234,9 +237,25 @@ async def logout(
 
         try:
 
-           await db.delete(session)
+            user_id = session.user_id
 
-           await db.commit()
+            # delete DB session
+            await db.delete(session)
+
+            await db.commit()
+
+            # clear Redis memory
+            await clear_memory(session_id)
+
+            # clear usage tracking
+            await redis_client.delete(
+                f"usage:{user_id}"
+            )
+
+            # clear chat history
+            await redis_client.delete(
+                str(user_id)
+            )
 
         except Exception:
 

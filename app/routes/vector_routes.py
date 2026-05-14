@@ -1,26 +1,38 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 
-from app.db.database import SessionLocal
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.database import AsyncSessionLocal
+
 from app.services.vector_service import (
     store_document,
     semantic_search
 )
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/vectors",
+    tags=["Vector Search"]
+)
 
-def get_db():
 
-    db = SessionLocal()
+# -----------------------------
+# DATABASE DEPENDENCY
+# -----------------------------
+async def get_db():
+
+    db = AsyncSessionLocal()
 
     try:
         yield db
 
     finally:
-        db.close()
+        await db.close()
 
 
+# -----------------------------
+# REQUEST SCHEMAS
+# -----------------------------
 class DocumentRequest(BaseModel):
 
     content: str
@@ -29,46 +41,53 @@ class DocumentRequest(BaseModel):
 class SearchRequest(BaseModel):
 
     query: str
+
     limit: int = 5
 
 
+# -----------------------------
+# STORE DOCUMENT
+# -----------------------------
 @router.post("/documents")
-
-def add_document(
+async def add_document(
     req: DocumentRequest,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
 
     try:
 
-       doc = store_document(
-          db,
-          req.content
-       )
+        doc = await store_document(
+            db=db,
+            content=req.content
+        )
+
+        return {
+            "message": "stored",
+            "id": doc.id
+        }
 
     except Exception as e:
 
-       return {
-          "error": str(e)
-       }
+        await db.rollback()
 
-    return {
-        "message": "stored",
-        "id": doc.id
-    }
+        return {
+            "error": str(e)
+        }
 
 
+# -----------------------------
+# SEMANTIC SEARCH
+# -----------------------------
 @router.post("/search")
-
-def search(
+async def search(
     req: SearchRequest,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
 
-    results = semantic_search(
-       db,
-       req.query,
-       req.limit
+    results = await semantic_search(
+        db=db,
+        query=req.query,
+        limit=req.limit
     )
 
     return {

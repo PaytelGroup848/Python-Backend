@@ -1,3 +1,4 @@
+import uuid
 from fastapi import FastAPI, Depends, Request
 from pydantic import BaseModel
 from app.services.llm_service import (
@@ -107,6 +108,9 @@ async def chat(request: Request, req: ChatRequest, user=Depends(verify_token)):
 
     logger.info(f"User {user_id} sent chat request")
 
+    if not req.session_id:
+       req.session_id = str(uuid.uuid4())
+
     # Input validation
     if not req.message.strip():
         return {"error": "Empty message"}
@@ -120,7 +124,10 @@ async def chat(request: Request, req: ChatRequest, user=Depends(verify_token)):
     except Exception as e:
         logger.error(f"Audit log failed: {e}")  
     
-    return response
+    return {
+       "session_id": req.session_id,
+       "response": response
+    }
 
 @app.post("/agent-chat")
 
@@ -128,6 +135,8 @@ async def agent_chat(
     req: ChatRequest,
     user=Depends(verify_token)
 ):
+    if not req.session_id:
+       req.session_id = str(uuid.uuid4())
 
     response = await run_agent(
         query=req.message,
@@ -138,7 +147,8 @@ async def agent_chat(
     )
 
     return {
-        "response": response
+       "session_id": req.session_id,
+       "response": response
     }
 
 @app.post("/chat-stream")

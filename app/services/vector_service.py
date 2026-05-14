@@ -1,11 +1,12 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
 from app.models.document import Document
 from app.services.embedding_service import generate_embedding
 
-def store_document(
-    db: Session,
+
+async def store_document(
+    db: AsyncSession,
     content: str,
     source_file: str = None,
     page_number: int = None,
@@ -25,17 +26,18 @@ def store_document(
         access_level=access_level,
         uploaded_by=uploaded_by
     )
+
     db.add(doc)
 
-    db.commit()
+    await db.commit()
 
-    db.refresh(doc)
+    await db.refresh(doc)
 
     return doc
 
 
-def semantic_search(
-    db: Session,
+async def semantic_search(
+    db: AsyncSession,
     query: str,
     user_department: str,
     user_role: str,
@@ -86,38 +88,40 @@ def semantic_search(
         LIMIT :limit
     """)
 
-    vector_results = db.execute(
+    vector_result = await db.execute(
         vector_sql,
         {
-          "embedding": str(embedding),
-          "limit": limit,
-          "user_department": user_department,
-          "user_role": user_role
+            "embedding": str(embedding),
+            "limit": limit,
+            "user_department": user_department,
+            "user_role": user_role
         }
-    ).fetchall()
+    )
 
-    keyword_results = db.execute(
+    vector_results = vector_result.fetchall()
+
+    keyword_result = await db.execute(
         keyword_sql,
         {
-          "keyword": f"%{query}%",
-          "limit": limit,
-          "user_department": user_department,
-          "user_role": user_role
+            "keyword": f"%{query}%",
+            "limit": limit,
+            "user_department": user_department,
+            "user_role": user_role
         }
-    ).fetchall()
+    )
+
+    keyword_results = keyword_result.fetchall()
 
     combined = {}
 
     for r in vector_results:
-
         combined[r.id] = r
 
     for r in keyword_results:
-
         combined[r.id] = r
 
     print("VECTOR RESULTS:", len(vector_results))
     print("KEYWORD RESULTS:", len(keyword_results))
-    print("COMBINED RESULTS:", len(combined))    
+    print("COMBINED RESULTS:", len(combined))
 
     return list(combined.values())

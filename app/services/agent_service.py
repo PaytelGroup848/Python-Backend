@@ -207,15 +207,16 @@ async def rewrite_query(state: AgentState):
        "response": state.get("response", "")
     }
 
+
 # -----------------------------
 # MEMORY NODE
 # -----------------------------
 
-def load_memory(state: AgentState):
+async def load_memory(state: AgentState):
 
     session_id = state["session_id"]
 
-    memory = get_memory(session_id)
+    memory = await get_memory(session_id)
 
     formatted = "\n".join([
         f"{m['role']}: {m['message']}"
@@ -226,7 +227,6 @@ def load_memory(state: AgentState):
         **state,
         "memory_context": formatted
     }
-
 
 # -----------------------------
 # PLANNER NODE
@@ -304,9 +304,23 @@ async def retrieve_docs(state: AgentState):
             user_role=state["user_role"]
         )
 
+        # -----------------------------
+        # NO RELEVANT DOCUMENT FOUND
+        # -----------------------------
+
+        if result.get("needs_general_knowledge"):
+
+            return {
+                **state,
+                "response": result["message"],
+                "context": "",
+                "needs_general_knowledge": True
+            }
+
         return {
             **state,
-            "context": result["context"]
+            "context": result["context"],
+            "needs_general_knowledge": False
         }
 
 # -----------------------------
@@ -348,6 +362,13 @@ async def document_search_tool(state: AgentState):
 # -----------------------------
 
 async def generate_response(state: AgentState):
+
+    if state.get("needs_general_knowledge"):
+
+        return {
+            **state,
+            "response": state["response"]
+        }
 
     query = state["query"]
 
@@ -437,16 +458,16 @@ async def generate_response(state: AgentState):
 
     print("LLM RESPONSE:", response)
 
-    save_memory(
+    await save_memory(
        session_id=state["session_id"],
        role="user",
        message=query
     )
 
-    save_memory(
-        session_id=state["session_id"],
-        role="assistant",
-        message=final_response
+    await save_memory(
+       session_id=state["session_id"],
+       role="assistant",
+       message=final_response
     )
 
     return {

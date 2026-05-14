@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 import numpy as np
 from app.services.rag_service import retrieve_context
-from app.db.redis_client import redis_client, REDIS_AVAILABLE
+from app.db.redis_client import redis_client
 from app.services.conversation_service import save_conversation
 from app.db.database import AsyncSessionLocal
 
@@ -58,38 +58,37 @@ USER_PLAN_MAP = {
 
 
 async def get_chat_history(user_id):
-    if REDIS_AVAILABLE:
-        data = await redis_client.get(user_id)
-        if data:
-            return json.loads(data)
-        return []
-    else:
-        return chat_memory.get(user_id, [])
+
+    data = await redis_client.get(user_id)
+
+    if data:
+        return json.loads(data)
+
+    return []
 
 async def update_chat_history(
     user_id,
     user_msg,
     bot_msg
 ):
-    if REDIS_AVAILABLE:
-        history = await get_chat_history(user_id)
 
-        history.append({"role": "user", "content": user_msg})
-        history.append({"role": "assistant", "content": bot_msg})
+    history = await get_chat_history(user_id)
 
-        await redis_client.setex(
-           user_id,
-           3600,
-           json.dumps(history[-5:])
-        )
+    history.append({
+        "role": "user",
+        "content": user_msg
+    })
 
-    else:
-        history = chat_memory.get(user_id, [])
+    history.append({
+        "role": "assistant",
+        "content": bot_msg
+    })
 
-        history.append({"role": "user", "content": user_msg})
-        history.append({"role": "assistant", "content": bot_msg})
-
-        chat_memory[user_id] = history[-5:]
+    await redis_client.setex(
+        user_id,
+        3600,
+        json.dumps(history[-5:])
+    )
 
 #cost tracking and token according to users 
 
@@ -101,36 +100,35 @@ async def track_usage(
     user_id,
     tokens
 ):
-    if REDIS_AVAILABLE:
-        key = f"usage:{user_id}"
 
-        current = await redis_client.get(key)
-        current = int(current.decode()) if current else 0
+    key = f"usage:{user_id}"
 
-        current += tokens
-        await redis_client.setex(
-           key,
-           86400,
-           current
-        )
+    current = await redis_client.get(key)
 
-    else:
-        # fallback (optional simple memory)
-        pass
+    current = int(current) if current else 0
+
+    current += tokens
+
+    await redis_client.setex(
+        key,
+        86400,
+        current
+    )
 
 async def check_usage_limit(user_id):
+
     plan = USER_PLAN_MAP.get(user_id, "free")
+
     max_tokens = USER_PLANS[plan]
 
-    if REDIS_AVAILABLE:
-        key = f"usage:{user_id}"
-        usage = await redis_client.get(key)
+    key = f"usage:{user_id}"
 
-        if usage and int(usage.decode()) >= max_tokens:
-            return False
+    usage = await redis_client.get(key)
+
+    if usage and int(usage) >= max_tokens:
+        return False
 
     return True
-
 # =========================
 # SBERT MODEL
 # =========================
@@ -337,14 +335,17 @@ async def call_model_with_messages(messages, model_choice):
         data = response.json()
 
         if "choices" not in data:
-            return {
-                "model": model_choice,
-                "response": str(data)
-            }
+
+            error_message = (
+               data.get("error", {})
+              .get("message", "Unknown API error")
+            )
+
+            raise Exception(error_message)
 
         return {
-            "model": model_choice,
-            "response": data["choices"][0]["message"]["content"]
+           "model": model_choice,
+           "response": data["choices"][0]["message"]["content"]
         }
 # =========================
 #  MAIN ORCHESTRATOR
@@ -416,27 +417,49 @@ async def get_fastest_response(query, user_id="default"):
     model_choice = route_query_semantic(query)
     print(f" Routed to: {model_choice}")
 
-    try:
-        result = await call_model_with_messages(messages, model_choice)
+    providers = [
+        model_choice,
+       "mistral",
+       "llama"
+    ]
 
-        #  Fallback if failed
-        if (
-            isinstance(result, dict) and 
-            ("API Error" in result.get("response", "") or 
-            "Exception" in result.get("response", ""))
-        ):
-           if model_choice != "mistral":
-             print(" Fallback → Mistral")
-             result = await call_model_with_messages(messages, "mistral")
-           else:
-            print(" Fallback → Llama")
-            result = await call_model_with_messages(messages, "llama")
+    tried = set()
 
-    except Exception as e:
-        result = {
-            "model": "system",
-            "response": "All models failed"
-        }
+    result = None
+
+    for provider in providers:
+
+        if provider in tried:
+           continue
+
+        tried.add(provider)
+
+        try:
+
+           print(f"Trying provider: {provider}")
+
+           result = await call_model_with_messages(
+               messages,
+               provider
+           )
+
+           print(f"Success: {provider}")
+
+           break
+
+        except Exception as e:
+
+            print(f"Provider failed: {provider}")
+            print(str(e))
+
+            continue
+
+    if result is None:
+
+       result = {
+          "model": "system",
+          "response": "All AI providers failed"
+       }
 
     #  Cost tracking (ADD HERE)
     if isinstance(result, dict):

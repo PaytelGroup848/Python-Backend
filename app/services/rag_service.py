@@ -15,6 +15,9 @@ from app.services.vector_service import (
     store_document
 )
 
+from app.services.ocr_service import (
+    extract_text_from_scanned_pdf
+)
 logger = logging.getLogger(__name__)
 
 
@@ -162,6 +165,34 @@ async def ingest_pdf_file(
             if text:
                 text = clean_text(text)
 
+            # -----------------------------
+            # OCR FALLBACK
+            # -----------------------------
+
+            if not text:
+
+                logger.info(
+                    f"OCR fallback triggered for page {page_num + 1}"
+                )
+
+                ocr_pages = await extract_text_from_scanned_pdf(
+                    pdf_path
+                )
+
+                matching_page = next(
+                    (
+                        p for p in ocr_pages
+                        if p["page_number"] == page_num + 1
+                    ),
+                    None
+                )
+
+                if matching_page:
+
+                    text = clean_text(
+                        matching_page["text"]
+                    )
+
             if not text:
                 continue
 
@@ -224,7 +255,6 @@ async def ingest_pdf_file(
 # -----------------------------
 # BUILD RAG CONTEXT
 # -----------------------------
-
 async def retrieve_context(
     db: AsyncSession,
     query: str,
@@ -232,7 +262,7 @@ async def retrieve_context(
     user_role: str,
     top_k: int = 10
 ) -> dict:
-    
+
     if not query.strip():
 
         return {
@@ -246,18 +276,62 @@ async def retrieve_context(
         user_department=user_department,
         user_role=user_role,
         limit=top_k
-     )
+    )
+
     results = rerank_results(
         query,
         results
     )
 
+    # -----------------------------
+    # NO RESULTS FOUND
+    # -----------------------------
+
     if not results:
 
         return {
             "context": "",
-            "sources": []
+            "sources": [],
+            "needs_general_knowledge": True,
+            "message": (
+                "I could not find relevant information "
+                "in the uploaded documents. "
+                "Would you like me to answer using "
+                "general AI knowledge?"
+            )
         }
+
+    # -----------------------------
+    # SIMILARITY VALIDATION
+    # -----------------------------
+
+    best_result = results[0]
+
+    distance = getattr(
+        best_result,
+        "distance",
+        1.0
+    )
+
+    SIMILARITY_THRESHOLD = 0.7
+
+    if distance > SIMILARITY_THRESHOLD:
+
+        return {
+            "context": "",
+            "sources": [],
+            "needs_general_knowledge": True,
+            "message": (
+                "I could not find relevant information "
+                "in the uploaded documents. "
+                "Would you like me to answer using "
+                "general AI knowledge?"
+            )
+        }
+
+    # -----------------------------
+    # BUILD CONTEXT
+    # -----------------------------
 
     context_parts = []
 
@@ -271,8 +345,6 @@ async def retrieve_context(
             "source_file": r.source_file,
             "page_number": r.page_number
         })
-
-        
 
     MAX_CONTEXT_CHARS = 12000
 

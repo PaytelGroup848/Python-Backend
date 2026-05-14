@@ -1,4 +1,4 @@
-import redis
+import redis.asyncio as redis
 
 redis_client = redis.Redis(
     host="redis",
@@ -7,11 +7,19 @@ redis_client = redis.Redis(
     decode_responses=True
 )
 
-# Check connection (optional fallback)
-try:
-    redis_client.ping()
-    REDIS_AVAILABLE = True
-    print(" Redis connected")
-except:
-    REDIS_AVAILABLE = False
-    print(" Redis not available, using fallback")
+# Check connection
+async def check_redis():
+
+    try:
+
+        await redis_client.ping()
+
+        print("Redis connected")
+
+        return True
+
+    except Exception:
+
+        print("Redis not available")
+
+        return False

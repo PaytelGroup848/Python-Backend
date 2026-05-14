@@ -69,8 +69,8 @@ class AuthService:
         try:
 
            return await self.user_repository.create(
-               db=db,
-               user=user
+              db=db,
+              obj=user
             )
 
         except Exception:

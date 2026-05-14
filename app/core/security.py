@@ -49,7 +49,7 @@ def verify_token(token=Depends(security)):
     try:
         payload = jwt.decode(token.credentials, SECRET_KEY, algorithms=[ALGORITHM])
 
-        user_id = payload.get("sub")
+        user_id = int(payload.get("sub"))
         role = payload.get("role")
 
         if not user_id or not role:

@@ -1,11 +1,16 @@
-from sqlalchemy.orm import Session
 from datetime import datetime
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document_job import DocumentJob
 
 
-def create_job(
-    db: Session,
+# -----------------------------
+# CREATE JOB
+# -----------------------------
+async def create_job(
+    db: AsyncSession,
     filename: str
 ):
 
@@ -16,22 +21,29 @@ def create_job(
 
     db.add(job)
 
-    db.commit()
+    await db.commit()
 
-    db.refresh(job)
+    await db.refresh(job)
 
     return job
 
 
-def complete_job(
-    db: Session,
+# -----------------------------
+# COMPLETE JOB
+# -----------------------------
+async def complete_job(
+    db: AsyncSession,
     job_id: int,
     chunks_stored: int
 ):
 
-    job = db.query(DocumentJob).filter(
-        DocumentJob.id == job_id
-    ).first()
+    result = await db.execute(
+        select(DocumentJob).where(
+            DocumentJob.id == job_id
+        )
+    )
+
+    job = result.scalar_one_or_none()
 
     if job:
 
@@ -41,18 +53,25 @@ def complete_job(
 
         job.completed_at = datetime.utcnow()
 
-        db.commit()
+        await db.commit()
 
 
-def fail_job(
-    db: Session,
+# -----------------------------
+# FAIL JOB
+# -----------------------------
+async def fail_job(
+    db: AsyncSession,
     job_id: int,
     error: str
 ):
 
-    job = db.query(DocumentJob).filter(
-        DocumentJob.id == job_id
-    ).first()
+    result = await db.execute(
+        select(DocumentJob).where(
+            DocumentJob.id == job_id
+        )
+    )
+
+    job = result.scalar_one_or_none()
 
     if job:
 
@@ -60,4 +79,4 @@ def fail_job(
 
         job.error_message = error
 
-        db.commit()
+        await db.commit()

@@ -2,11 +2,10 @@ import json
 
 from app.db.redis_client import redis_client
 
-
 MEMORY_TTL = 3600
 
 
-def save_memory(
+async def save_memory(
     session_id: str,
     role: str,
     message: str
@@ -14,7 +13,7 @@ def save_memory(
 
     key = f"chat_memory:{session_id}"
 
-    memory = redis_client.get(key)
+    memory = await redis_client.get(key)
 
     if memory:
 
@@ -29,23 +28,31 @@ def save_memory(
         "message": message
     })
 
-    redis_client.setex(
+    await redis_client.setex(
         key,
         MEMORY_TTL,
         json.dumps(memory)
     )
 
 
-def get_memory(
+async def get_memory(
     session_id: str
 ):
 
     key = f"chat_memory:{session_id}"
 
-    memory = redis_client.get(key)
+    memory = await redis_client.get(key)
 
     if not memory:
 
         return []
 
     return json.loads(memory)
+
+async def clear_memory(
+    session_id: str
+):
+
+    key = f"chat_memory:{session_id}"
+
+    await redis_client.delete(key)
