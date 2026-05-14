@@ -48,5 +48,5 @@ async def extract_text_from_scanned_pdf(
                 "page_number": page_index + 1,
                 "text": "\n".join(page_text)
             })
-
+##
     return extracted_pages
