@@ -50,3 +50,22 @@ async def extract_text_from_scanned_pdf(
             })
 ##
     return extracted_pages
+# -----------------------------
+# IMAGE OCR
+# -----------------------------
+
+async def extract_text_from_image(
+    image_path: str
+):
+
+    result = ocr.ocr(image_path)
+
+    lines = []
+
+    if result and result[0]:
+
+        for line in result[0]:
+
+            lines.append(line[1][0])
+
+    return "\n".join(lines)

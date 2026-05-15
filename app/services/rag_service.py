@@ -2,6 +2,9 @@ import logging
 import os
 from typing import Sequence
 from pypdf import PdfReader
+from app.services.document_ingestion_service import (
+    parse_document
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sentence_transformers import CrossEncoder
 
@@ -196,6 +199,37 @@ async def ingest_pdf_file(
             if not text:
                 continue
 
+            # -----------------------------
+            # LANGUAGE DETECTION
+            # -----------------------------
+
+            from app.services.language_service import (
+                detect_language,
+                translate_to_english
+            )
+
+            language = detect_language(text)
+
+            original_text = text
+
+            translated = False
+
+            # -----------------------------
+            # TRANSLATE NON-ENGLISH PDFs
+            # -----------------------------
+
+            if language != "en":
+
+                logger.info(
+                    f"Translating PDF page "
+                    f"{page_num + 1} "
+                    f"from {language} to English"
+                )
+
+                text = translate_to_english(text)
+
+                translated = True
+
             chunks = chunk_text(text)
 
             for chunk in chunks:
@@ -213,11 +247,16 @@ async def ingest_pdf_file(
                 if chunk:
 
                     await store_document(
-                        db=db,
-                        content=chunk,
-                        source_file=os.path.basename(pdf_path),
-                        page_number=page_num + 1
+                       db=db,
+                       content=chunk,
+                       original_content=original_text,
+                       language=language,
+                       is_translated=translated,
+                       source_file=os.path.basename(pdf_path),
+                       page_number=page_num + 1
                     )
+
+                    
 
                     total_chunks += 1
 
@@ -356,3 +395,106 @@ async def retrieve_context(
         "context": context,
         "sources": sources
     }
+
+async def ingest_document_file(
+    db: AsyncSession,
+    file_path: str,
+    job_id: int
+):
+
+    try:
+
+        if not os.path.exists(file_path):
+
+            raise FileNotFoundError(
+                f"File not found: {file_path}"
+            )
+
+        pages = await parse_document(file_path)
+
+        MAX_CHUNKS = 5000
+
+        total_chunks = 0
+
+        for page in pages:
+
+            if total_chunks >= MAX_CHUNKS:
+                break
+
+            page_num = page["page_number"]
+
+            text = clean_text(
+                page["text"]
+            )
+
+            if not text:
+                continue
+
+            # -----------------------------
+            # LANGUAGE DETECTION
+            # -----------------------------
+
+            from app.services.language_service import (
+                detect_language,
+                translate_to_english
+            )
+
+            language = detect_language(text)
+
+            original_text = text
+
+            translated = False
+
+            # -----------------------------
+            # TRANSLATE NON-ENGLISH TEXT
+            # -----------------------------
+
+            if language != "en":
+
+                text = translate_to_english(text)
+
+                translated = True
+
+            chunks = chunk_text(text)
+
+            for chunk in chunks:
+
+                chunk = clean_text(chunk)
+
+                if not chunk:
+                    continue
+
+                await store_document(
+                    db=db,
+                    content=chunk,
+                    original_content=original_text,
+                    language=language,
+                    is_translated=translated,
+                    source_file=os.path.basename(file_path),
+                    page_number=page_num
+                )
+
+                total_chunks += 1
+
+        await complete_job(
+            db=db,
+            job_id=job_id,
+            chunks_stored=total_chunks
+        )
+
+        return {
+            "status": "success",
+            "chunks_stored": total_chunks
+        }
+
+    except Exception as e:
+
+        await db.rollback()
+
+        await fail_job(
+            db=db,
+            job_id=job_id,
+            error=str(e)
+        )
+
+        raise

@@ -21,8 +21,11 @@ from app.services.job_service import (
 from app.models.document_job import DocumentJob
 
 from app.services.rag_service import (
-    ingest_pdf_file
+    ingest_document_file
 )
+
+from app.core.security import verify_token
+
 
 router = APIRouter(
     prefix="/pdf",
@@ -55,22 +58,42 @@ async def get_db():
         await db.close()
 
 # -----------------------------
-# PDF UPLOAD ROUTE
+# SUPPORTED FILE TYPES
+# -----------------------------
+
+SUPPORTED_EXTENSIONS = [
+    ".pdf",
+    ".docx",
+    ".txt",
+    ".csv",
+    ".xlsx",
+    ".pptx",
+    ".png",
+    ".jpg",
+    ".jpeg"
+]
+
+# -----------------------------
+# DOCUMENT UPLOAD ROUTE
 # -----------------------------
 
 @router.post("/upload-pdf")
 async def upload_pdf(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    user=Depends(verify_token)
 ):
 
-    # Validate PDF
-    if not file.filename.endswith(".pdf"):
+    extension = os.path.splitext(
+        file.filename
+    )[1].lower()
+
+    if extension not in SUPPORTED_EXTENSIONS:
 
         raise HTTPException(
             status_code=400,
-            detail="Only PDF files are allowed"
+            detail="Unsupported file type"
         )
 
     file_path = os.path.join(
@@ -95,14 +118,22 @@ async def upload_pdf(
 
         # Background ingestion
         background_tasks.add_task(
-            ingest_pdf_file,
+            ingest_document_file,
             db,
             file_path,
             job.id
         )
 
+        # Store latest uploaded file
+        from app.db.redis_client import redis_client
+
+        await redis_client.set(
+            f"latest_pdf:{user['user_id']}",
+            file.filename
+        )
+
         return {
-            "message": "PDF uploaded successfully",
+            "message": "Document uploaded successfully",
             "job_id": job.id,
             "status": "processing",
             "filename": file.filename

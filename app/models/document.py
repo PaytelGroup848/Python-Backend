@@ -3,7 +3,8 @@ from sqlalchemy import (
     Integer,
     Text,
     String,
-    DateTime
+    DateTime,
+    Boolean
 )
 
 from sqlalchemy.sql import func
@@ -23,10 +24,45 @@ class Document(Base):
         index=True
     )
 
+    # -----------------------------
+    # TRANSLATED / SEARCHABLE TEXT
+    # -----------------------------
+
     content = Column(
         Text,
         nullable=False
     )
+
+    # -----------------------------
+    # ORIGINAL PDF TEXT
+    # -----------------------------
+
+    original_content = Column(
+        Text,
+        nullable=True
+    )
+
+    # -----------------------------
+    # DETECTED LANGUAGE
+    # -----------------------------
+
+    language = Column(
+        String,
+        default="en"
+    )
+
+    # -----------------------------
+    # TRANSLATION STATUS
+    # -----------------------------
+
+    is_translated = Column(
+        Boolean,
+        default=False
+    )
+
+    # -----------------------------
+    # VECTOR EMBEDDING
+    # -----------------------------
 
     embedding = Column(
         Vector(384)
@@ -48,13 +84,13 @@ class Document(Base):
     )
 
     access_level = Column(
-       String,
-       nullable=True
+        String,
+        nullable=True
     )
 
     uploaded_by = Column(
-       Integer,
-       nullable=True
+        Integer,
+        nullable=True
     )
 
     created_at = Column(

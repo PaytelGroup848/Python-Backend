@@ -8,6 +8,9 @@ from app.services.embedding_service import generate_embedding
 async def store_document(
     db: AsyncSession,
     content: str,
+    original_content: str = None,
+    language: str = "en",
+    is_translated: bool = False,
     source_file: str = None,
     page_number: int = None,
     department: str = "general",
@@ -19,11 +22,23 @@ async def store_document(
 
     doc = Document(
         content=content,
+
+        original_content=original_content,
+
+        language=language,
+
+        is_translated=is_translated,
+
         embedding=embedding,
+
         source_file=source_file,
+
         page_number=page_number,
+
         department=department,
+
         access_level=access_level,
+
         uploaded_by=uploaded_by
     )
 

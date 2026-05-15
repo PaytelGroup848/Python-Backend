@@ -1,6 +1,13 @@
-from langdetect import detect
+from langdetect import (
+    detect,
+    DetectorFactory
+)
 
-from deep_translator import GoogleTranslator
+from deep_translator import (
+    GoogleTranslator
+)
+
+DetectorFactory.seed = 0
 
 
 SUPPORTED_LANGUAGES = {
@@ -13,11 +20,38 @@ SUPPORTED_LANGUAGES = {
 }
 
 
+# -----------------------------
+# LANGUAGE DETECTION
+# -----------------------------
+
 def detect_language(text: str):
 
     try:
 
+        text = text.strip()
+
+        # -----------------------------
+        # SHORT QUERY SAFETY
+        # -----------------------------
+
+        if len(text.split()) <= 3:
+
+            ascii_chars = sum(
+                c.isascii()
+                for c in text
+            )
+
+            ratio = ascii_chars / max(len(text), 1)
+
+            # Mostly English ASCII
+            if ratio > 0.9:
+                return "en"
+
         lang = detect(text)
+
+        # Unsupported → fallback English
+        if lang not in SUPPORTED_LANGUAGES:
+            return "en"
 
         return lang
 
@@ -26,6 +60,10 @@ def detect_language(text: str):
         return "en"
 
 
+# -----------------------------
+# TRANSLATE TO ENGLISH
+# -----------------------------
+
 def translate_to_english(text: str):
 
     return GoogleTranslator(
@@ -33,6 +71,10 @@ def translate_to_english(text: str):
         target="en"
     ).translate(text)
 
+
+# -----------------------------
+# TRANSLATE RESPONSE
+# -----------------------------
 
 def translate_response(
     text: str,

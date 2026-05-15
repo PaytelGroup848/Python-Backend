@@ -38,6 +38,16 @@ from app.routes.vector_routes import router as vector_router
 from app.db.database import Base, engine
 from app.routes.pdf_routes import router as pdf_router
 
+from sqlalchemy import select
+
+from app.models.document import Document
+
+from app.db.database import AsyncSessionLocal
+
+from app.services.document_translation_service import (
+    translate_large_text
+)
+
 
 
 app = FastAPI()
@@ -92,6 +102,10 @@ from typing import Optional
 class ChatRequest(BaseModel):
     session_id: Optional[str] = None
     message: str
+
+class TranslationRequest(BaseModel):
+
+    target_language: str
     
 
 @app.get("/")
@@ -151,6 +165,56 @@ async def agent_chat(
        "response": response
     }
 
+@app.post("/translate-document")
+async def translate_document(
+    req: TranslationRequest,
+    user=Depends(verify_token)
+):
+
+    async with AsyncSessionLocal() as db:
+
+        source_file = await redis_client.get(
+            f"latest_pdf:{user['user_id']}"
+        )
+
+        if not source_file:
+
+           return {
+              "error": "No uploaded document found"
+           }
+
+        result = await db.execute(
+            select(Document)
+            .where(
+               Document.source_file == source_file
+            )
+            .order_by(Document.page_number)
+        )
+
+        docs = result.scalars().all()
+
+        if not docs:
+
+            return {
+                "error": "Document not found"
+            }
+
+        full_text = "\n\n".join([
+            d.original_content or d.content
+            for d in docs
+        ])
+
+        translated = translate_large_text(
+            full_text,
+            req.target_language
+        )
+
+        return {
+            "source_file": source_file,
+            "target_language": req.target_language,
+            "translated_text": translated
+        }
+
 @app.post("/chat-stream")
 @limiter.limit("10/minute")
 async def chat_stream(
@@ -178,12 +242,14 @@ async def get_usage(request: Request, user=Depends(verify_token)):
     user_id = user["user_id"]   
 
     key = f"usage:{user_id}"
-    usage = redis_client.get(key)
+
+    usage = await redis_client.get(key)
 
     if not usage:
         return {"tokens": 0, "cost": 0}
 
     tokens = int(usage)
+
     cost = (tokens / 1000) * 0.002
 
     return {
