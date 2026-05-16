@@ -27,3 +27,5 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 Base = declarative_base()
+
+import app.models

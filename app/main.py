@@ -37,6 +37,9 @@ from app.routes.auth import router as auth_router
 from app.routes.vector_routes import router as vector_router
 from app.db.database import Base, engine
 from app.routes.pdf_routes import router as pdf_router
+from app.routes.voice_routes import (
+    router as voice_router
+)
 
 from sqlalchemy import select
 
@@ -69,6 +72,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(vector_router)
 app.include_router(pdf_router)
+app.include_router(voice_router)
 
 #  Initialize limiter
 def get_user_key(request: Request):

@@ -533,7 +533,7 @@ graph.add_node(
 )
 
 graph.add_node(
-    "language",
+    "language_node",
     language_node
 )
 
@@ -570,11 +570,11 @@ graph.add_edge(
 
 graph.add_edge(
     "planner",
-    "language"
+    "language_node"
 )
 
 graph.add_edge(
-    "language",
+    "language_node",
     "rewrite"
 )
 

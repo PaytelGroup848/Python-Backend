@@ -9,14 +9,18 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
+    ffmpeg \
+    libsndfile1 \
+    libgomp1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
     libxrender-dev \
     libgl1 \
     libxcb1 \
-    libxml2-dev \
-    libxslt1-dev \
+    binutils \
+    pax-utils \
+    patchelf \
     && rm -rf /var/lib/apt/lists/*
 
 # -----------------------------
@@ -27,6 +31,8 @@ COPY requirements.txt .
 
 RUN pip install --upgrade pip setuptools wheel && \
     pip install --default-timeout=1000 -r requirements.txt
+
+RUN find /usr/local/lib/python3.11/site-packages/ -name "*.so*" -exec patchelf --clear-execstack {} \; || true
 
 # -----------------------------
 # APP SOURCE
