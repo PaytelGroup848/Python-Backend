@@ -69,20 +69,46 @@ def rerank_results(
     results: Sequence
 ) -> list:
 
+    # --------------------------------
+    # EMPTY RESULTS SAFETY
+    # --------------------------------
+
+    if not results:
+        return []
+
     pairs = [
         (query, r.content)
         for r in results
+        if getattr(r, "content", None)
     ]
 
-    scores = reranker.predict(pairs)
+    # --------------------------------
+    # EMPTY PAIRS SAFETY
+    # --------------------------------
 
-    reranked = sorted(
-        zip(results, scores),
-        key=lambda x: x[1],
-        reverse=True
-    )
+    if not pairs:
+        return list(results)
 
-    return [r[0] for r in reranked]
+    try:
+
+        scores = reranker.predict(pairs)
+
+        reranked = sorted(
+            zip(results, scores),
+            key=lambda x: x[1],
+            reverse=True
+        )
+
+        return [r[0] for r in reranked]
+
+    except Exception as e:
+
+        logger.exception(
+            f"Reranking failed: {str(e)}"
+        )
+
+        # graceful degradation
+        return list(results)
 
 
 # -----------------------------

@@ -1,11 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
-#from pydantic import BaseModel
-#from sqlalchemy.orm import Session
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-
-from app.schemas.auth_schema import (
+from app.modules.auth.schemas.auth_schema import (
     TokenResponse,
     UserRequest,
     RefreshTokenResponse
@@ -14,16 +11,21 @@ from app.schemas.auth_schema import (
 from app.schemas.user_schema import UserResponse
 from app.schemas.common_schema import MessageResponse
 
-from app.services.auth_service import AuthService
+from app.modules.auth.services.auth_service import AuthService
+
 from app.db.database import AsyncSessionLocal
-#from app.services.auth_service import create_user, authenticate_user
+
 from app.core.security import (
     create_access_token,
     create_refresh_token
 )
+
 from app.models.session import Session as UserSession
+
 from jose import jwt
+
 from app.core.security import SECRET_KEY, ALGORITHM
+
 from fastapi import Request
 
 from app.services.security_service import (
@@ -31,7 +33,9 @@ from app.services.security_service import (
     record_failed_attempt,
     clear_failed_attempts
 )
+
 from app.db.redis_client import redis_client
+
 from app.services.memory_service import clear_memory
 
 router = APIRouter(

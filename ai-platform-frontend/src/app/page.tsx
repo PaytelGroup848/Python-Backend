@@ -1,0 +1,40 @@
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
+
+import { AuthGuard } from "@/components/auth/auth-guard";
+
+export default function HomePage() {
+  return (
+    <AuthGuard>
+
+      <DashboardLayout>
+
+        <div className="mx-auto w-full max-w-7xl p-8">
+
+          <div
+            className="
+              rounded-3xl
+              border
+              border-white/10
+              bg-zinc-950
+              p-8
+            "
+          >
+            <h1 className="text-4xl font-semibold tracking-tight">
+              Enterprise AI Platform
+            </h1>
+
+            <p className="mt-3 max-w-2xl text-zinc-400">
+              Production-grade AI infrastructure platform
+              with realtime voice, OCR pipelines,
+              vector search, developer APIs,
+              and scalable AI orchestration.
+            </p>
+          </div>
+
+        </div>
+
+      </DashboardLayout>
+
+    </AuthGuard>
+  );
+}
