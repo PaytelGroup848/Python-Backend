@@ -1,6 +1,12 @@
 "use client";
 
-import { v4 as uuid } from "uuid";
+import {
+  useEffect,
+  useRef,
+} from "react";
+
+import { v4 as uuid }
+  from "uuid";
 
 import { MessageList }
   from "./message-list";
@@ -14,6 +20,13 @@ import {
 
 import { socketClient }
   from "@/services/websocket/socket-client";
+
+import { useAuthStore }
+  from "@/stores/auth-store";  
+
+import {
+  useConversationStore,
+} from "../stores/conversation-store";
 
 export function ChatWindow() {
 
@@ -33,6 +46,60 @@ export function ChatWindow() {
         state.updateLastMessage
     );
 
+  const accessToken =
+  useAuthStore(
+    (state) =>
+      state.accessToken
+  );
+
+  const activeConversationId =
+  useConversationStore(
+    (state) =>
+      state.activeConversationId
+  );
+
+  const bottomRef =
+  useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+
+    socketClient.connect(
+
+      `${window.location.protocol === "https:"
+        ? "wss"
+        : "ws"}://${window.location.hostname}/ws/chat?token=${accessToken}`,
+
+      (event) => {
+
+        const data =
+          JSON.parse(event.data);
+
+        if (
+          data.type === "chunk"
+        ) {
+
+          updateLastMessage(
+            data.content
+          );
+        }
+      }
+    );
+
+    return () => {
+
+      socketClient.disconnect();
+    };
+
+  }, [accessToken]);
+
+  useEffect(() => {
+
+  bottomRef.current?.scrollIntoView({
+    behavior: "smooth",
+  });
+
+}, [messages]);
+
   function handleSend(
     content: string
   ) {
@@ -49,31 +116,13 @@ export function ChatWindow() {
       content: "",
     });
 
-    socketClient.connect(
-
-     `${window.location.protocol === "https:"
-      ? "wss"
-      : "ws"}://${window.location.hostname}/ws/chat`,
-
-    (event) => {
-
-     const data =
-       JSON.parse(event.data);
-
-     if (
-       data.type === "chunk"
-     ) {
-
-       updateLastMessage(
-         data.content
-        );
-     }
-   }
- );
-
     socketClient.send({
-      message: content,
-    });
+
+     message: content,
+
+     conversation_id:
+       activeConversationId,
+   });
   }
 
   return (
@@ -88,16 +137,13 @@ export function ChatWindow() {
         bg-zinc-900
       "
     >
-      {/* Messages */}
-
       <div className="flex-1 overflow-y-auto p-6">
 
         <MessageList
           messages={messages}
         />
+        <div ref={bottomRef} />
       </div>
-
-      {/* Input */}
 
       <div className="border-t border-white/10 p-4">
 

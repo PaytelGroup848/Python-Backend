@@ -139,34 +139,53 @@ export function DashboardLayout({
             return (
               <button
                 key={item.title}
-                className="
-                  group
-                  flex
-                  w-full
-                  items-center
-                  gap-3
-                  rounded-2xl
-                  px-4
-                  py-3
-                  text-sm
-                  text-zinc-400
-                  transition-all
-                  hover:bg-white/5
-                  hover:text-white
-                "
-              >
-                <Icon
-                  className="
-                    h-5
-                    w-5
-                    transition-transform
-                    group-hover:scale-110
-                  "
-                />
 
-                {item.title}
-              </button>
-            );
+               onClick={() =>
+                 router.push(
+                   item.title === "Chat"
+                     ? "/chat"
+                     : item.title === "Voice"
+                     ? "/voice"
+                     : item.title === "Documents"
+                     ? "/documents"
+                     : item.title === "OCR"
+                     ? "/ocr"
+                     : item.title === "Analytics"
+                     ? "/analytics"
+                     : item.title === "API Keys"
+                     ? "/api-keys"
+                     : "/settings"
+                )
+            }
+
+            className="
+              group
+              flex
+              w-full
+              items-center
+              gap-3
+              rounded-2xl
+              px-4
+              py-3
+              text-sm
+              text-zinc-400
+              transition-all
+              hover:bg-white/5
+              hover:text-white
+            "
+          >
+           <Icon
+             className="
+               h-5
+               w-5
+               transition-transform
+               group-hover:scale-110
+            "
+          />
+
+        {item.title}
+      </button>
+    );
           })}
         </nav>
 

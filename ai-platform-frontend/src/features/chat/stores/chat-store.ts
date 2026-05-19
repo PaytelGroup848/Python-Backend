@@ -8,6 +8,10 @@ interface ChatState {
 
   messages: ChatMessage[];
 
+  setMessages: (
+    messages: ChatMessage[]
+  ) => void;
+
   addMessage: (
     message: ChatMessage
   ) => void;
@@ -23,6 +27,13 @@ export const useChatStore =
   create<ChatState>((set) => ({
 
     messages: [],
+
+    setMessages: (
+      messages
+    ) =>
+      set({
+        messages,
+     }),
 
     addMessage: (
       message
@@ -44,9 +55,13 @@ export const useChatStore =
         ];
 
         const lastMessage =
-          messages[
-            messages.length - 1
-          ];
+          [...messages]
+            .reverse()
+            .find(
+              (message) =>
+                message.role ===
+                "assistant"
+          );
 
         if (
           lastMessage &&
