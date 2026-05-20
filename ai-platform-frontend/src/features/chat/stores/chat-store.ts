@@ -7,6 +7,7 @@ import {
 interface ChatState {
 
   messages: ChatMessage[];
+  isStreaming: boolean;
 
   setMessages: (
     messages: ChatMessage[]
@@ -21,12 +22,16 @@ interface ChatState {
   ) => void;
 
   clearMessages: () => void;
+  setStreaming: (
+  value: boolean
+) => void;
 }
 
 export const useChatStore =
   create<ChatState>((set) => ({
 
     messages: [],
+    isStreaming: false,
 
     setMessages: (
       messages
@@ -74,6 +79,13 @@ export const useChatStore =
 
         return { messages };
       }),
+
+    setStreaming: (
+  value
+) =>
+  set({
+    isStreaming: value,
+  }),
 
     clearMessages: () =>
       set({

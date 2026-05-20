@@ -12,11 +12,24 @@ from app.models.message import (
     Message,
 )
 
+from app.models.conversation_session import (
+    ConversationSession,
+)
+
 import os
+import time
+
+from app.core.logger import (
+    logger,
+)
 
 from app.services.llm_service import (
     get_fastest_response,
     stream_response,
+)
+
+from app.services.rate_limit_service import (
+    check_rate_limit,
 )
 
 router = APIRouter()
@@ -38,6 +51,10 @@ async def websocket_chat(
     # =========================
 
     await websocket.accept()
+
+    logger.info(
+        "WebSocket connection accepted"
+    )
 
     # =========================
     # GET TOKEN
@@ -76,6 +93,10 @@ async def websocket_chat(
             "sub"
         )
 
+        logger.info(
+            f"Authenticated websocket user={user_id}"
+        )
+
         if not user_id:
 
             await websocket.send_json({
@@ -88,8 +109,14 @@ async def websocket_chat(
             )
 
             return
+        
+
 
     except JWTError:
+
+        logger.warning(
+            "JWT verification failed"
+        )
 
         await websocket.send_json({
             "type": "error",
@@ -112,75 +139,270 @@ async def websocket_chat(
 
             data = await websocket.receive_json()
 
+            # Skip heartbeat logging
+
+            if data.get("type") == "ping":
+
+               await websocket.send_json({
+                   "type": "pong"
+               })
+
+               continue
+
             message = data.get(
                 "message",
                 ""
             )
+
+            if not isinstance(
+                message,
+                str
+            ):
+
+               await websocket.send_json({
+                   "type": "error",
+                   "message":
+                       "Invalid message format"
+               })
+
+               continue
+
+            
+
+            if not message.strip():
+
+              continue
+
+            if len(message) > 5000:
+
+               await websocket.send_json({
+                   "type": "error",
+                   "message":
+                       "Message too large"
+                })
+
+               continue
             conversation_id = data.get(
                 "conversation_id"
             )
 
+            if not conversation_id:
+
+               await websocket.send_json({
+                   "type": "error",
+                   "message":
+                       "Missing conversation_id"
+               })
+
+               continue
+
+            logger.info(
+                f"Message received "
+                f"user={user_id} "
+                f"conversation={conversation_id}"
+            )
+            
             async with AsyncSessionLocal() as db:
 
-                user_message = Message(
-                  conversation_id=conversation_id,
-                  role="user",
-                  content=message,
-               )
+                conversation = await db.get(
+                    ConversationSession,
+                    conversation_id
+                )
 
-                db.add(user_message)
+                if (
+                    not conversation or
+                    conversation.user_id != int(user_id)
+                ):
 
-                await db.commit()
+                    await websocket.send_json({
+                        "type": "error",
+                        "message":
+                            "Invalid conversation"
+                    })
+
+                    continue
+
+            logger.info(
+                f"Rate limit check "
+                f"user={user_id}"
+            )
+
+            allowed = await check_rate_limit(
+                str(user_id)
+            )
 
             
 
-            result = await get_fastest_response(
-                query=message,
-                user_id=int(user_id)
-            )
+            if not allowed:
+               logger.warning(
+                   f"Rate limit exceeded "
+                   f"user={user_id}"
+                )
 
-            response_text = (
-                result["response"]
-            )
+               await websocket.send_json({
+                   "type": "error",
+                   "message":
+                       "Rate limit exceeded"
+                })
+
+               continue
+
+            
+
+            
 
             async with AsyncSessionLocal() as db:
 
-                assistant_message = Message(
-                   conversation_id=conversation_id,
-                   role="assistant",
-                   content=response_text,
+                try:
+
+                    user_message = Message(
+                       conversation_id=conversation_id,
+                       role="user",
+                       content=message,
+                    )
+
+                    db.add(user_message)
+
+                    await db.commit()
+
+                except Exception:
+
+                    await db.rollback()
+
+                    raise
+
+            try:
+
+                logger.info(
+                    f"Generating AI response "
+                    f"user={user_id}"
                 )
 
-                db.add(assistant_message)
+                start_time = time.perf_counter()
 
-                await db.commit()
+                result = await get_fastest_response(
+                    query=message,
+                    user_id=int(user_id)
+                )
 
-            async for chunk in stream_response(
-                response_text
-            ):
+                response_text = (
+                    result["response"]
+                )
 
-                await websocket.send_json({
-                    "type": "chunk",
-                    "content": chunk,
-                })
+                latency = (
+                    time.perf_counter()
+                    - start_time
+                )
 
-            await websocket.send_json({
-                "type": "done"
-            })
+                logger.info(
+                    f"AI response generated "
+                    f"user={user_id} "
+                    f"latency={latency:.2f}s"
+                )
 
+            except Exception:
+
+                logger.exception(
+                    f"AI generation failed "
+                    f"user={user_id}"
+                )
+
+                try:
+
+                    await websocket.send_json({
+                        "type": "error",
+                        "message":
+                            "AI generation failed"
+                    })
+
+                except WebSocketDisconnect:
+
+                    logger.info(
+                        f"Client disconnected "
+                        f"during AI failure "
+                        f"user={user_id}"
+                    )
+
+                    break
+
+                continue
+
+
+            
+
+            
+
+            #await websocket.send_json({
+             #   "type": "start"
+            #})
+
+            try:
+
+               await websocket.send_json({
+                   "type": "start"
+               })
+
+               async for chunk in stream_response(
+                  response_text
+               ):
+
+                  await websocket.send_json({
+                      "type": "chunk",
+                      "content": chunk,
+                  })
+
+               await websocket.send_json({
+                   "type": "done"
+              })
+               
+               async with AsyncSessionLocal() as db:
+
+                  try:
+
+                     assistant_message = Message(
+                         conversation_id=conversation_id,
+                         role="assistant",
+                         content=response_text,
+                     )
+
+                     db.add(assistant_message)
+
+                     await db.commit()
+
+                  except Exception:
+
+                      await db.rollback()
+
+                      raise
+
+            except WebSocketDisconnect:
+
+                logger.info(
+                    f"Streaming disconnected "
+                    f"user={user_id}"
+                )
+
+                break
     except WebSocketDisconnect:
 
-        print(
-            f"Client disconnected user={user_id}"
+        logger.info(
+            f"Client disconnected "
+            f"user={user_id}"
         )
 
     except Exception as e:
 
-        print(
-            f"WebSocket error: {str(e)}"
+        logger.exception(
+            f"WebSocket error "
+            f"user={user_id}"
         )
 
         try:
+
+            logger.info(
+                f"Closing websocket "
+                f"user={user_id}"
+            )
 
             await websocket.close()
 

@@ -92,8 +92,8 @@ async def update_chat_history(
 
 #cost tracking and token according to users 
 
-def estimate_tokens(text):
-    return int(len(text) / 4)
+#def estimate_tokens(text):
+ #   return int(len(text) / 4)
 
 
 async def track_usage(
@@ -345,7 +345,8 @@ async def call_model_with_messages(messages, model_choice):
 
         return {
            "model": model_choice,
-           "response": data["choices"][0]["message"]["content"]
+           "response": data["choices"][0]["message"]["content"],
+           "usage": data.get("usage", {})
         }
 # =========================
 #  MAIN ORCHESTRATOR
@@ -463,8 +464,17 @@ async def get_fastest_response(query, user_id="default"):
 
     #  Cost tracking (ADD HERE)
     if isinstance(result, dict):
-       tokens = estimate_tokens(result["response"])
-       await track_usage(user_id, tokens)
+       usage = result.get("usage", {})
+
+       tokens = usage.get(
+           "total_tokens",
+           0
+        )
+
+    await track_usage(
+            user_id,
+            tokens
+        )
 
     if isinstance(result, dict):
         await update_chat_history(

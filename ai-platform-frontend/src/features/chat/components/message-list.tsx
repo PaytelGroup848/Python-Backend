@@ -16,6 +16,10 @@ import {
   ChatMessage,
 } from "../types/chat.types";
 
+import {
+  useChatStore,
+} from "../stores/chat-store";
+
 interface MessageListProps {
   messages: ChatMessage[];
 }
@@ -23,6 +27,12 @@ interface MessageListProps {
 export function MessageList({
   messages,
 }: MessageListProps) {
+
+const isStreaming =
+  useChatStore(
+    (state) =>
+      state.isStreaming
+  );
 
   return (
     <div className="space-y-6">
@@ -66,7 +76,7 @@ export function MessageList({
             `}
           >
 
-            <ReactMarkdown
+<ReactMarkdown
 
   remarkPlugins={[
     remarkGfm
@@ -74,52 +84,67 @@ export function MessageList({
 
   components={{
 
-  code({
-    className,
-    children,
-    ...props
-  }) {
+    code({
+      className,
+      children,
+    }) {
 
-    const match =
-      /language-(\w+)/.exec(
-        className || ""
+      const match =
+        /language-(\w+)/.exec(
+          className || ""
+        );
+
+      return match ? (
+
+        <SyntaxHighlighter
+          style={oneDark}
+          language={match[1]}
+          PreTag="div"
+        >
+          {String(children).replace(
+            /\n$/,
+            ""
+          )}
+        </SyntaxHighlighter>
+
+      ) : (
+
+        <code
+          className="
+            rounded
+            bg-zinc-900
+            px-1.5
+            py-1
+            text-sm
+          "
+        >
+          {children}
+        </code>
       );
-
-    return match ? (
-
-      <SyntaxHighlighter
-        style={oneDark}
-        language={match[1]}
-        PreTag="div"
-      >
-        {String(children).replace(
-          /\n$/,
-          ""
-        )}
-      </SyntaxHighlighter>
-
-    ) : (
-
-      <code
-        className="
-          rounded
-          bg-zinc-900
-          px-1.5
-          py-1
-          text-sm
-        "
-        {...props}
-      >
-        {children}
-      </code>
-    );
-  },
-}}
+    },
+  }}
 >
 
   {message.content}
 
 </ReactMarkdown>
+
+{isStreaming &&
+  message.id ===
+    messages[
+      messages.length - 1
+    ]?.id && (
+
+  <span
+    className="
+      ml-1
+      animate-pulse
+      text-zinc-400
+    "
+  >
+    ▋
+  </span>
+)}
 
           </div>
         </div>

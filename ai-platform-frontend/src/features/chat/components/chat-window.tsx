@@ -46,6 +46,12 @@ export function ChatWindow() {
         state.updateLastMessage
     );
 
+  const setStreaming =
+  useChatStore(
+    (state) =>
+      state.setStreaming
+  );
+
   const accessToken =
   useAuthStore(
     (state) =>
@@ -75,6 +81,13 @@ export function ChatWindow() {
           JSON.parse(event.data);
 
         if (
+          data.type === "start"
+        ) {
+
+           setStreaming(true);
+        }
+
+        if (
           data.type === "chunk"
         ) {
 
@@ -82,6 +95,13 @@ export function ChatWindow() {
             data.content
           );
         }
+
+        if (
+  data.type === "done"
+) {
+
+  setStreaming(false);
+}
       }
     );
 

@@ -22,6 +22,9 @@ class SocketClient {
   private currentUrl:
     string | null = null;
 
+  private heartbeatInterval:
+    NodeJS.Timeout | null = null;
+
   private currentHandler:
     MessageHandler | undefined;
 
@@ -57,6 +60,7 @@ class SocketClient {
     this.socket.onopen = () => {
 
       this.isConnected = true;
+      this.startHeartbeat();
 
       console.log(
         "WebSocket connected"
@@ -75,9 +79,21 @@ class SocketClient {
 
         if (message) {
 
-          this.socket?.send(
-            message
+          try {
+
+            this.socket?.send(
+              message
+            );
+
+          } catch (error) {
+
+          console.warn(
+            "Queue flush failed",
+            error
           );
+
+          break;
+         }
         }
       }
     };
@@ -96,6 +112,18 @@ class SocketClient {
 ) => {
 
   this.isConnected = false;
+
+  if (
+   this.heartbeatInterval
+  ) {
+
+   clearInterval(
+     this.heartbeatInterval
+   );
+
+   this.heartbeatInterval =
+     null;
+  }
 
   console.log(
     "WebSocket disconnected",
@@ -116,6 +144,8 @@ class SocketClient {
 
     return;
   }
+
+
 
   /* =========================
      AUTO RECONNECT
@@ -139,6 +169,46 @@ class SocketClient {
       );
     };
   }
+
+  /* =========================
+   HEARTBEAT
+========================= */
+
+private startHeartbeat() {
+
+  if (
+    this.heartbeatInterval
+  ) {
+    return;
+  }
+
+  this.heartbeatInterval =
+    setInterval(() => {
+
+      if (
+        this.socket?.readyState ===
+        WebSocket.OPEN
+      ) {
+
+        try {
+
+          this.socket.send(
+            JSON.stringify({
+              type: "ping",
+            })
+          );
+
+        } catch (error) {
+
+         console.warn(
+           "Heartbeat failed",
+          error
+         );
+       }
+      }
+
+    }, 30000);
+}
 
   /* =========================
      AUTO RECONNECT
@@ -212,8 +282,31 @@ class SocketClient {
 
   disconnect() {
 
-    this.manuallyClosed =
-      true;
+    this.manuallyClosed = true;
+
+    if (
+     this.reconnectTimer
+    ) {
+
+     clearTimeout(
+       this.reconnectTimer
+     );
+
+     this.reconnectTimer =
+       null;
+    }
+
+    if (
+      this.heartbeatInterval
+    ) {
+
+     clearInterval(
+       this.heartbeatInterval
+     );
+
+     this.heartbeatInterval =
+       null;
+    } 
 
     this.socket?.close();
 
