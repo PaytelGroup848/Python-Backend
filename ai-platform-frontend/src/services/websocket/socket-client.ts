@@ -10,8 +10,20 @@ class SocketClient {
   private reconnectTimer:
     NodeJS.Timeout | null = null;
 
+  private reconnectAttempts =
+  0;
+
   private isConnected =
     false;
+
+  private connectionState:
+    "idle" |
+    "connecting" |
+    "connected" |
+    "reconnecting" |
+    "disconnected" |
+    "failed"
+  = "idle";
 
   private manuallyClosed =
   false;
@@ -54,12 +66,18 @@ class SocketClient {
     this.manuallyClosed =
      false;  
 
+    this.connectionState =
+      "connecting";
+
     this.socket =
       new WebSocket(url);
 
     this.socket.onopen = () => {
 
       this.isConnected = true;
+      this.connectionState =
+        "connected";
+      this.reconnectAttempts = 0;
       this.startHeartbeat();
 
       console.log(
@@ -102,10 +120,30 @@ class SocketClient {
       event
     ) => {
 
+     try {
+
+      const data = JSON.parse(
+        event.data
+      );
+
+      if (
+        data.type === "pong"
+      ) {
+        return;
+      }
+
       if (onMessage) {
         onMessage(event);
       }
-    };
+
+    } catch (error) {
+
+      console.warn(
+        "Invalid websocket payload",
+         error
+      );
+    }
+  };
 
    this.socket.onclose = (
   event
@@ -141,6 +179,9 @@ class SocketClient {
     console.warn(
       "WebSocket auth failed"
     );
+
+    this.connectionState =
+      "failed";
 
     return;
   }
@@ -222,6 +263,21 @@ private startHeartbeat() {
       return;
     }
 
+    this.connectionState =
+      "reconnecting";
+
+
+    const delay = Math.min(
+  1000 *
+  Math.pow(
+    2,
+    this.reconnectAttempts
+  ),
+  30000
+);
+
+this.reconnectAttempts++;
+
     this.reconnectTimer =
       setTimeout(() => {
 
@@ -242,39 +298,72 @@ private startHeartbeat() {
         this.reconnectTimer =
           null;
 
-      }, 3000);
+      }, delay);
+  }
+  get status() {
+   return this.connectionState;
   }
 
   /* =========================
-     SEND MESSAGE
-  ========================= */
+   SEND MESSAGE
+========================= */
 
-  send(data: unknown) {
+send(data: unknown) {
 
-    const payload =
-      JSON.stringify(data);
+  const payload =
+    JSON.stringify(data);
 
-    if (
-      this.socket &&
-      this.socket.readyState ===
-      WebSocket.OPEN
-    ) {
+  if (
+    this.socket &&
+    this.socket.readyState ===
+    WebSocket.OPEN
+  ) {
+
+    try {
 
       this.socket.send(
         payload
       );
 
-    } else {
+    } catch (error) {
 
       console.warn(
-        "Socket unavailable. Queuing message."
+        "WebSocket send failed",
+        error
       );
+
+      if (
+        this.messageQueue.length >=
+        100
+      ) {
+
+        this.messageQueue.shift();
+      }
 
       this.messageQueue.push(
         payload
       );
     }
+
+  } else {
+
+    console.warn(
+      "Socket unavailable. Queuing message."
+    );
+
+    if (
+      this.messageQueue.length >=
+      100
+    ) {
+
+      this.messageQueue.shift();
+    }
+
+    this.messageQueue.push(
+      payload
+    );
   }
+}
 
   /* =========================
      DISCONNECT
@@ -313,6 +402,8 @@ private startHeartbeat() {
     this.socket = null;
 
     this.isConnected = false;
+    this.connectionState =
+      "disconnected";
   }
 }
 

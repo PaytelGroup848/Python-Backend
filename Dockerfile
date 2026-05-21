@@ -30,7 +30,7 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 
 RUN pip install --upgrade pip setuptools wheel && \
-    pip install --default-timeout=1000 -r requirements.txt
+    pip install --prefer-binary --retries 30 --timeout 300 --no-cache-dir -r requirements.txt
 
 RUN find /usr/local/lib/python3.11/site-packages/ -name "*.so*" -exec patchelf --clear-execstack {} \; || true
 

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from sqlalchemy import select
+from sqlalchemy import delete
 
 from app.models.message import (
     Message,
@@ -128,3 +129,116 @@ async def get_conversation_messages(
     )
 
     return messages
+
+# =========================
+# UPDATE CONVERSATION TITLE
+# =========================
+
+@router.patch(
+    "/{conversation_id}/title"
+)
+async def update_conversation_title(
+    conversation_id: int,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+):
+
+    result = await db.execute(
+
+        select(
+            ConversationSession
+        )
+
+        .where(
+            ConversationSession.id
+            == conversation_id
+        )
+
+        .where(
+            ConversationSession.user_id
+            == 1
+        )
+    )
+
+    conversation = (
+        result.scalar_one_or_none()
+    )
+
+    if not conversation:
+
+        return {
+            "success": False
+        }
+
+    conversation.title = (
+        data.get(
+            "title",
+            "New Chat"
+        )
+    )
+
+    await db.commit()
+
+    return {
+        "success": True
+    }
+# =========================
+# DELETE CONVERSATION
+# =========================
+
+@router.delete(
+    "/{conversation_id}"
+)
+async def delete_conversation(
+    conversation_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+
+    result = await db.execute(
+
+        select(
+            ConversationSession
+        )
+
+        .where(
+            ConversationSession.id
+            == conversation_id
+        )
+
+        .where(
+            ConversationSession.user_id
+            == 1
+        )
+    )
+
+    conversation = (
+        result.scalar_one_or_none()
+    )
+
+    if not conversation:
+
+        return {
+            "success": False,
+            "message":
+                "Conversation not found"
+        }
+
+    await db.execute(
+
+        delete(Message)
+
+        .where(
+            Message.conversation_id
+            == conversation_id
+        )
+    )
+
+    await db.delete(
+        conversation
+    )
+
+    await db.commit()
+
+    return {
+        "success": True
+    }

@@ -28,6 +28,10 @@ import {
   useConversationStore,
 } from "../stores/conversation-store";
 
+import {
+  updateConversationTitle,
+} from "../services/conversation-service";
+
 export function ChatWindow() {
 
   const messages =
@@ -64,53 +68,67 @@ export function ChatWindow() {
       state.activeConversationId
   );
 
+  const conversations =
+  useConversationStore(
+    (state) =>
+      state.conversations
+  );
+
+const setConversations =
+  useConversationStore(
+    (state) =>
+      state.setConversations
+  );
+
   const bottomRef =
   useRef<HTMLDivElement>(null);
 
   useEffect(() => {
 
-    socketClient.connect(
+  if (!accessToken) {
+    return;
+  }
 
-      `${window.location.protocol === "https:"
-        ? "wss"
-        : "ws"}://${window.location.hostname}/ws/chat?token=${accessToken}`,
+  socketClient.connect(
 
-      (event) => {
+    `${process.env.NEXT_PUBLIC_WS_URL}/ws/chat?token=${accessToken}`,
 
-        const data =
-          JSON.parse(event.data);
+    (event) => {
 
-        if (
-          data.type === "start"
-        ) {
+      const data =
+        JSON.parse(event.data);
 
-           setStreaming(true);
-        }
+      if (
+        data.type === "start"
+      ) {
 
-        if (
-          data.type === "chunk"
-        ) {
-
-          updateLastMessage(
-            data.content
-          );
-        }
-
-        if (
-  data.type === "done"
-) {
-
-  setStreaming(false);
-}
+        setStreaming(true);
       }
-    );
 
-    return () => {
+      if (
+        data.type === "chunk"
+      ) {
 
-      socketClient.disconnect();
-    };
+        updateLastMessage(
+          data.content
+        );
+      }
 
-  }, [accessToken]);
+      if (
+        data.type === "done"
+      ) {
+
+        setStreaming(false);
+      }
+    }
+  );
+
+  return () => {
+
+    socketClient.disconnect();
+  };
+
+}, [accessToken]);
 
   useEffect(() => {
 
@@ -120,9 +138,12 @@ export function ChatWindow() {
 
 }, [messages]);
 
-  function handleSend(
+  async function handleSend(
     content: string
   ) {
+
+    const shouldGenerateTitle =
+      messages.length === 0;
 
     addMessage({
       id: uuid(),
@@ -135,6 +156,44 @@ export function ChatWindow() {
       role: "assistant",
       content: "",
     });
+
+    if (
+      shouldGenerateTitle &&
+      activeConversationId
+    ) {
+
+     const generatedTitle =
+       content
+         .slice(0, 40)
+         .trim();
+
+       await updateConversationTitle(
+
+         activeConversationId,
+
+         generatedTitle
+      );
+
+      const updatedConversations =
+        conversations.map(
+          (conversation) =>
+
+            conversation.id ===
+            activeConversationId
+
+              ? {
+                  ...conversation,
+                  title:
+                    generatedTitle,
+                }
+
+              : conversation
+        );
+
+      setConversations(
+        updatedConversations
+      );
+    }
 
     socketClient.send({
 

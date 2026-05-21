@@ -5,7 +5,6 @@ import {
   Conversation,
 } from "../types/conversation.types";
 
-
 export async function
 createConversation() {
 
@@ -19,7 +18,6 @@ createConversation() {
 
   return response.data;
 }
-
 
 export async function
 getConversations():
@@ -43,6 +41,39 @@ getConversationMessages(
     await apiClient.get(
 
       `/conversations/${conversationId}/messages`
+    );
+
+  return response.data;
+}
+
+export async function
+deleteConversation(
+  conversationId: number
+) {
+
+  const response =
+    await apiClient.delete(
+
+      `/conversations/${conversationId}`
+    );
+
+  return response.data;
+}
+
+export async function
+updateConversationTitle(
+  conversationId: number,
+  title: string
+) {
+
+  const response =
+    await apiClient.patch(
+
+      `/conversations/${conversationId}/title`,
+
+      {
+        title,
+      }
     );
 
   return response.data;
