@@ -18,9 +18,14 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-#  Safety check
 if not OPENAI_API_KEY:
-    raise ValueError("OPENAI_API_KEY is missing in .env")
+    print("WARNING: OPENAI_API_KEY missing")
+
+if not MISTRAL_API_KEY:
+    print("WARNING: MISTRAL_API_KEY missing")
+
+if not GROQ_API_KEY:
+    print("WARNING: GROQ_API_KEY missing")
 
 ##memory use if redis down
 chat_memory = {}
@@ -304,8 +309,38 @@ async def call_llama(query):
 
 #memory and call
 
-async def call_model_with_messages(messages, model_choice):
-    async with httpx.AsyncClient(timeout=10.0) as client:
+async def call_model_with_messages(
+    messages,
+    model_choice
+):
+
+    if (
+        model_choice == "openai"
+        and not OPENAI_API_KEY
+    ):
+        raise Exception(
+            "OpenAI API key missing"
+        )
+
+    if (
+        model_choice == "mistral"
+        and not MISTRAL_API_KEY
+    ):
+        raise Exception(
+            "Mistral API key missing"
+        )
+
+    if (
+        model_choice == "llama"
+        and not GROQ_API_KEY
+    ):
+        raise Exception(
+            "Groq API key missing"
+        )
+
+    async with httpx.AsyncClient(
+        timeout=10.0
+    ) as client:
 
         if model_choice == "openai":
             url = "https://api.openai.com/v1/chat/completions"
@@ -418,11 +453,25 @@ async def get_fastest_response(query, user_id="default"):
     model_choice = route_query_semantic(query)
     print(f" Routed to: {model_choice}")
 
-    providers = [
-        model_choice,
-       "mistral",
-       "llama"
-    ]
+    providers = []
+
+    if model_choice == "openai" and OPENAI_API_KEY:
+        providers.append("openai")
+
+    if model_choice == "mistral" and MISTRAL_API_KEY:
+        providers.append("mistral")
+
+    if model_choice == "llama" and GROQ_API_KEY:
+        providers.append("llama")
+
+    if MISTRAL_API_KEY:
+        providers.append("mistral")
+
+    if GROQ_API_KEY:
+       providers.append("llama")
+
+    if OPENAI_API_KEY:
+       providers.append("openai")
 
     tried = set()
 
@@ -463,18 +512,24 @@ async def get_fastest_response(query, user_id="default"):
        }
 
     #  Cost tracking (ADD HERE)
-    if isinstance(result, dict):
-       usage = result.get("usage", {})
+    tokens = 0
 
-       tokens = usage.get(
-           "total_tokens",
-           0
+    if isinstance(result, dict):
+
+        usage = result.get(
+            "usage",
+            {}
+        )
+
+        tokens = usage.get(
+            "total_tokens",
+            0
         )
 
     await track_usage(
-            user_id,
-            tokens
-        )
+        user_id,
+        tokens
+    )
 
     if isinstance(result, dict):
         await update_chat_history(
@@ -490,14 +545,28 @@ async def get_fastest_response(query, user_id="default"):
     }
 
     if isinstance(result, dict):
-       print(" Final response from:", result.get("model"))
 
-       await save_conversation(
-           user_id=user_id,
-           query=query,
-           response=result["response"],
-           model_used=result["model"]
+        print(
+            " Final response from:",
+            result.get("model")
         )
+
+        try:
+
+            await save_conversation(
+                user_id=user_id,
+                query=query,
+                response=result["response"],
+                model_used=result["model"]
+            )
+
+        except Exception as e:
+
+            print(
+                "Conversation save failed:"
+            )
+
+            print(str(e))
 
     return {
     "model": result.get("model"),
@@ -507,7 +576,7 @@ async def get_fastest_response(query, user_id="default"):
 
 async def stream_response(text):
 
-    words = text.split()
+    words = text.split(" ")
 
     for word in words:
 

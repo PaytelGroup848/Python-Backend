@@ -12,6 +12,7 @@ import {
   createConversation,
   getConversations,
   getConversationMessages,
+  deleteConversation,
 } from "../services/conversation-service";
 
 import {
@@ -129,6 +130,45 @@ ConversationSidebar() {
     console.error(error);
   }
 }
+async function handleDeleteChat(
+  conversationId: number
+) {
+
+  try {
+
+    await deleteConversation(
+      conversationId
+    );
+
+    const updatedConversations =
+      conversations.filter(
+        (conversation) =>
+          conversation.id !==
+          conversationId
+      );
+
+    setConversations(
+      updatedConversations
+    );
+
+    if (
+      activeConversationId ===
+      conversationId
+    ) {
+
+      setActiveConversation(
+        null
+      );
+
+      setMessages([]);
+    }
+
+  } catch (error) {
+
+    console.error(error);
+  }
+}
+
 
   return (
     <div
@@ -186,7 +226,7 @@ ConversationSidebar() {
           {conversations.map(
             (conversation) => (
 
-              <button
+              <div
                 key={conversation.id}
 
                onClick={async () => {
@@ -240,9 +280,32 @@ ConversationSidebar() {
                       `
                   }
                 `}
-              >
-                {conversation.title}
-              </button>
+                            >
+                <div className="flex items-center justify-between">
+
+                  <span>
+                    {conversation.title}
+                  </span>
+
+                  <div
+                    onClick={(e) => {
+
+                      e.stopPropagation();
+
+                      handleDeleteChat(
+                        conversation.id
+                      );
+                    }}
+
+                    className="
+                      text-red-400
+                      hover:text-red-500
+                    "
+                  >
+                    ✕
+                  </div>
+                </div>
+              </div>
             )
           )}
         </div>

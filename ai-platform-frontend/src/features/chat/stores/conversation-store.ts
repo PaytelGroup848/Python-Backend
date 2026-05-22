@@ -19,7 +19,7 @@ interface ConversationState {
   ) => void;
 
   setActiveConversation: (
-    id: number
+    id: number | null
   ) => void;
 }
 

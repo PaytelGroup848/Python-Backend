@@ -348,6 +348,20 @@ async def retrieve_context(
         results
     )
 
+    print(
+        "RAG RESULTS COUNT:",
+        len(results)
+    )
+
+    for r in results:
+
+        print(
+            "SOURCE:",
+            r.source_file,
+            "DISTANCE:",
+            getattr(r, "distance", None)
+        )
+
     # -----------------------------
     # NO RESULTS FOUND
     # -----------------------------
@@ -378,7 +392,7 @@ async def retrieve_context(
         1.0
     )
 
-    SIMILARITY_THRESHOLD = 0.7
+    SIMILARITY_THRESHOLD = 1.5
 
     if distance > SIMILARITY_THRESHOLD:
 

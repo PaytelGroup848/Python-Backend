@@ -93,10 +93,7 @@ const setConversations =
 
     `${process.env.NEXT_PUBLIC_WS_URL}/ws/chat?token=${accessToken}`,
 
-    (event) => {
-
-      const data =
-        JSON.parse(event.data);
+    (data) => {
 
       if (
         data.type === "start"
@@ -110,7 +107,7 @@ const setConversations =
       ) {
 
         updateLastMessage(
-          data.content
+          data.content || ""
         );
       }
 
@@ -193,6 +190,17 @@ const setConversations =
       setConversations(
         updatedConversations
       );
+    }
+    if (
+      socketClient.status !==
+      "connected"
+    ) {
+
+      alert(
+        "WebSocket not connected yet"
+      );
+
+      return;
     }
 
     socketClient.send({

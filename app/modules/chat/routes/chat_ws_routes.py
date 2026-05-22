@@ -50,15 +50,7 @@ async def websocket_chat(
     websocket: WebSocket
 ):
 
-    # =========================
-    # ACCEPT CONNECTION
-    # =========================
-
-    await websocket.accept()
-
-    logger.info(
-        "WebSocket connection accepted"
-    )
+    
 
     # =========================
     # GET TOKEN
@@ -88,44 +80,34 @@ async def websocket_chat(
     try:
 
         payload = jwt.decode(
-            token,
-            SECRET_KEY,
-            algorithms=[ALGORITHM]
+           token,
+           SECRET_KEY,
+           algorithms=[ALGORITHM]
         )
 
-        user_id = payload.get(
-            "sub"
-        )
+        user_id = payload.get("sub")
+
+        if not user_id:
+
+            raise JWTError(
+                "Missing sub claim"
+            )
 
         logger.info(
             f"Authenticated websocket user={user_id}"
         )
 
-        if not user_id:
+        await websocket.accept()
 
-            await websocket.send_json({
-                "type": "error",
-                "message": "Invalid token"
-            })
-
-            await websocket.close(
-                code=1008
-            )
-
-            return
-        
-
-
-    except JWTError:
-
-        logger.warning(
-            "JWT verification failed"
+        logger.info(
+            "WebSocket connection accepted"
         )
 
-        await websocket.send_json({
-            "type": "error",
-            "message": "JWT verification failed"
-        })
+    except JWTError as e:
+
+        logger.warning(
+            f"JWT verification failed: {str(e)}"
+        )
 
         await websocket.close(
             code=1008

@@ -1,7 +1,11 @@
-type MessageHandler = (
-  event: MessageEvent
-) => void;
+type SocketPayload = {
+  type: string;
+  content?: string;
+};
 
+type MessageHandler = (
+  data: SocketPayload
+) => void;
 class SocketClient {
 
   private socket:
@@ -133,7 +137,7 @@ class SocketClient {
       }
 
       if (onMessage) {
-        onMessage(event);
+        onMessage(data);
       }
 
     } catch (error) {
@@ -371,39 +375,54 @@ send(data: unknown) {
 
   disconnect() {
 
-    this.manuallyClosed = true;
+  if (
+    this.socket?.readyState ===
+    WebSocket.CONNECTING
+  ) {
+    return;
+  }
 
-    if (
-     this.reconnectTimer
-    ) {
+  this.manuallyClosed = true;
 
-     clearTimeout(
-       this.reconnectTimer
-     );
+  if (
+    this.reconnectTimer
+  ) {
 
-     this.reconnectTimer =
-       null;
-    }
+    clearTimeout(
+      this.reconnectTimer
+    );
 
-    if (
+    this.reconnectTimer =
+      null;
+  }
+
+  if (
+    this.heartbeatInterval
+  ) {
+
+    clearInterval(
       this.heartbeatInterval
-    ) {
+    );
 
-     clearInterval(
-       this.heartbeatInterval
-     );
+    this.heartbeatInterval =
+      null;
+  }
 
-     this.heartbeatInterval =
-       null;
-    } 
+  if (
+    this.socket &&
+    this.socket.readyState !==
+    WebSocket.CLOSED
+  ) {
 
-    this.socket?.close();
+    this.socket.close();
+  }
 
-    this.socket = null;
+  this.socket = null;
 
-    this.isConnected = false;
-    this.connectionState =
-      "disconnected";
+  this.isConnected = false;
+
+  this.connectionState =
+    "disconnected";
   }
 }
 

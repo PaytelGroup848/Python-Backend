@@ -11,6 +11,8 @@ import {
   ConversationSidebar,
 } from "@/features/chat/components/conversation-sidebar";
 
+
+
 export default function ChatPage() {
 
   return (
@@ -32,7 +34,17 @@ export default function ChatPage() {
 
           <ConversationSidebar />
 
-          <div className="flex-1 p-6">
+          <div
+            className="
+              flex
+              flex-1
+              flex-col
+              gap-4
+              p-6
+            "
+          >
+
+            
 
             <ChatWindow />
 

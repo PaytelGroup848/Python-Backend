@@ -96,6 +96,20 @@ async def signup(
             status_code=400,
             detail=str(e)
         )
+    
+# FORGOT PASSWORD
+@router.post(
+    "/forgot-password",
+    status_code=200
+)
+async def forgot_password(
+    email: str
+):
+
+    return {
+        "message":
+        "Password reset link sent"
+    }
 
 #  LOGIN
 @router.post(
