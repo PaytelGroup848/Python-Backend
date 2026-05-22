@@ -16,7 +16,7 @@ from app.models.conversation_session import (
     ConversationSession,
 )
 
-import os
+#import os
 import time
 
 from app.core.logger import (
@@ -31,14 +31,18 @@ from app.services.llm_service import (
 from app.services.rate_limit_service import (
     check_rate_limit,
 )
+from app.core.security import (
+    SECRET_KEY,
+    ALGORITHM,
+)
 
 router = APIRouter()
 
-SECRET_KEY = os.getenv(
-    "SECRET_KEY"
-)
+#SECRET_KEY = os.getenv(
+ #   "SECRET_KEY"
+#)
 
-ALGORITHM = "HS256"
+#ALGORITHM = "HS256"
 
 
 @router.websocket("/ws/chat")

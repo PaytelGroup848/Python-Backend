@@ -4,8 +4,8 @@ from jose import jwt, JWTError
 from datetime import datetime, timedelta, timezone 
 import os
 
-from dotenv import load_dotenv
-load_dotenv()
+#from dotenv import load_dotenv
+#-load_dotenv()
 
 #  Load secrets from env
 SECRET_KEY = os.getenv("SECRET_KEY")
