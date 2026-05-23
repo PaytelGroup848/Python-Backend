@@ -9,8 +9,9 @@ export default function LoginPage() {
         min-h-screen
         items-center
         justify-center
-        bg-black
+        bg-zinc-100
         p-6
+        dark:bg-black
       "
     >
       <div
@@ -19,10 +20,12 @@ export default function LoginPage() {
           max-w-md
           rounded-3xl
           border
-          border-white/10
-          bg-zinc-950
+          border-zinc-200
+          bg-white
           p-8
           shadow-2xl
+          dark:border-white/10
+          dark:bg-zinc-950
         "
       >
         {/* HEADING */}
@@ -31,7 +34,7 @@ export default function LoginPage() {
           className="
             text-3xl
             font-semibold
-            text-white
+            text-zinc-900 dark:text-white
           "
         >
           Welcome Back
@@ -40,7 +43,7 @@ export default function LoginPage() {
         <p
           className="
             mt-2
-            text-zinc-400
+            text-zinc-600 dark:text-zinc-400
           "
         >
           Sign in to your AI workspace
@@ -61,7 +64,7 @@ export default function LoginPage() {
             mt-6
             text-center
             text-sm
-            text-zinc-400
+            text-zinc-600 dark:text-zinc-400
           "
         >
           Don't have an account?{" "}
@@ -70,9 +73,11 @@ export default function LoginPage() {
             href="/register"
             className="
               font-medium
-              text-white
+              text-zinc-900
               transition-colors
-              hover:text-zinc-300
+              hover:text-zinc-700
+              dark:text-white
+              dark:hover:text-zinc-300
             "
           >
             Create Account
@@ -87,9 +92,11 @@ export default function LoginPage() {
             href="/forgot-password"
             className="
               text-sm
-              text-zinc-500
+              text-zinc-600
               transition-colors
-              hover:text-white
+              hover:text-zinc-900
+              dark:text-zinc-500
+              dark:hover:text-white
             "
           >
             Forgot Password?

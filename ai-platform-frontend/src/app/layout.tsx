@@ -9,6 +9,10 @@ import "./globals.css";
 
 import { QueryProvider } from "@/providers/query-provider";
 
+import {
+  ThemeProvider,
+} from "@/components/providers/theme-provider";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -32,6 +36,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`
         ${geistSans.variable}
         ${geistMono.variable}
@@ -40,9 +45,21 @@ export default function RootLayout({
       `}
     >
       <body className="min-h-full flex flex-col">
-        <QueryProvider>
-          {children}
-        </QueryProvider>
+
+       <ThemeProvider
+         attribute="class"
+         defaultTheme="dark"
+         enableSystem={false}
+       >
+
+      <QueryProvider>
+
+        {children}
+
+      </QueryProvider>
+
+       </ThemeProvider>
+
       </body>
     </html>
   );

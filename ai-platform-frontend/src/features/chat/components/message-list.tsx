@@ -35,7 +35,7 @@ const isStreaming =
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
 
       {messages.map((message) => (
 
@@ -63,14 +63,19 @@ const isStreaming =
                 message.role ===
                 "user"
                   ? `
-                    bg-white
-                    text-black
+                    bg-black
+                    text-white
+                    dark:bg-white
+                    dark:text-black
                   `
                   : `
                     border
-                    border-white/10
-                    bg-zinc-800
-                    text-white
+                    border-zinc-200
+                    bg-white
+                    text-zinc-900
+                    dark:border-white/10
+                    dark:bg-zinc-800
+                    dark:text-white
                   `
               }
             `}
@@ -112,10 +117,13 @@ const isStreaming =
         <code
           className="
             rounded
-            bg-zinc-900
+            bg-zinc-200
             px-1.5
             py-1
             text-sm
+            text-zinc-900
+            dark:bg-zinc-900
+            dark:text-white
           "
         >
           {children}
@@ -139,7 +147,8 @@ const isStreaming =
     className="
       ml-1
       animate-pulse
-      text-zinc-400
+      text-zinc-500
+      dark:text-zinc-400
     "
   >
     ▋

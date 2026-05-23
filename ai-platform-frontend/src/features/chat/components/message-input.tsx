@@ -8,6 +8,7 @@ import {
 import {
   Send,
   Upload,
+  X,
 } from "lucide-react";
 
 import {
@@ -49,6 +50,12 @@ export function MessageInput({
         state.documents
     );
 
+  const removeDocument =
+    useDocumentStore(
+      (state) =>
+        state.removeDocument
+    );
+
   async function handleUpload(
     file: File
   ) {
@@ -57,9 +64,17 @@ export function MessageInput({
 
       setUploading(true);
 
-      await uploadDocument(
-        file
-      );
+      const response =
+        await uploadDocument(
+          file
+        );
+
+      addDocument({
+        filename:
+          response.filename,
+        status:
+          "uploaded",
+      });
 
       alert(
         "Document uploaded successfully"
@@ -91,6 +106,63 @@ export function MessageInput({
   }
 
   return (
+
+  <div className="flex flex-col gap-3">
+
+    {/* DOCUMENTS */}
+
+    {documents.length > 0 && (
+
+      <div className="flex flex-wrap gap-2">
+
+        {documents.map((doc) => (
+
+          <div
+            key={doc.filename}
+
+            className="
+              flex
+              items-center
+              gap-2
+              rounded-xl
+              border
+              border-zinc-200
+              bg-white
+              px-3
+              py-2
+              text-sm
+              text-zinc-800
+              dark:border-white/10
+              dark:bg-zinc-800
+              dark:text-white
+            "
+          >
+            <span>
+             📄 {doc.filename}
+            </span>
+
+            <button
+              onClick={() =>
+                removeDocument(
+                  doc.filename
+                )
+              }
+
+              className="
+                text-zinc-400
+                transition-colors
+                hover:text-red-400
+              "
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {/* INPUT */}
+
     <div
       className="
         flex
@@ -98,9 +170,11 @@ export function MessageInput({
         gap-3
         rounded-2xl
         border
-        border-white/10
-        bg-zinc-900
+        border-zinc-200
+        bg-white
         p-3
+        dark:border-white/10
+        dark:bg-zinc-900
       "
     >
       <textarea
@@ -108,6 +182,13 @@ export function MessageInput({
         onChange={(e) =>
           setMessage(e.target.value)
         }
+        onInput={(e) => {
+
+          e.currentTarget.style.height = "auto";
+
+          e.currentTarget.style.height =
+            `${e.currentTarget.scrollHeight}px`;
+        }}
         placeholder="
           Ask your AI assistant...
         "
@@ -117,9 +198,11 @@ export function MessageInput({
           resize-none
           bg-transparent
           text-base
-          text-white
+          text-zinc-900
           outline-none
-          placeholder:text-zinc-400
+          placeholder:text-zinc-500
+          dark:text-white
+          dark:placeholder:text-zinc-400
         "
       />
 
@@ -140,12 +223,16 @@ export function MessageInput({
           justify-center
           rounded-xl
           border
-          border-white/10
-          bg-zinc-800
-          text-w hite
+          border-zinc-200
+          bg-white
+          text-zinc-800
           transition-all
-          hover:bg-zinc-700
+          hover:bg-zinc-100
           disabled:opacity-50
+          dark:border-white/10
+          dark:bg-zinc-800
+          dark:text-white
+          dark:hover:bg-zinc-700
         "
       >
         <Upload className="h-4 w-4" />
@@ -172,15 +259,15 @@ export function MessageInput({
 
         onChange={(e) => {
 
-        const file =
-          e.target.files?.[0];
+          const file =
+            e.target.files?.[0];
 
-        if (file) {
+          if (file) {
 
-          handleUpload(file);
-        }
-      }}
-    />
+            handleUpload(file);
+          }
+        }}
+      />
 
       <button
         onClick={handleSend}
@@ -192,14 +279,17 @@ export function MessageInput({
           items-center
           justify-center
           rounded-xl
-          bg-white
-          text-black
+          bg-black
+          text-white
           transition-all
           hover:scale-105
+          dark:bg-white
+          dark:text-black
         "
       >
         <Send className="h-4 w-4" />
       </button>
+    </div>
     </div>
   );
 }

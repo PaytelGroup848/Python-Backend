@@ -64,8 +64,9 @@ export default function RegisterPage() {
         min-h-screen
         items-center
         justify-center
-        bg-black
+        bg-zinc-100
         p-6
+        dark:bg-black
       "
     >
       <div
@@ -74,17 +75,20 @@ export default function RegisterPage() {
           max-w-md
           rounded-3xl
           border
-          border-white/10
-                    bg-zinc-950
+          border-zinc-200
+          bg-white
           p-8
           shadow-2xl
+          dark:border-white/10
+          dark:bg-zinc-950
         "
       >
         <h1
           className="
             text-3xl
             font-semibold
-            text-white
+            text-zinc-900
+            dark:text-white
           "
         >
           Create Account
@@ -93,7 +97,8 @@ export default function RegisterPage() {
         <p
           className="
             mt-2
-            text-zinc-400
+            text-zinc-600
+            dark:text-zinc-400
           "
         >
           Register for your AI workspace
@@ -115,7 +120,8 @@ export default function RegisterPage() {
                 mb-2
                 block
                 text-sm
-                text-white
+                text-zinc-800
+                dark:text-white
               "
             >
               Full Name
@@ -138,14 +144,20 @@ export default function RegisterPage() {
                 w-full
                 rounded-xl
                 border
-                border-white/10
-                bg-zinc-900
+                border-zinc-200
+                bg-white
                 px-4
                 py-3
-                text-white
+                text-zinc-900
                 outline-none
                 transition-all
-                focus:border-white/30
+                placeholder:text-zinc-500
+                focus:border-zinc-400
+                dark:border-white/10
+                dark:bg-zinc-900
+                dark:text-white
+                dark:placeholder:text-zinc-400
+                dark:focus:border-white/30
               "
             />
           </div>
@@ -159,7 +171,8 @@ export default function RegisterPage() {
                 mb-2
                 block
                 text-sm
-                text-white
+                text-zinc-800
+                dark:text-white
               "
             >
               Email
@@ -182,14 +195,20 @@ export default function RegisterPage() {
                 w-full
                 rounded-xl
                 border
-                border-white/10
-                bg-zinc-900
+                border-zinc-200
+                bg-white
                 px-4
                 py-3
-                text-white
+                text-zinc-900
                 outline-none
                 transition-all
-                focus:border-white/30
+                placeholder:text-zinc-500
+                focus:border-zinc-400
+                dark:border-white/10
+                dark:bg-zinc-900
+                dark:text-white
+                dark:placeholder:text-zinc-400
+                dark:focus:border-white/30
               "
             />
           </div>
@@ -203,7 +222,8 @@ export default function RegisterPage() {
                 mb-2
                 block
                 text-sm
-                text-white
+                text-zinc-800
+                dark:text-white
               "
             >
               Password
@@ -226,14 +246,20 @@ export default function RegisterPage() {
                 w-full
                 rounded-xl
                 border
-                border-white/10
-                bg-zinc-900
+                border-zinc-200
+                bg-white
                 px-4
                 py-3
-                text-white
+                text-zinc-900
                 outline-none
                 transition-all
-                focus:border-white/30
+                placeholder:text-zinc-500
+                focus:border-zinc-400
+                dark:border-white/10
+                dark:bg-zinc-900
+                dark:text-white
+                dark:placeholder:text-zinc-400
+                dark:focus:border-white/30
               "
             />
           </div>
@@ -248,14 +274,16 @@ export default function RegisterPage() {
             className="
               w-full
               rounded-xl
-              bg-white
+              bg-black
               py-3
               text-sm
               font-medium
-              text-black
+              text-white
               transition-all
               hover:scale-[1.02]
               disabled:opacity-50
+              dark:bg-white
+              dark:text-black
             "
           >
             {loading
@@ -271,7 +299,8 @@ export default function RegisterPage() {
             mt-6
             text-center
             text-sm
-            text-zinc-400
+            text-zinc-600
+            dark:text-zinc-400
           "
         >
           Already have an account?{" "}
@@ -281,8 +310,10 @@ export default function RegisterPage() {
 
             className="
               font-medium
-              text-white
-              hover:text-zinc-300
+              text-zinc-900
+              hover:text-zinc-700
+              dark:text-white
+              dark:hover:text-zinc-300
             "
           >
             Sign In

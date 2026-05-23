@@ -17,6 +17,10 @@ import { useRouter } from "next/navigation";
 
 import { useAuthStore } from "@/stores/auth-store";
 
+import {
+  ThemeToggle,
+} from "@/components/theme/theme-toggle";
+
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -75,7 +79,16 @@ export function DashboardLayout({
     router.push("/login");
   }
   return (
-    <div className="flex min-h-screen bg-black text-white">
+    <div
+      className="
+        flex
+        min-h-screen
+        bg-white
+        text-black
+        dark:bg-black
+        dark:text-white
+      "
+    >
 
       {/* Sidebar */}
 
@@ -84,8 +97,8 @@ export function DashboardLayout({
           hidden
           w-72
           border-r
-          border-white/10
-          bg-zinc-950
+          border-zinc-200 dark:border-white/10
+          bg-white dark:bg-zinc-950
           lg:flex
           lg:flex-col
         "
@@ -98,7 +111,7 @@ export function DashboardLayout({
             items-center
             gap-3
             border-b
-            border-white/10
+            border-zinc-200 dark:border-white/10
             px-6
             py-6
           "
@@ -168,10 +181,13 @@ export function DashboardLayout({
               px-4
               py-3
               text-sm
-              text-zinc-400
+              text-zinc-600
               transition-all
-              hover:bg-white/5
-              hover:text-white
+              hover:bg-zinc-200
+              hover:text-black
+              dark:text-zinc-400
+              dark:hover:bg-white/5
+              dark:hover:text-white
             "
           >
            <Icon
@@ -194,7 +210,7 @@ export function DashboardLayout({
         <div
           className="
             border-t
-            border-white/10
+            border-zinc-200 dark:border-white/10
             p-4
           "
         >
@@ -202,8 +218,8 @@ export function DashboardLayout({
             className="
               rounded-2xl
               border
-              border-white/10
-              bg-zinc-900
+              border-zinc-200 dark:border-white/10
+              bg-white dark:bg-zinc-900
               p-4
             "
           >
@@ -211,7 +227,14 @@ export function DashboardLayout({
               Enterprise Plan
             </p>
 
-            <p className="mt-1 text-xs text-zinc-400">
+            <p
+              className="
+                mt-1
+                text-xs
+                text-zinc-600
+                dark:text-zinc-400
+              "
+            >
               AI Infrastructure Workspace
             </p>
 
@@ -226,16 +249,19 @@ export function DashboardLayout({
                 gap-2
                 rounded-xl
                 border
-                border-white/10
-                bg-zinc-950
+                border-zinc-200
+                bg-zinc-100
                 px-4
                 py-2
                 text-sm
-                text-zinc-300
+                text-zinc-700
                 transition-all
                 hover:bg-red-500/10
                 hover:text-red-400
-               "
+                dark:border-white/10
+                dark:bg-zinc-950
+                dark:text-zinc-300
+              "
             >
                <LogOut className="h-4 w-4" />
 
@@ -261,8 +287,8 @@ export function DashboardLayout({
             items-center
             justify-between
             border-b
-            border-white/10
-            bg-black/80
+            border-zinc-200 dark:border-white/10
+            bg-white/80 dark:bg-black/80
             px-6
             backdrop-blur-xl
           "
@@ -276,8 +302,8 @@ export function DashboardLayout({
               gap-3
               rounded-2xl
               border
-              border-white/10
-              bg-zinc-900
+              border-zinc-200 dark:border-white/10
+              bg-zinc-100 dark:bg-zinc-900
               px-4
               py-2
               md:flex
@@ -290,7 +316,7 @@ export function DashboardLayout({
               className="
                 bg-transparent
                 text-sm
-                text-white
+                text-black dark:text-white
                 outline-none
                 placeholder:text-zinc-500
               "
@@ -300,6 +326,8 @@ export function DashboardLayout({
           {/* Right Side */}
 
           <div className="flex items-center gap-4">
+
+            <ThemeToggle />
 
             <button
               aria-label="Notifications"
@@ -312,12 +340,18 @@ export function DashboardLayout({
                 justify-center
                 rounded-xl
                 border
-                border-white/10
-                bg-zinc-900
-                hover:bg-zinc-800
+                border-zinc-200
+                bg-white
+                text-black
+                transition-all
+                hover:bg-zinc-100
+                dark:border-white/10
+                dark:bg-zinc-900
+                dark:text-white
+                dark:hover:bg-zinc-800
               "
             >
-             <Bell className="h-4 w-4" />
+              <Bell className="h-4 w-4" />
             </button>
 
             <div
@@ -335,7 +369,13 @@ export function DashboardLayout({
 
         {/* Workspace */}
 
-        <main className="flex-1 bg-black">
+        <main
+          className="
+            flex-1
+            bg-white
+            dark:bg-black
+          "
+        >
           {children}
         </main>
       </div>

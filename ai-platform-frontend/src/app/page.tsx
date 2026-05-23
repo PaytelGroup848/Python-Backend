@@ -14,16 +14,33 @@ export default function HomePage() {
             className="
               rounded-3xl
               border
-              border-white/10
-              bg-zinc-950
+              border-zinc-200
+              bg-white
               p-8
+              dark:border-white/10
+              dark:bg-zinc-950
             "
           >
-            <h1 className="text-4xl font-semibold tracking-tight">
+            <h1
+              className="
+                text-4xl
+                font-semibold
+                tracking-tight
+                text-zinc-900
+                dark:text-white
+              "
+            >
               Enterprise AI Platform
             </h1>
 
-            <p className="mt-3 max-w-2xl text-zinc-400">
+            <p
+              className="
+                mt-3
+                max-w-2xl
+                text-zinc-600
+                dark:text-zinc-400
+              "
+            >
               Production-grade AI infrastructure platform
               with realtime voice, OCR pipelines,
               vector search, developer APIs,

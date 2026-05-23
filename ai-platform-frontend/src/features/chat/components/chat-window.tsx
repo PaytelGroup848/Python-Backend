@@ -220,11 +220,21 @@ const setConversations =
         flex-col
         rounded-3xl
         border
-        border-white/20
-        bg-zinc-900
+        border-zinc-200
+        bg-white
+        dark:border-white/20
+        dark:bg-zinc-900
       "
     >
-      <div className="flex-1 overflow-y-auto p-6">
+      <div
+        className="
+          flex-1
+          overflow-y-auto
+          bg-zinc-50
+          p-6
+          dark:bg-zinc-900
+        "
+      >
 
         <MessageList
           messages={messages}
@@ -232,7 +242,16 @@ const setConversations =
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t border-white/10 p-4">
+      <div
+        className="
+          border-t
+          border-zinc-200
+          bg-white
+          p-4
+          dark:border-white/10
+          dark:bg-zinc-900
+        "
+      >
 
         <MessageInput
           onSend={handleSend}
