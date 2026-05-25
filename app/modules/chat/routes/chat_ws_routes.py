@@ -313,11 +313,6 @@ async def websocket_chat(
 
                 continue
 
-
-            
-
-            
-
             #await websocket.send_json({
              #   "type": "start"
             #})
@@ -328,18 +323,14 @@ async def websocket_chat(
                    "type": "start"
                })
 
-               async for chunk in stream_response(
-                  response_text
-               ):
-
-                  await websocket.send_json({
-                      "type": "chunk",
-                      "content": chunk,
-                  })
+               await websocket.send_json({
+                   "type": "chunk",
+                   "content": response_text,
+               })
 
                await websocket.send_json({
                    "type": "done"
-              })
+               })
                
                async with AsyncSessionLocal() as db:
 

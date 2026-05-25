@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -18,6 +19,13 @@ import {
 import {
   useDocumentStore,
 } from "@/features/documents/stores/document-store";
+import {
+  VoiceButton,
+} from "@/features/voice/components/voice-button";
+
+import {
+  useVoiceRecorder,
+} from "@/features/voice/hooks/useVoiceRecorder";
 
 interface MessageInputProps {
   onSend: (
@@ -37,6 +45,36 @@ export function MessageInput({
 
   const [uploading, setUploading] =
     useState(false);
+
+  const {
+    isRecording,
+    transcript,
+    startRecording,
+    stopRecording,
+  } = useVoiceRecorder();
+
+  useEffect(() => {
+
+    if (!transcript) {
+      return;
+    }
+
+    setMessage((prev) => {
+
+      if (!prev) {
+        return transcript;
+      }
+
+      if (
+        prev.includes(transcript)
+      ) {
+      return prev;
+      }
+
+      return `${prev} ${transcript}`;
+    });
+
+  }, [transcript]);
 
   const addDocument =
     useDocumentStore(
@@ -163,20 +201,24 @@ export function MessageInput({
 
     {/* INPUT */}
 
-    <div
-      className="
-        flex
-        items-center
-        gap-3
-        rounded-2xl
-        border
-        border-zinc-200
-        bg-white
-        p-3
-        dark:border-white/10
-        dark:bg-zinc-900
-      "
-    >
+    <div className="relative">
+
+      
+
+      <div
+        className="
+          flex
+          items-center
+          gap-3
+          rounded-2xl
+          border
+          border-zinc-200
+          bg-white
+          p-3
+          dark:border-white/10
+          dark:bg-zinc-900
+        "
+      > 
       <textarea
         value={message}
         onChange={(e) =>
@@ -216,6 +258,7 @@ export function MessageInput({
         disabled={uploading}
 
         className="
+          shrink-0
           flex
           h-10
           w-10
@@ -269,10 +312,17 @@ export function MessageInput({
         }}
       />
 
+      <VoiceButton
+        isRecording={isRecording}
+        startRecording={startRecording}
+        stopRecording={stopRecording}
+      />
+
       <button
         onClick={handleSend}
         aria-label="Send message"
         className="
+          shrink-0
           flex
           h-10
           w-10
@@ -287,9 +337,13 @@ export function MessageInput({
           dark:text-black
         "
       >
+        
         <Send className="h-4 w-4" />
       </button>
+      </div>
+
     </div>
-    </div>
+
+  </div>
   );
 }

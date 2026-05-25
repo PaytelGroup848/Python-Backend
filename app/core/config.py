@@ -21,6 +21,8 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str
 
+    DEEPGRAM_API_KEY: str
+
     class Config:
 
         env_file = ".env"

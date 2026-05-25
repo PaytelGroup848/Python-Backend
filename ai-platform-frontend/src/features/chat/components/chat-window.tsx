@@ -95,11 +95,24 @@ const setConversations =
 
     (data) => {
 
+      console.log(
+        "WS DATA:",
+        data
+      );
+
       if (
         data.type === "start"
       ) {
 
         setStreaming(true);
+
+        addMessage({
+          id: uuid(),
+          role: "assistant",
+          content: "",
+        });
+
+        return;
       }
 
       if (
@@ -148,11 +161,7 @@ const setConversations =
       content,
     });
 
-    addMessage({
-      id: uuid(),
-      role: "assistant",
-      content: "",
-    });
+    
 
     if (
       shouldGenerateTitle &&
@@ -202,6 +211,11 @@ const setConversations =
 
       return;
     }
+
+    console.log(
+      "ACTIVE CONVERSATION:",
+      activeConversationId
+    );
 
     socketClient.send({
 

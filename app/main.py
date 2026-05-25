@@ -45,6 +45,10 @@ from app.modules.chat.routes.chat_ws_routes import (
     router as chat_ws_router
 )
 
+from app.modules.voice.routes.voice_ws_routes import (
+    router as voice_ws_router
+)
+
 from app.routes.conversation_routes import (
     router as conversation_router
 )
@@ -82,6 +86,10 @@ app.include_router(vector_router)
 app.include_router(pdf_router)
 app.include_router(voice_router)
 app.include_router(chat_ws_router)
+
+app.include_router(
+    voice_ws_router
+)
 app.include_router(
     conversation_router
 )
