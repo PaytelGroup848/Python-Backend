@@ -67,7 +67,7 @@ export function useVoiceRecorder() {
           "Starting media recorder"
         );
 
-        mediaRecorder.start(250);
+        mediaRecorder.start(100);
 
         setIsRecording(true);
       };

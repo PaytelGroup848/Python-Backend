@@ -1,9 +1,13 @@
 services:
 
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
 
     container_name: ai-llm-app
+
+    restart: always
 
     depends_on:
       - postgres
@@ -18,10 +22,19 @@ services:
     volumes:
       - .:/app
 
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+
   postgres:
-    image: pgvector/pgvector:0.8.0-pg15
+    image: pgvector/pgvector:pg15
 
     container_name: ai-llm-postgres
+
+    restart: always
+
+    shm_size: 1gb
 
     environment:
       POSTGRES_USER: postgres
@@ -35,17 +48,30 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   redis:
-    image: redis:7
+    image: redis:7-alpine
 
     container_name: ai-llm-redis
 
+    restart: always
+
     ports:
       - "6379:6379"
+
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 2gb
+      --maxmemory-policy allkeys-lru
+
+    volumes:
+      - redis_data:/data
 
   nginx:
     image: nginx:latest
 
     container_name: ai-llm-nginx
+
+    restart: always
 
     ports:
       - "80:80"
@@ -56,5 +82,11 @@ services:
     depends_on:
       - app
 
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+
 volumes:
   postgres_data:
+  redis_data:

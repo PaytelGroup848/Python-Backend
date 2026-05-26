@@ -17,16 +17,31 @@ from app.models.conversation_session import (
 )
 
 #import os
-import time
+#import time
+
+import uuid
+import asyncio
+
+from app.shared.redis.stream_service import (
+    redis_stream_service
+)
+
+from app.shared.events.chat_event import (
+    ChatEvent
+)
+
+from app.shared.constants.streams import (
+    CHAT_REQUEST_STREAM
+)
+
+from app.modules.chat.services.ws_manager import (
+    ws_manager
+)
 
 from app.core.logger import (
     logger,
 )
 
-from app.services.llm_service import (
-    get_fastest_response,
-    stream_response,
-)
 
 from app.services.rate_limit_service import (
     check_rate_limit,
@@ -123,7 +138,12 @@ async def websocket_chat(
 
         while True:
 
-            data = await websocket.receive_json()
+            data = await asyncio.wait_for(
+
+                websocket.receive_json(),
+
+                timeout=60,
+            )
 
             # Skip heartbeat logging
 
@@ -187,27 +207,6 @@ async def websocket_chat(
                 f"user={user_id} "
                 f"conversation={conversation_id}"
             )
-            
-            async with AsyncSessionLocal() as db:
-
-                conversation = await db.get(
-                    ConversationSession,
-                    conversation_id
-                )
-
-                if (
-                    not conversation or
-                    conversation.user_id != int(user_id)
-                ):
-
-                    await websocket.send_json({
-                        "type": "error",
-                        "message":
-                            "Invalid conversation"
-                    })
-
-                    continue
-
             logger.info(
                 f"Rate limit check "
                 f"user={user_id}"
@@ -233,18 +232,36 @@ async def websocket_chat(
 
                continue
 
-            
-
-            
-
             async with AsyncSessionLocal() as db:
+
+                conversation = await db.get(
+                    ConversationSession,
+                    conversation_id
+                )
+
+                if (
+                    not conversation or
+                    conversation.user_id != int(user_id)
+                ):
+
+                    await websocket.send_json({
+                        "type": "error",
+                        "message":
+                            "Invalid conversation"
+                    })
+
+                    continue
 
                 try:
 
                     user_message = Message(
-                       conversation_id=conversation_id,
-                       role="user",
-                       content=message,
+
+                        conversation_id=
+                            conversation_id,
+
+                        role="user",
+
+                        content=message,
                     )
 
                     db.add(user_message)
@@ -257,61 +274,7 @@ async def websocket_chat(
 
                     raise
 
-            try:
-
-                logger.info(
-                    f"Generating AI response "
-                    f"user={user_id}"
-                )
-
-                start_time = time.perf_counter()
-
-                result = await get_fastest_response(
-                    query=message,
-                    user_id=int(user_id)
-                )
-
-                response_text = (
-                    result["response"]
-                )
-
-                latency = (
-                    time.perf_counter()
-                    - start_time
-                )
-
-                logger.info(
-                    f"AI response generated "
-                    f"user={user_id} "
-                    f"latency={latency:.2f}s"
-                )
-
-            except Exception:
-
-                logger.exception(
-                    f"AI generation failed "
-                    f"user={user_id}"
-                )
-
-                try:
-
-                    await websocket.send_json({
-                        "type": "error",
-                        "message":
-                            "AI generation failed"
-                    })
-
-                except WebSocketDisconnect:
-
-                    logger.info(
-                        f"Client disconnected "
-                        f"during AI failure "
-                        f"user={user_id}"
-                    )
-
-                    break
-
-                continue
+    
 
             #await websocket.send_json({
              #   "type": "start"
@@ -319,40 +282,55 @@ async def websocket_chat(
 
             try:
 
-               await websocket.send_json({
-                   "type": "start"
-               })
+                request_id = str(
+                    uuid.uuid4()
+                )
 
-               await websocket.send_json({
-                   "type": "chunk",
-                   "content": response_text,
-               })
+                event = ChatEvent(
 
-               await websocket.send_json({
-                   "type": "done"
-               })
+                    request_id=request_id,
+
+                    user_id=int(user_id),
+
+                    conversation_id=int(
+                        conversation_id
+                    ),
+
+                    query=message,
+                )
+
+                await redis_stream_service.publish(
+
+                    CHAT_REQUEST_STREAM,
+
+                    event.model_dump(),
+                )
+
+                await websocket.send_json({
+
+                    "type": "queued",
+
+                    "request_id": request_id,
+                })
+
+                await ws_manager.connect(
+                    request_id,
+                    websocket,
+                )
+
+                logger.info(
+                    f"Chat request queued "
+                    f"user={user_id} "
+                    f"request_id={request_id}"
+                )
                
-               async with AsyncSessionLocal() as db:
-
-                  try:
-
-                     assistant_message = Message(
-                         conversation_id=conversation_id,
-                         role="assistant",
-                         content=response_text,
-                     )
-
-                     db.add(assistant_message)
-
-                     await db.commit()
-
-                  except Exception:
-
-                      await db.rollback()
-
-                      raise
+               
 
             except WebSocketDisconnect:
+
+                await ws_manager.disconnect(
+                    request_id
+                )
 
                 logger.info(
                     f"Streaming disconnected "
@@ -360,6 +338,18 @@ async def websocket_chat(
                 )
 
                 break
+
+    except asyncio.TimeoutError:
+
+        logger.warning(
+            f"WebSocket timeout "
+            f"user={user_id}"
+        )
+
+        await websocket.close()
+
+        break
+
     except WebSocketDisconnect:
 
         logger.info(
