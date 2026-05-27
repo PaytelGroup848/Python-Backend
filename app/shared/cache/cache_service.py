@@ -1,25 +1,36 @@
 import json
+import asyncio
 
-from app.shared.redis.client import (
+from app.db.redis_client import (
     redis_client
 )
 
-
 class CacheService:
+
+    def __init__(self):
+
+        self.lock = asyncio.Lock()
 
     async def get(
         self,
         key: str,
     ):
 
-        data = await redis_client.get(
-            key
-        )
+        try:
 
-        if not data:
+            value = await redis_client.get(
+                key
+            )
+
+            if not value:
+
+                return None
+
+            return json.loads(value)
+
+        except Exception:
+
             return None
-
-        return json.loads(data)
 
     async def set(
 
@@ -32,23 +43,39 @@ class CacheService:
         ttl: int = 300,
     ):
 
-        await redis_client.setex(
+        try:
 
-            key,
+            async with self.lock:
 
-            ttl,
+                await redis_client.setex(
 
-            json.dumps(value),
-        )
+                    key,
+
+                    ttl,
+
+                    json.dumps(value)
+                )
+
+        except Exception:
+
+            pass
 
     async def delete(
         self,
         key: str,
     ):
 
-        await redis_client.delete(
-            key
-        )
+        try:
+
+            async with self.lock:
+
+                await redis_client.delete(
+                    key
+                )
+
+        except Exception:
+
+            pass
 
 
 cache_service = CacheService()

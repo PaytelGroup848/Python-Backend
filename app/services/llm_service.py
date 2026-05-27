@@ -2,9 +2,11 @@
 
 import asyncio
 
+import time
 
-
-from app.services.rag_service import retrieve_context
+from app.modules.chat.services.rag_service import (
+    retrieve_context
+)
 from app.db.redis_client import (
     redis_client
 )
@@ -14,7 +16,7 @@ from app.db.database import AsyncSessionLocal
 from app.shared.cache.cache_service import (
     cache_service
 )
-from app.services.memory_service import (
+from app.modules.chat.services.memory_service import (
     memory_service
 )
 
@@ -23,28 +25,9 @@ from app.modules.chat.providers.provider_registry import (
     provider_registry
 )
 
-
-##plan based limit
-
-
-#now currently store user normally in future upgarde and store in database 
-
-
-
-#cost tracking and token according to users 
-
-
-
-
-
-
-
-
 # =========================
 # ROUTES (ADD HERE)
 # =========================
-
-
 
 def route_query(query):
     query_lower = query.lower()

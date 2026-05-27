@@ -1,3 +1,6 @@
+import logging
+import time
+
 from app.modules.chat.providers.openai_provider import (
     OpenAIProvider
 )
@@ -6,11 +9,14 @@ from app.modules.chat.providers.groq_provider import (
     GroqProvider
 )
 
-import time
-
 from app.modules.chat.services.provider_health import (
     provider_health_service
 )
+from app.shared.metrics.metrics_service import (
+    metrics_service
+)
+
+logger = logging.getLogger(__name__)
 
 
 class LLMManager:
@@ -24,20 +30,21 @@ class LLMManager:
             "groq": GroqProvider(),
         }
 
-        self.default_provider = (
-            "groq"
-        )
-
     async def stream_response(
 
         self,
 
         message: str,
     ):
+        await metrics_service.increment_requests()
 
-        provider_name = (
+        provider_name = await (
             provider_health_service
-            .get_best_provider()
+            .get_best_provider(
+                list(
+                    self.providers.keys()
+                )
+            )
         )
 
         if not provider_name:
@@ -52,7 +59,14 @@ class LLMManager:
             ]
         )
 
-        start_time = time.perf_counter()
+        logger.info(
+            f"Selected provider: "
+            f"{provider_name}"
+        )
+
+        start_time = (
+            time.perf_counter()
+        )
 
         try:
 
@@ -67,26 +81,105 @@ class LLMManager:
             latency = (
                 (
                     time.perf_counter()
-                    - start_time
+                    -
+                    start_time
                 ) * 1000
             )
 
-            provider_health_service.record_success(
-
-                provider_name,
-
-                latency,
+            await (
+                provider_health_service
+                .record_success(
+                    provider_name,
+                    latency,
+                )
             )
 
-        except Exception:
+        except Exception as e:
 
-            provider_health_service.record_failure(
-                provider_name
+            logger.exception(
+                f"Provider failed: "
+                f"{provider_name}"
             )
 
-            raise
+            await (
+                provider_health_service
+                .record_failure(
+                    provider_name
+                )
+            )
+            await metrics_service.record_provider_failure(
+               provider_name
+            )
 
-            yield chunk
+            fallback_providers = [
+
+                provider
+
+                for provider
+                in self.providers.keys()
+
+                if provider != provider_name
+            ]
+
+            fallback_provider_name = await (
+                provider_health_service
+                .get_best_provider(
+                    fallback_providers
+                )
+            )
+
+            await metrics_service.increment_failures()
+
+            if not fallback_provider_name:
+
+                raise e
+
+            logger.warning(
+                f"Fallback provider used: "
+                f"{fallback_provider_name}"
+            )
+
+            fallback_provider = (
+                self.providers[
+                    fallback_provider_name
+                ]
+            )
+
+            fallback_start = (
+                time.perf_counter()
+            )
+
+            async for chunk in (
+                fallback_provider.stream_chat(
+                    message
+                )
+            ):
+
+                yield chunk
+
+            fallback_latency = (
+                (
+                    time.perf_counter()
+                    -
+                    fallback_start
+                ) * 1000
+            )
+
+            await (
+                provider_health_service
+                .record_success(
+
+                    fallback_provider_name,
+
+                    fallback_latency,
+                )
+            )
+            await metrics_service.record_provider_latency(
+
+               provider_name,
+
+               latency,
+            )
 
 
 llm_manager = (

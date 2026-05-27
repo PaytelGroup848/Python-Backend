@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings
 
 
+
 class Settings(BaseSettings):
 
     PROJECT_NAME: str = "AI ERP Backend"
@@ -26,6 +27,17 @@ class Settings(BaseSettings):
     REDIS_HOST: str
     
     REDIS_PORT: int
+
+    RAG_SIMILARITY_THRESHOLD = 1.5
+
+    RAG_MAX_CONTEXT_CHARS = 12000
+    RAG_MAX_INGESTION_CHUNKS = 5000
+
+    EMBEDDING_WORKER_BATCH_SIZE = 10
+
+    PROVIDER_FAILURE_THRESHOLD = 3
+
+    PROVIDER_COOLDOWN_SECONDS = 60
 
 
 

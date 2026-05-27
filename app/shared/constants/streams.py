@@ -9,3 +9,7 @@ CHAT_RESPONSE_STREAM = (
 RAG_STREAM = (
     "rag_tasks"
 )
+
+EMBEDDING_STREAM = (
+    "embedding_requests"
+)

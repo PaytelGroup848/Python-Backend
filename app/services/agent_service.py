@@ -2,10 +2,12 @@ from typing import TypedDict
 
 from langgraph.graph import StateGraph, END
 
-from app.services.rag_service import retrieve_context
+from app.modules.chat.services.rag_service import (
+    retrieve_context
+)
 import asyncio
 
-from app.services.llm_service import (
+from app.modules.chat.services.llm_manager import (
     get_fastest_response
 )
 
@@ -14,7 +16,7 @@ from app.services.tool_service import (
     get_system_stats,
     search_documents_tool
 )
-from app.services.memory_service import (
+from app.modules.chat.services.memory_service import (
     save_memory,
     get_memory
 )
@@ -219,7 +221,7 @@ async def load_memory(state: AgentState):
     memory = await get_memory(session_id)
 
     formatted = "\n".join([
-        f"{m['role']}: {m['message']}"
+        f"{m['role']}: {m['content']}"
         for m in memory[-10:]
     ])
 

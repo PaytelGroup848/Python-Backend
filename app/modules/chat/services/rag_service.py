@@ -1,12 +1,16 @@
 import logging
 import os
-from typing import Sequence
+import aiofiles
+
+
+
+import asyncio
 from pypdf import PdfReader
 from app.services.document_ingestion_service import (
     parse_document
 )
 from sqlalchemy.ext.asyncio import AsyncSession
-from sentence_transformers import CrossEncoder
+
 
 from app.services.job_service import (
     complete_job,
@@ -14,19 +18,43 @@ from app.services.job_service import (
 )
 
 from app.services.vector_service import (
-    semantic_search,
-    store_document
+    semantic_search
+)
+from app.shared.redis.embedding_stream import (
+    publish_embedding_job
 )
 
 from app.services.ocr_service import (
     extract_text_from_scanned_pdf
 )
+
+
+from app.modules.chat.services.rag.reranking_service import (
+    rerank_results
+)
+
+from app.modules.chat.services.rag.context_builder import (
+    build_context
+)
+
+from app.modules.chat.services.rag.chunking_service import (
+    chunk_text
+)
+from app.core.config import (
+    RAG_SIMILARITY_THRESHOLD,
+    RAG_MAX_INGESTION_CHUNKS
+)
+
+from app.services.language_service import (
+    detect_language,
+    translate_to_english
+)
+
+
 logger = logging.getLogger(__name__)
 
 
-reranker = CrossEncoder(
-    "cross-encoder/ms-marco-MiniLM-L-6-v2"
-)
+
 # -----------------------------
 # TEXT CLEANING
 # -----------------------------
@@ -38,101 +66,36 @@ def clean_text(text: str) -> str:
         .replace("\x00", "")
         .strip()
     )
-# -----------------------------
-# SMART CHUNKING
-# -----------------------------
-
-def chunk_text(
-    text: str,
-    chunk_size: int = 500,
-    overlap: int = 100
-) -> list[str]:
-
-    chunks = []
-
-    start = 0
-
-    while start < len(text):
-
-        end = start + chunk_size
-
-        chunk = text[start:end]
-
-        chunks.append(chunk.strip())
-
-        start += chunk_size - overlap
-
-    return chunks
-
-def rerank_results(
-    query: str,
-    results: Sequence
-) -> list:
-
-    # --------------------------------
-    # EMPTY RESULTS SAFETY
-    # --------------------------------
-
-    if not results:
-        return []
-
-    pairs = [
-        (query, r.content)
-        for r in results
-        if getattr(r, "content", None)
-    ]
-
-    # --------------------------------
-    # EMPTY PAIRS SAFETY
-    # --------------------------------
-
-    if not pairs:
-        return list(results)
-
-    try:
-
-        scores = reranker.predict(pairs)
-
-        reranked = sorted(
-            zip(results, scores),
-            key=lambda x: x[1],
-            reverse=True
-        )
-
-        return [r[0] for r in reranked]
-
-    except Exception as e:
-
-        logger.exception(
-            f"Reranking failed: {str(e)}"
-        )
-
-        # graceful degradation
-        return list(results)
-
+   
 
 # -----------------------------
 # INGEST TXT FILE
 # -----------------------------
 
 async def ingest_text_file(
-    db: AsyncSession,
     file_path: str
 ) -> dict:
+
+    logger.info(
+        f"Starting text ingestion: "
+        f"{file_path}"
+    )
 
     if not os.path.exists(file_path):
 
         raise FileNotFoundError(
             f"File not found: {file_path}"
         )
+            
+        
 
-    with open(
+    async with aiofiles.open(
         file_path,
         "r",
         encoding="utf-8"
     ) as f:
 
-        text = f.read()
+       text = await f.read()
 
     chunks = chunk_text(text)
 
@@ -142,12 +105,23 @@ async def ingest_text_file(
 
         if chunk.strip():
 
-            await store_document(
-                db=db,
-                content=chunk
-            )
+            await publish_embedding_job({
+
+                "content": chunk,
+
+                "source_file":
+                    os.path.basename(
+                        file_path
+                    ),
+
+                "page_number": 1,
+            })
 
             stored_count += 1
+    logger.info(
+        f"Text ingestion completed: "
+        f"{file_path}"
+    )        
 
     return {
         "status": "success",
@@ -166,6 +140,11 @@ async def ingest_pdf_file(
 
     try:
 
+        logger.info(
+            f"Starting PDF ingestion: "
+            f"{pdf_path}"
+        )
+
         if not os.path.exists(pdf_path):
 
             raise FileNotFoundError(
@@ -178,18 +157,28 @@ async def ingest_pdf_file(
                 "PDF file is empty"
             )
 
-        reader = PdfReader(pdf_path)
+        reader = await asyncio.to_thread(
 
-        MAX_CHUNKS = 5000
+            PdfReader,
+
+            pdf_path
+        )
+
+        MAX_CHUNKS = RAG_MAX_INGESTION_CHUNKS
 
         total_chunks = 0
+
+        ocr_pages_cache = None
 
         for page_num, page in enumerate(reader.pages):
 
             if total_chunks >= MAX_CHUNKS:
                 break
 
-            text = page.extract_text()
+            text = await asyncio.to_thread(
+
+                page.extract_text
+             )
 
             if text:
                 text = clean_text(text)
@@ -204,13 +193,20 @@ async def ingest_pdf_file(
                     f"OCR fallback triggered for page {page_num + 1}"
                 )
 
-                ocr_pages = await extract_text_from_scanned_pdf(
-                    pdf_path
-                )
+                if ocr_pages_cache is None:
+
+                   ocr_pages_cache = await asyncio.wait_for(
+
+                       extract_text_from_scanned_pdf(
+                           pdf_path
+                       ),
+
+                      timeout=120,
+                  )
 
                 matching_page = next(
                     (
-                        p for p in ocr_pages
+                        p for p in ocr_pages_cache
                         if p["page_number"] == page_num + 1
                     ),
                     None
@@ -229,12 +225,12 @@ async def ingest_pdf_file(
             # LANGUAGE DETECTION
             # -----------------------------
 
-            from app.services.language_service import (
-                detect_language,
-                translate_to_english
-            )
+            language = await asyncio.to_thread(
 
-            language = detect_language(text)
+                detect_language,
+
+                text
+            )
 
             original_text = text
 
@@ -252,7 +248,12 @@ async def ingest_pdf_file(
                     f"from {language} to English"
                 )
 
-                text = translate_to_english(text)
+                text = await asyncio.to_thread(
+
+                    translate_to_english,
+
+                    text
+                )
 
                 translated = True
 
@@ -272,15 +273,27 @@ async def ingest_pdf_file(
 
                 if chunk:
 
-                    await store_document(
-                       db=db,
-                       content=chunk,
-                       original_content=original_text,
-                       language=language,
-                       is_translated=translated,
-                       source_file=os.path.basename(pdf_path),
-                       page_number=page_num + 1
-                    )
+                    await publish_embedding_job({
+
+                        "content": chunk,
+
+                        "original_content":
+                            original_text,
+
+                        "language":
+                            language,
+
+                        "is_translated":
+                            translated,
+
+                        "source_file":
+                            os.path.basename(
+                                pdf_path
+                            ),
+
+                       "page_number":
+                           page_num + 1,
+                    })
 
                     
 
@@ -335,31 +348,44 @@ async def retrieve_context(
             "sources": []
         }
 
-    results = await semantic_search(
-        db=db,
-        query=query,
-        user_department=user_department,
-        user_role=user_role,
-        limit=top_k
+    results = await asyncio.wait_for(
+
+        semantic_search(
+
+            db=db,
+
+            query=query,
+
+            user_department=
+                user_department,
+
+            user_role=
+                user_role,
+
+            limit=top_k
+        ),
+
+        timeout=30,
     )
 
-    results = rerank_results(
+    results = await rerank_results(
         query,
         results
     )
 
-    print(
-        "RAG RESULTS COUNT:",
-        len(results)
+    logger.info(
+        f"RAG results count: "
+        f"{len(results)}"
     )
+
 
     for r in results:
 
-        print(
-            "SOURCE:",
-            r.source_file,
-            "DISTANCE:",
-            getattr(r, "distance", None)
+        logger.info(
+            f"RAG source="
+            f"{r.source_file} "
+            f"distance="
+            f"{getattr(r, 'distance', None)}"
         )
 
     # -----------------------------
@@ -392,9 +418,11 @@ async def retrieve_context(
         1.0
     )
 
-    SIMILARITY_THRESHOLD = 1.5
+    
 
-    if distance > SIMILARITY_THRESHOLD:
+    if distance > RAG_SIMILARITY_THRESHOLD:
+
+      
 
         return {
             "context": "",
@@ -407,34 +435,14 @@ async def retrieve_context(
                 "general AI knowledge?"
             )
         }
+    return build_context(
+        results
+    )
 
     # -----------------------------
     # BUILD CONTEXT
     # -----------------------------
 
-    context_parts = []
-
-    sources = []
-
-    for r in results:
-
-        context_parts.append(r.content)
-
-        sources.append({
-            "source_file": r.source_file,
-            "page_number": r.page_number
-        })
-
-    MAX_CONTEXT_CHARS = 12000
-
-    context = "\n\n".join(context_parts)
-
-    context = context[:MAX_CONTEXT_CHARS]
-
-    return {
-        "context": context,
-        "sources": sources
-    }
 
 async def ingest_document_file(
     db: AsyncSession,
@@ -444,15 +452,25 @@ async def ingest_document_file(
 
     try:
 
+        logger.info(
+            f"Starting document ingestion: "
+            f"{file_path}"
+        )
+
         if not os.path.exists(file_path):
 
             raise FileNotFoundError(
                 f"File not found: {file_path}"
             )
 
-        pages = await parse_document(file_path)
+        pages = await asyncio.wait_for(
 
-        MAX_CHUNKS = 5000
+            parse_document(file_path),
+
+            timeout=120,
+        )
+
+        MAX_CHUNKS = RAG_MAX_INGESTION_CHUNKS
 
         total_chunks = 0
 
@@ -474,12 +492,12 @@ async def ingest_document_file(
             # LANGUAGE DETECTION
             # -----------------------------
 
-            from app.services.language_service import (
-                detect_language,
-                translate_to_english
-            )
+            language = await asyncio.to_thread(
 
-            language = detect_language(text)
+                detect_language,
+
+                text
+            )
 
             original_text = text
 
@@ -491,7 +509,12 @@ async def ingest_document_file(
 
             if language != "en":
 
-                text = translate_to_english(text)
+                text = await asyncio.to_thread(
+
+                    translate_to_english,
+
+                    text
+                )
 
                 translated = True
 
@@ -504,15 +527,27 @@ async def ingest_document_file(
                 if not chunk:
                     continue
 
-                await store_document(
-                    db=db,
-                    content=chunk,
-                    original_content=original_text,
-                    language=language,
-                    is_translated=translated,
-                    source_file=os.path.basename(file_path),
-                    page_number=page_num
-                )
+                await publish_embedding_job({
+
+                    "content": chunk,
+
+                    "original_content":
+                        original_text,
+
+                    "language":
+                        language,
+
+                    "is_translated":
+                        translated,
+
+                    "source_file":
+                        os.path.basename(
+                            file_path
+                        ),
+
+                    "page_number":
+                        page_num,
+                    })
 
                 total_chunks += 1
 
@@ -520,6 +555,11 @@ async def ingest_document_file(
             db=db,
             job_id=job_id,
             chunks_stored=total_chunks
+        )
+
+        logger.info(
+            f"Document ingestion completed: "
+            f"{file_path}"
         )
 
         return {

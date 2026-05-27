@@ -1,26 +1,55 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
+import asyncio
+import logging
 
-from app.models.document import Document
-from app.services.embedding_service import generate_embedding
+from typing import List
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import (
+    AsyncSession
+)
+
+from app.models.document import (
+    Document
+)
+
+from app.modules.chat.services.embedding_service import (
+    generate_embedding
+)
+
+from app.shared.cache.cache_service import (
+    cache_service
+)
+
+logger = logging.getLogger(__name__)
 
 
 async def store_document(
+
     db: AsyncSession,
+
+    embedding: List[float],
+
     content: str,
+
     original_content: str = None,
+
     language: str = "en",
+
     is_translated: bool = False,
+
     source_file: str = None,
+
     page_number: int = None,
+
     department: str = "general",
+
     access_level: str = "internal",
+
     uploaded_by: int = 0
 ):
 
-    embedding = generate_embedding(content)
-
     doc = Document(
+
         content=content,
 
         original_content=original_content,
@@ -44,99 +73,308 @@ async def store_document(
 
     db.add(doc)
 
-    await db.commit()
-
-    await db.refresh(doc)
-
     return doc
 
 
 async def semantic_search(
+
     db: AsyncSession,
+
     query: str,
+
     user_department: str,
+
     user_role: str,
-    limit: int = 5
+
+    limit: int = 5,
 ):
 
-    embedding = generate_embedding(query)
+    # =========================
+    # QUERY NORMALIZATION
+    # =========================
+
+    query = query.strip().lower()
+
+    if not query:
+
+        return []
+
+    if len(query) > 1000:
+
+        logger.warning(
+            "Search query too large"
+        )
+
+        return []
+
+    limit = min(limit, 20)
+
+    # =========================
+    # CACHE KEY
+    # =========================
+
+    cache_key = (
+
+        f"semantic_search:"
+        f"{query}:"
+        f"{user_department}:"
+        f"{user_role}:"
+        f"{limit}"
+    )
+
+    # =========================
+    # CACHE CHECK
+    # =========================
+
+    cached_result = await (
+        cache_service.get(
+            cache_key
+        )
+    )
+
+    if cached_result:
+
+        logger.info(
+            "Semantic search cache hit"
+        )
+
+        return cached_result
+
+    # =========================
+    # GENERATE EMBEDDING
+    # =========================
+
+    try:
+
+        embedding = await asyncio.wait_for(
+
+            generate_embedding(query),
+
+            timeout=30,
+        )
+
+    except Exception as e:
+
+        logger.exception(
+
+            f"Embedding generation failed: "
+            f"{str(e)}"
+        )
+
+        return []
+
+    # =========================
+    # VECTOR SEARCH SQL
+    # =========================
 
     vector_sql = text("""
+
         SELECT
             id,
             content,
             source_file,
             page_number,
-            embedding <=> CAST(:embedding AS vector)
-            AS distance
+
+            embedding <=> CAST(
+                :embedding AS vector
+            ) AS distance
 
         FROM documents
 
         WHERE (
-           department = :user_department
-           OR :user_role = 'admin'
+
+            department =
+            :user_department
+
+            OR
+
+            :user_role = 'admin'
         )
 
-        ORDER BY embedding <=> CAST(:embedding AS vector)
+        ORDER BY embedding <=> CAST(
+            :embedding AS vector
+        )
 
         LIMIT :limit
     """)
 
+    # =========================
+    # KEYWORD SEARCH SQL
+    # =========================
+
     keyword_sql = text("""
+
         SELECT
             id,
             content,
             source_file,
             page_number,
+
             0.0 AS distance
 
         FROM documents
 
         WHERE (
+
             content ILIKE :keyword
+
             AND (
-                department = :user_department
-                OR :user_role = 'admin'
+
+                department =
+                :user_department
+
+                OR
+
+                :user_role = 'admin'
             )
         )
 
         LIMIT :limit
     """)
 
-    vector_result = await db.execute(
-        vector_sql,
-        {
-            "embedding": str(embedding),
-            "limit": limit,
-            "user_department": user_department,
-            "user_role": user_role
-        }
-    )
+    # =========================
+    # VECTOR SEARCH
+    # =========================
 
-    vector_results = vector_result.fetchall()
+    try:
 
-    keyword_result = await db.execute(
-        keyword_sql,
-        {
-            "keyword": f"%{query}%",
-            "limit": limit,
-            "user_department": user_department,
-            "user_role": user_role
-        }
-    )
+        vector_result = await asyncio.wait_for(
 
-    keyword_results = keyword_result.fetchall()
+            db.execute(
+
+                vector_sql,
+
+                {
+                    "embedding": embedding,
+
+                    "limit": limit,
+
+                    "user_department":
+                    user_department,
+
+                    "user_role":
+                    user_role
+                }
+            ),
+
+            timeout=30,
+        )
+
+        vector_results = (
+            vector_result.fetchall()
+        )
+
+    except Exception as e:
+
+        logger.exception(
+
+            f"Vector search failed: "
+            f"{str(e)}"
+        )
+
+        vector_results = []
+
+    # =========================
+    # KEYWORD SEARCH
+    # =========================
+
+    try:
+
+        keyword_result = await asyncio.wait_for(
+
+            db.execute(
+
+                keyword_sql,
+
+                {
+                    "keyword":
+                    f"%{query}%",
+
+                    "limit":
+                    limit,
+
+                    "user_department":
+                    user_department,
+
+                    "user_role":
+                    user_role
+                }
+            ),
+
+            timeout=30,
+        )
+
+        keyword_results = (
+            keyword_result.fetchall()
+        )
+
+    except Exception as e:
+
+        logger.exception(
+
+            f"Keyword search failed: "
+            f"{str(e)}"
+        )
+
+        keyword_results = []
+
+    # =========================
+    # MERGE RESULTS
+    # =========================
 
     combined = {}
 
-    for r in vector_results:
-        combined[r.id] = r
+    for row in vector_results:
 
-    for r in keyword_results:
-        combined[r.id] = r
+        combined[row.id] = row
 
-    print("VECTOR RESULTS:", len(vector_results))
-    print("KEYWORD RESULTS:", len(keyword_results))
-    print("COMBINED RESULTS:", len(combined))
+    for row in keyword_results:
 
-    return list(combined.values())
+        combined[row.id] = row
+
+    final_results = list(
+        combined.values()
+    )
+
+    # =========================
+    # CACHE RESULTS
+    # =========================
+
+    try:
+
+        await cache_service.set(
+
+            cache_key,
+
+            [
+                dict(row._mapping)
+                for row in final_results
+            ],
+
+            ttl=300,
+        )
+
+    except Exception as e:
+
+        logger.warning(
+
+            f"Cache set failed: "
+            f"{str(e)}"
+        )
+
+    # =========================
+    # LOGGING
+    # =========================
+
+    logger.info(
+
+        f"Semantic search completed "
+
+        f"vector={len(vector_results)} "
+
+        f"keyword={len(keyword_results)} "
+
+        f"combined={len(final_results)}"
+    )
+
+    return final_results

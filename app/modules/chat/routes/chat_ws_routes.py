@@ -1,6 +1,12 @@
-from fastapi import APIRouter
-from fastapi import WebSocket
-from fastapi import WebSocketDisconnect
+import asyncio
+import uuid
+
+from fastapi import (
+    APIRouter,
+    WebSocket,
+    WebSocketDisconnect
+)
+
 from jose import jwt
 from jose import JWTError
 
@@ -15,12 +21,6 @@ from app.models.message import (
 from app.models.conversation_session import (
     ConversationSession,
 )
-
-#import os
-#import time
-
-import uuid
-import asyncio
 
 from app.shared.redis.stream_service import (
     redis_stream_service
@@ -38,14 +38,22 @@ from app.modules.chat.services.ws_manager import (
     ws_manager
 )
 
+from app.modules.chat.services.queue_service import (
+    queue_service
+)
+
+from app.shared.metrics.metrics_service import (
+    metrics_service
+)
+
 from app.core.logger import (
     logger,
 )
 
-
 from app.services.rate_limit_service import (
     check_rate_limit,
 )
+
 from app.core.security import (
     SECRET_KEY,
     ALGORITHM,
@@ -53,19 +61,13 @@ from app.core.security import (
 
 router = APIRouter()
 
-#SECRET_KEY = os.getenv(
- #   "SECRET_KEY"
-#)
-
-#ALGORITHM = "HS256"
-
 
 @router.websocket("/ws/chat")
 async def websocket_chat(
     websocket: WebSocket
 ):
 
-    
+    request_id = None
 
     # =========================
     # GET TOKEN
@@ -78,7 +80,9 @@ async def websocket_chat(
     if not token:
 
         await websocket.send_json({
+
             "type": "error",
+
             "message": "Missing token"
         })
 
@@ -95,9 +99,12 @@ async def websocket_chat(
     try:
 
         payload = jwt.decode(
-           token,
-           SECRET_KEY,
-           algorithms=[ALGORITHM]
+
+            token,
+
+            SECRET_KEY,
+
+            algorithms=[ALGORITHM]
         )
 
         user_id = payload.get("sub")
@@ -109,10 +116,15 @@ async def websocket_chat(
             )
 
         logger.info(
-            f"Authenticated websocket user={user_id}"
+            f"Authenticated websocket "
+            f"user={user_id}"
         )
 
         await websocket.accept()
+
+        await metrics_service.set_active_websockets(
+            ws_manager.connection_count()
+        )
 
         logger.info(
             "WebSocket connection accepted"
@@ -121,7 +133,8 @@ async def websocket_chat(
     except JWTError as e:
 
         logger.warning(
-            f"JWT verification failed: {str(e)}"
+            f"JWT verification failed: "
+            f"{str(e)}"
         )
 
         await websocket.close(
@@ -134,6 +147,10 @@ async def websocket_chat(
     # CHAT LOOP
     # =========================
 
+    message_queue = asyncio.Queue(
+        maxsize=10
+    )
+
     try:
 
         while True:
@@ -145,17 +162,50 @@ async def websocket_chat(
                 timeout=60,
             )
 
-            # Skip heartbeat logging
+            # =========================
+            # BACKPRESSURE CONTROL
+            # =========================
 
-            if data.get("type") == "ping":
+            if message_queue.full():
 
-               await websocket.send_json({
-                   "type": "pong"
-               })
+                await websocket.send_json({
 
-               continue
+                    "type": "error",
 
-            message = data.get(
+                    "message":
+                    "Too many pending requests"
+                })
+
+                continue
+
+            await message_queue.put(data)
+
+            queued_data = (
+                await message_queue.get()
+            )
+
+            # =========================
+            # HEARTBEAT
+            # =========================
+
+            if (
+                queued_data.get("type")
+                ==
+                "ping"
+            ):
+
+                await websocket.send_json({
+
+                    "type": "pong"
+                })
+
+                continue
+
+            # =========================
+            # VALIDATE MESSAGE
+            # =========================
+
+            message = queued_data.get(
                 "message",
                 ""
             )
@@ -165,99 +215,127 @@ async def websocket_chat(
                 str
             ):
 
-               await websocket.send_json({
-                   "type": "error",
-                   "message":
-                       "Invalid message format"
-               })
+                await websocket.send_json({
 
-               continue
+                    "type": "error",
 
-            
+                    "message":
+                    "Invalid message format"
+                })
+
+                continue
 
             if not message.strip():
 
-              continue
+                continue
 
             if len(message) > 5000:
 
-               await websocket.send_json({
-                   "type": "error",
-                   "message":
-                       "Message too large"
+                await websocket.send_json({
+
+                    "type": "error",
+
+                    "message":
+                    "Message too large"
                 })
 
-               continue
-            conversation_id = data.get(
-                "conversation_id"
+                continue
+
+            conversation_id = (
+                queued_data.get(
+                    "conversation_id"
+                )
             )
 
             if not conversation_id:
 
-               await websocket.send_json({
-                   "type": "error",
-                   "message":
-                       "Missing conversation_id"
-               })
+                await websocket.send_json({
 
-               continue
+                    "type": "error",
+
+                    "message":
+                    "Missing conversation_id"
+                })
+
+                continue
 
             logger.info(
+
                 f"Message received "
                 f"user={user_id} "
                 f"conversation={conversation_id}"
             )
-            logger.info(
-                f"Rate limit check "
-                f"user={user_id}"
-            )
+
+            # =========================
+            # RATE LIMIT
+            # =========================
 
             allowed = await check_rate_limit(
                 str(user_id)
             )
 
-            
-
             if not allowed:
-               logger.warning(
-                   f"Rate limit exceeded "
-                   f"user={user_id}"
+
+                logger.warning(
+
+                    f"Rate limit exceeded "
+                    f"user={user_id}"
                 )
 
-               await websocket.send_json({
-                   "type": "error",
-                   "message":
-                       "Rate limit exceeded"
+                await websocket.send_json({
+
+                    "type": "error",
+
+                    "message":
+                    "Rate limit exceeded"
                 })
 
-               continue
+                continue
+
+            # =========================
+            # VALIDATE CONVERSATION
+            # =========================
 
             async with AsyncSessionLocal() as db:
 
                 conversation = await db.get(
+
                     ConversationSession,
+
                     conversation_id
                 )
 
                 if (
-                    not conversation or
-                    conversation.user_id != int(user_id)
+
+                    not conversation
+
+                    or
+
+                    conversation.user_id
+                    !=
+                    int(user_id)
                 ):
 
                     await websocket.send_json({
+
                         "type": "error",
+
                         "message":
-                            "Invalid conversation"
+                        "Invalid conversation"
                     })
 
                     continue
+
+                # =========================
+                # SAVE USER MESSAGE
+                # =========================
 
                 try:
 
                     user_message = Message(
 
                         conversation_id=
-                            conversation_id,
+                        conversation_id,
 
                         role="user",
 
@@ -274,11 +352,9 @@ async def websocket_chat(
 
                     raise
 
-    
-
-            #await websocket.send_json({
-             #   "type": "start"
-            #})
+            # =========================
+            # QUEUE REQUEST
+            # =========================
 
             try:
 
@@ -299,6 +375,32 @@ async def websocket_chat(
                     query=message,
                 )
 
+                allowed = await (
+                    queue_service
+                    .can_enqueue(
+                        str(user_id)
+                    )
+                )
+
+                if not allowed:
+
+                    await websocket.send_json({
+
+                        "type": "error",
+
+                        "message":
+                        "Too many pending requests"
+                    })
+
+                    continue
+
+                await ws_manager.connect(
+
+                    request_id,
+
+                    websocket,
+                )
+
                 await redis_stream_service.publish(
 
                     CHAT_REQUEST_STREAM,
@@ -306,33 +408,39 @@ async def websocket_chat(
                     event.model_dump(),
                 )
 
+                await queue_service.increment(
+                    str(user_id)
+                )
+
                 await websocket.send_json({
 
                     "type": "queued",
 
-                    "request_id": request_id,
+                    "request_id":
+                    request_id,
                 })
 
-                await ws_manager.connect(
-                    request_id,
-                    websocket,
-                )
-
                 logger.info(
+
                     f"Chat request queued "
                     f"user={user_id} "
                     f"request_id={request_id}"
                 )
-               
-               
 
             except WebSocketDisconnect:
 
-                await ws_manager.disconnect(
-                    request_id
-                )
+                if "request_id" in locals():
+
+                    await ws_manager.disconnect(
+                        request_id
+                    )
+
+                    await metrics_service.set_active_websockets(
+                        ws_manager.connection_count()
+                    )
 
                 logger.info(
+
                     f"Streaming disconnected "
                     f"user={user_id}"
                 )
@@ -342,36 +450,56 @@ async def websocket_chat(
     except asyncio.TimeoutError:
 
         logger.warning(
+
             f"WebSocket timeout "
             f"user={user_id}"
         )
 
         await websocket.close()
 
-        break
+        return
 
     except WebSocketDisconnect:
 
         logger.info(
+
             f"Client disconnected "
             f"user={user_id}"
         )
 
+        if request_id:
+
+            await ws_manager.disconnect(
+                request_id
+            )
+
+            await metrics_service.set_active_websockets(
+                ws_manager.connection_count()
+            )
+
     except Exception as e:
 
         logger.exception(
+
             f"WebSocket error "
-            f"user={user_id}"
+            f"user={user_id} "
+            f"error={str(e)}"
         )
 
         try:
 
             logger.info(
+
                 f"Closing websocket "
                 f"user={user_id}"
             )
 
             await websocket.close()
 
-        except:
-            pass
+        except Exception as close_error:
+
+            logger.warning(
+
+                f"WebSocket close failed: "
+                f"{str(close_error)}"
+            )
