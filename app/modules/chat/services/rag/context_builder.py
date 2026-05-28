@@ -1,6 +1,5 @@
-from app.core.config import (
-    RAG_MAX_CONTEXT_CHARS
-)
+
+from app.core.config import settings
 
 
 def build_context(
@@ -13,29 +12,59 @@ def build_context(
 
     seen_content = set()
 
+    seen_sources = set()
+
     for r in results:
 
-        if r.content not in seen_content:
+        content = (
+            r.content or ""
+        ).strip()
+
+        if (
+            content
+            and
+            content not in seen_content
+        ):
 
             context_parts.append(
-                r.content
+                content
             )
 
             seen_content.add(
-                r.content
+                content
             )
 
-        sources.append({
-            "source_file": r.source_file,
-            "page_number": r.page_number
-        })
+        source_key = (
+            r.source_file,
+            r.page_number
+        )
+
+        if (
+            source_key
+            not in seen_sources
+        ):
+
+            sources.append({
+
+                "source_file": (
+                    r.source_file
+                ),
+
+                "page_number": (
+                    r.page_number
+                )
+            })
+
+            seen_sources.add(
+                source_key
+            )
 
     context = "\n\n".join(
         context_parts
     )
 
     context = context[
-        :RAG_MAX_CONTEXT_CHARS
+        :settings.RAG_MAX_CONTEXT_CHARS
     ]
 
     sources = sources[:10]
@@ -44,3 +73,4 @@ def build_context(
         "context": context,
         "sources": sources
     }
+

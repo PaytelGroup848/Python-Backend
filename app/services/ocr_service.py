@@ -1,7 +1,15 @@
-import fitz
+
+import os
+import asyncio
+import logging
 import tempfile
 
+import fitz
+
 from paddleocr import PaddleOCR
+
+
+logger = logging.getLogger(__name__)
 
 
 ocr = PaddleOCR(
@@ -10,46 +18,145 @@ ocr = PaddleOCR(
 )
 
 
+# -----------------------------
+# SCANNED PDF OCR
+# -----------------------------
+
 async def extract_text_from_scanned_pdf(
     pdf_path: str
 ):
 
+    if not os.path.exists(pdf_path):
+
+        raise FileNotFoundError(
+            f"PDF not found: {pdf_path}"
+        )
+
     extracted_pages = []
 
-    pdf = fitz.open(pdf_path)
+    try:
 
-    for page_index in range(len(pdf)):
+        with fitz.open(pdf_path) as pdf:
 
-        page = pdf[page_index]
+            MAX_OCR_PAGES = 100
 
-        pix = page.get_pixmap()
-
-        with tempfile.NamedTemporaryFile(
-            suffix=".png"
-        ) as temp_img:
-
-            pix.save(temp_img.name)
-
-            result = ocr.ocr(
-                temp_img.name
+            total_pages = min(
+                len(pdf),
+                MAX_OCR_PAGES
             )
 
-            page_text = []
+            for page_index in range(total_pages):
 
-            if result and result[0]:
+                page = pdf[page_index]
 
-                for line in result[0]:
+                pix = page.get_pixmap(
+                    matrix=fitz.Matrix(1, 1)
+                )
 
-                    text = line[1][0]
+                temp_img_path = None
 
-                    page_text.append(text)
+                try:
 
-            extracted_pages.append({
-                "page_number": page_index + 1,
-                "text": "\n".join(page_text)
-            })
-##
-    return extracted_pages
+                    with tempfile.NamedTemporaryFile(
+                        suffix=".png",
+                        delete=False
+                    ) as temp_img:
+
+                        temp_img_path = temp_img.name
+
+                    pix.save(temp_img_path)
+
+                    result = await asyncio.wait_for(
+
+                        asyncio.to_thread(
+                            ocr.ocr,
+                            temp_img_path
+                        ),
+
+                        timeout=60,
+                    )
+
+                    page_text = []
+
+                    if result and result[0]:
+
+                        for line in result[0]:
+
+                            try:
+
+                                text = line[1][0]
+
+                                if text.strip():
+
+                                    page_text.append(text)
+
+                            except Exception:
+
+                                continue
+
+                    extracted_pages.append({
+
+                        "page_number": (
+                            page_index + 1
+                        ),
+
+                        "text": "\n".join(
+                            page_text
+                        )
+                    })
+
+                except asyncio.TimeoutError:
+
+                    logger.warning(
+                        f"OCR timeout on page "
+                        f"{page_index + 1}: "
+                        f"{pdf_path}"
+                    )
+
+                except Exception:
+
+                    logger.exception(
+                        f"PDF OCR failed on page "
+                        f"{page_index + 1}: "
+                        f"{pdf_path}"
+                    )
+
+                finally:
+
+                    if (
+                        temp_img_path
+                        and
+                        os.path.exists(
+                            temp_img_path
+                        )
+                    ):
+
+                        try:
+
+                            os.remove(
+                                temp_img_path
+                            )
+
+                        except Exception:
+
+                            logger.warning(
+                                f"Failed to delete "
+                                f"temp file: "
+                                f"{temp_img_path}"
+                            )
+
+        return extracted_pages
+
+    except Exception:
+
+        logger.exception(
+            f"Scanned PDF OCR failed: "
+            f"{pdf_path}"
+        )
+
+        raise
+
+
 # -----------------------------
 # IMAGE OCR
 # -----------------------------
@@ -58,14 +165,59 @@ async def extract_text_from_image(
     image_path: str
 ):
 
-    result = ocr.ocr(image_path)
+    if not os.path.exists(image_path):
 
-    lines = []
+        raise FileNotFoundError(
+            f"Image not found: "
+            f"{image_path}"
+        )
 
-    if result and result[0]:
+    try:
 
-        for line in result[0]:
+        result = await asyncio.wait_for(
 
-            lines.append(line[1][0])
+            asyncio.to_thread(
+                ocr.ocr,
+                image_path
+            ),
 
-    return "\n".join(lines)
+            timeout=60,
+        )
+
+        lines = []
+
+        if result and result[0]:
+
+            for line in result[0]:
+
+                try:
+
+                    text = line[1][0]
+
+                    if text.strip():
+
+                        lines.append(text)
+
+                except Exception:
+
+                    continue
+
+        return "\n".join(lines)
+
+    except asyncio.TimeoutError:
+
+        logger.warning(
+            f"Image OCR timeout: "
+            f"{image_path}"
+        )
+
+        raise
+
+    except Exception:
+
+        logger.exception(
+            f"Image OCR failed: "
+            f"{image_path}"
+        )
+
+        raise

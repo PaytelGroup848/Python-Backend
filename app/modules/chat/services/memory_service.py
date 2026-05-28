@@ -1,8 +1,12 @@
+
 import json
+import logging
+from datetime import datetime
 from typing import List, Dict, Any
 
 from app.db.redis_client import redis_client
 
+logger = logging.getLogger(__name__)
 
 MEMORY_TTL = 3600
 
@@ -10,6 +14,15 @@ MAX_MEMORY_MESSAGES = 20
 
 
 class MemoryService:
+
+    @staticmethod
+    def _memory_key(
+        session_id: str
+    ) -> str:
+
+        return (
+            f"chat:memory:{session_id}"
+        )
 
     async def save_memory(
 
@@ -23,53 +36,58 @@ class MemoryService:
 
     ) -> None:
 
-        key = (
-            f"chat:memory:{session_id}"
+        key = self._memory_key(
+            session_id
         )
 
         try:
 
-            memory = await redis_client.get(
-                key
-            )
-
-            if memory:
-
-                memory = json.loads(
-                    memory
-                )
-
-            else:
-
-                memory = []
-
-            memory.append({
+            payload = {
 
                 "role": role,
 
                 "content": message,
-            })
 
-            memory = memory[
-                -MAX_MEMORY_MESSAGES:
-            ]
+                "timestamp": (
+                    datetime.utcnow()
+                    .isoformat()
+                )
+            }
 
-            await redis_client.setex(
+            pipe = redis_client.pipeline()
 
+            # atomic append
+
+            pipe.rpush(
                 key,
-
-                MEMORY_TTL,
-
-                json.dumps(memory),
+                json.dumps(payload)
             )
 
-        except Exception as e:
+            # keep latest messages only
 
-            print(
-                "Memory save failed:"
+            pipe.ltrim(
+                key,
+                -MAX_MEMORY_MESSAGES,
+                -1
             )
 
-            print(str(e))
+            # refresh ttl
+
+            pipe.expire(
+                key,
+                MEMORY_TTL
+            )
+
+            await pipe.execute()
+
+        except Exception:
+
+            logger.exception(
+                "Memory save failed",
+                extra={
+                    "session_id": session_id
+                }
+            )
 
     async def get_memory(
 
@@ -79,31 +97,37 @@ class MemoryService:
 
     ) -> List[Dict[str, Any]]:
 
-        key = (
-            f"chat:memory:{session_id}"
+        key = self._memory_key(
+            session_id
         )
 
         try:
 
-            memory = await redis_client.get(
-                key
+            memory = await redis_client.lrange(
+                key,
+                0,
+                -1
             )
 
             if not memory:
 
                 return []
 
-            return json.loads(
-                memory
+            return [
+
+                json.loads(item)
+
+                for item in memory
+            ]
+
+        except Exception:
+
+            logger.exception(
+                "Memory fetch failed",
+                extra={
+                    "session_id": session_id
+                }
             )
-
-        except Exception as e:
-
-            print(
-                "Memory fetch failed:"
-            )
-
-            print(str(e))
 
             return []
 
@@ -115,8 +139,8 @@ class MemoryService:
 
     ) -> None:
 
-        key = (
-            f"chat:memory:{session_id}"
+        key = self._memory_key(
+            session_id
         )
 
         try:
@@ -125,15 +149,14 @@ class MemoryService:
                 key
             )
 
-        except Exception as e:
+        except Exception:
 
-            print(
-                "Memory clear failed:"
+            logger.exception(
+                "Memory clear failed",
+                extra={
+                    "session_id": session_id
+                }
             )
 
-            print(str(e))
 
-
-memory_service = (
-    MemoryService()
-)
+memory_service = MemoryService()

@@ -1,6 +1,4 @@
-from deepgram import (
-    DeepgramClient,
-)
+from deepgram import DeepgramClient
 
 from app.core.config import settings
 
@@ -15,9 +13,8 @@ class DeepgramService:
 
     async def create_connection(self):
 
-        return self.client.listen.live.v("1")
+        return self.client.listen.asynclive.v("1")
 
 
-deepgram_service = (
-    DeepgramService()
-)
+deepgram_service = DeepgramService()
+

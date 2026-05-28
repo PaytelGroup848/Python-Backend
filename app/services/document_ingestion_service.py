@@ -1,56 +1,144 @@
-import os
 
-from app.services.file_parser_service import (
-    parse_pdf,
-    parse_docx,
-    parse_txt,
-    parse_csv,
-    parse_xlsx,
-    parse_pptx,
-    parse_image
+import json
+import logging
+
+from app.db.redis_client import (
+    redis_client
+)
+
+from app.db.database import (
+    AsyncSessionLocal
+)
+
+from app.services.document_parser_service import (
+    parse_document
+)
+
+from app.modules.chat.services.rag.chunking_service import (
+    chunk_text
+)
+
+from app.services.job_service import (
+    update_job_status,
+    update_job_chunks
+)
+
+from app.shared.constants.streams import (
+    EMBEDDING_STREAM
 )
 
 
-async def parse_document(file_path: str):
+logger = logging.getLogger(__name__)
 
-    extension = os.path.splitext(
-        file_path
-    )[1].lower()
 
-    if extension == ".pdf":
+async def ingest_document_file(
+    file_path: str,
+    job_id: int
+):
 
-        return parse_pdf(file_path)
+    logger.info(
+        f"Starting ingestion: "
+        f"{file_path}"
+    )
 
-    elif extension == ".docx":
+    async with AsyncSessionLocal() as db:
 
-        return parse_docx(file_path)
+        try:
 
-    elif extension == ".txt":
+            documents = await parse_document(
+                file_path
+            )
 
-        return parse_txt(file_path)
+            total_chunks = 0
 
-    elif extension == ".csv":
+            for document in documents:
 
-        return parse_csv(file_path)
+                text = (
+                    document.get("text")
+                    or ""
+                )
 
-    elif extension == ".xlsx":
+                if not text.strip():
 
-        return parse_xlsx(file_path)
+                    continue
 
-    elif extension == ".pptx":
+                chunks = chunk_text(text)
 
-        return parse_pptx(file_path)
+                total_chunks += len(chunks)
 
-    elif extension in [
-        ".png",
-        ".jpg",
-        ".jpeg"
-    ]:
+                for chunk in chunks:
 
-        return await parse_image(file_path)
+                    payload = {
 
-    else:
+                        "content": chunk,
 
-        raise ValueError(
-            f"Unsupported document type: {extension}"
-        )
+                        "source_file": (
+                            file_path
+                        ),
+
+                        "page_number": (
+                            document.get(
+                                "page_number",
+                                1
+                            )
+                        ),
+                    }
+
+                    await redis_client.xadd(
+
+                        EMBEDDING_STREAM,
+
+                        {
+                            "data": json.dumps(
+                                payload
+                            )
+                        }
+                    )
+
+            await update_job_chunks(
+                db=db,
+                job_id=job_id,
+                chunks_stored=total_chunks
+            )
+
+            await update_job_status(
+                db=db,
+                job_id=job_id,
+                status="completed"
+            )
+
+            await db.commit()
+
+            logger.info(
+                f"Document ingestion completed: "
+                f"{file_path}"
+            )
+
+        except Exception:
+
+            logger.exception(
+                f"Document ingestion failed: "
+                f"{file_path}"
+            )
+
+            await db.rollback()
+
+            try:
+
+                await update_job_status(
+                    db=db,
+                    job_id=job_id,
+                    status="failed"
+                )
+
+                await db.commit()
+
+            except Exception:
+
+                logger.exception(
+                    f"Failed to update "
+                    f"job status: "
+                    f"{job_id}"
+                )
+
+            raise

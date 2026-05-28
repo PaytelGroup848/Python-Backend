@@ -1,3 +1,8 @@
+
+import os
+import uuid
+import logging
+
 from fastapi import (
     APIRouter,
     UploadFile,
@@ -10,7 +15,8 @@ from fastapi import (
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import os
+
+
 
 from app.db.database import AsyncSessionLocal
 
@@ -19,12 +25,15 @@ from app.services.job_service import (
 )
 
 from app.models.document_job import DocumentJob
-
-from app.services.rag_service import (
-    ingest_document_file
+from app.services.document_parser_service import (
+    parse_document
 )
 
+
+
 from app.core.security import verify_token
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(
@@ -49,13 +58,9 @@ os.makedirs(
 
 async def get_db():
 
-    db = AsyncSessionLocal()
+    async with AsyncSessionLocal() as db:
 
-    try:
         yield db
-
-    finally:
-        await db.close()
 
 # -----------------------------
 # SUPPORTED FILE TYPES
@@ -84,6 +89,13 @@ async def upload_pdf(
     db: AsyncSession = Depends(get_db),
     user=Depends(verify_token)
 ):
+    
+    if not file.filename:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid filename"
+        )
 
     extension = os.path.splitext(
         file.filename
@@ -96,9 +108,14 @@ async def upload_pdf(
             detail="Unsupported file type"
         )
 
+    safe_filename = (
+        f"{uuid.uuid4().hex}"
+        f"{extension}"
+    )
+
     file_path = os.path.join(
         UPLOAD_DIR,
-        file.filename
+        safe_filename
     )
 
     try:
@@ -107,6 +124,15 @@ async def upload_pdf(
         with open(file_path, "wb") as f:
 
             content = await file.read()
+
+            MAX_FILE_SIZE = 20 * 1024 * 1024
+
+            if len(content) > MAX_FILE_SIZE:
+
+                raise HTTPException(
+                    status_code=400,
+                    detail="File too large"
+                )
 
             f.write(content)
 
@@ -118,8 +144,7 @@ async def upload_pdf(
 
         # Background ingestion
         background_tasks.add_task(
-            ingest_document_file,
-            db,
+            parse_document,
             file_path,
             job.id
         )
@@ -131,6 +156,9 @@ async def upload_pdf(
             f"latest_pdf:{user['user_id']}",
             file.filename
         )
+        logger.info(
+            f"Document uploaded: {job.id}"
+        )
 
         return {
             "message": "Document uploaded successfully",
@@ -139,13 +167,17 @@ async def upload_pdf(
             "filename": file.filename
         }
 
-    except Exception as e:
+    except Exception:
+
+        logger.exception(
+            "PDF upload failed"
+        )
 
         await db.rollback()
 
         raise HTTPException(
             status_code=500,
-            detail=str(e)
+            detail="Document upload failed"
         )
 
 # -----------------------------

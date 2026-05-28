@@ -1,14 +1,14 @@
+
 import asyncio
 import logging
 import time
 
-from app.core.config import (
-    PROVIDER_FAILURE_THRESHOLD,
-    PROVIDER_COOLDOWN_SECONDS
-)
+from app.core.config import settings
+
 from app.shared.cache.cache_service import (
     cache_service
 )
+
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class ProviderHealthService:
 
                 "cooldown_until": 0,
 
-                "latency_ms": 0,
+                "latency_ms": float("inf"),
             },
 
             "mistral": {
@@ -38,7 +38,7 @@ class ProviderHealthService:
 
                 "cooldown_until": 0,
 
-                "latency_ms": 0,
+                "latency_ms": float("inf"),
             },
 
             "llama": {
@@ -49,21 +49,67 @@ class ProviderHealthService:
 
                 "cooldown_until": 0,
 
-                "latency_ms": 0,
+                "latency_ms": float("inf"),
             },
         }
 
         self.lock = asyncio.Lock()
-        async def persist_state(self):
+
+    # -----------------------------
+    # PERSIST PROVIDER STATE
+    # -----------------------------
+
+    async def persist_state(self):
+
+        try:
 
             await cache_service.set(
 
                 "provider_health_state",
 
-                self.providers,
+                self.providers.copy(),
 
                 ttl=3600,
             )
+
+        except Exception:
+
+            logger.exception(
+                "Failed to persist "
+                "provider state"
+            )
+
+    # -----------------------------
+    # LOAD PROVIDER STATE
+    # -----------------------------
+
+    async def load_state(self):
+
+        try:
+
+            cached = await cache_service.get(
+                "provider_health_state"
+            )
+
+            if cached:
+
+                self.providers = cached
+
+                logger.info(
+                    "Provider health "
+                    "state restored"
+                )
+
+        except Exception:
+
+            logger.exception(
+                "Failed to load "
+                "provider state"
+            )
+
+    # -----------------------------
+    # CHECK PROVIDER AVAILABILITY
+    # -----------------------------
 
     def is_available(
         self,
@@ -80,15 +126,23 @@ class ProviderHealthService:
 
         now = time.time()
 
-        if (
-            provider_data[
-                "cooldown_until"
-            ] > now
-        ):
+        cooldown_until = (
+            provider_data.get(
+                "cooldown_until",
+                0
+            )
+        )
+
+        if cooldown_until > now:
 
             return False
 
-        if not provider_data["healthy"]:
+        # auto recover after cooldown
+
+        if not provider_data.get(
+            "healthy",
+            True
+        ):
 
             provider_data[
                 "healthy"
@@ -98,7 +152,16 @@ class ProviderHealthService:
                 "failures"
             ] = 0
 
+            logger.info(
+                f"Provider recovered: "
+                f"{provider}"
+            )
+
         return True
+
+    # -----------------------------
+    # RECORD SUCCESS
+    # -----------------------------
 
     async def record_success(
 
@@ -117,6 +180,11 @@ class ProviderHealthService:
 
             if not provider_data:
 
+                logger.warning(
+                    f"Unknown provider: "
+                    f"{provider}"
+                )
+
                 return
 
             provider_data[
@@ -128,18 +196,21 @@ class ProviderHealthService:
             ] = 0
 
             previous_latency = (
-                provider_data[
-                    "latency_ms"
-                ]
+                provider_data.get(
+                    "latency_ms",
+                    float("inf")
+                )
             )
 
-            if previous_latency == 0:
+            if (
+                previous_latency
+                ==
+                float("inf")
+            ):
 
                 provider_data[
                     "latency_ms"
                 ] = latency_ms
-
-                await self.persist_state()
 
             else:
 
@@ -153,7 +224,9 @@ class ProviderHealthService:
                     latency_ms * 0.3
                 )
 
-                await self.persist_state()
+    # -----------------------------
+    # RECORD FAILURE
+    # -----------------------------
 
     async def record_failure(
         self,
@@ -168,18 +241,33 @@ class ProviderHealthService:
 
             if not provider_data:
 
+                logger.warning(
+                    f"Unknown provider: "
+                    f"{provider}"
+                )
+
                 return
 
             provider_data[
                 "failures"
             ] += 1
 
-            if (
+            failures = (
                 provider_data[
                     "failures"
                 ]
+            )
+
+            logger.warning(
+                f"Provider failure: "
+                f"{provider} "
+                f"count={failures}"
+            )
+
+            if (
+                failures
                 >=
-                PROVIDER_FAILURE_THRESHOLD
+                settings.PROVIDER_FAILURE_THRESHOLD
             ):
 
                 provider_data[
@@ -191,7 +279,7 @@ class ProviderHealthService:
                 ] = (
                     time.time()
                     +
-                    PROVIDER_COOLDOWN_SECONDS
+                    settings.PROVIDER_COOLDOWN_SECONDS
                 )
 
                 logger.warning(
@@ -201,9 +289,13 @@ class ProviderHealthService:
 
                 await self.persist_state()
 
+    # -----------------------------
+    # GET BEST PROVIDER
+    # -----------------------------
+
     async def get_best_provider(
         self,
-        providers: list,
+        providers: list[str],
     ) -> str | None:
 
         async with self.lock:
@@ -216,22 +308,27 @@ class ProviderHealthService:
                     provider
                 ):
 
+                    latency = (
+                        self.providers[
+                            provider
+                        ].get(
+                            "latency_ms",
+                            float("inf")
+                        )
+                    )
+
                     available.append(
                         (
                             provider,
-
-                            self.providers[
-                                provider
-                            ][
-                                "latency_ms"
-                            ],
+                            latency
                         )
                     )
 
             if not available:
 
                 logger.warning(
-                    "No healthy providers available"
+                    "No healthy providers "
+                    "available"
                 )
 
                 return None
@@ -240,7 +337,20 @@ class ProviderHealthService:
                 key=lambda x: x[1]
             )
 
-            return available[0][0]
+            selected = (
+                available[0][0]
+            )
+
+            logger.info(
+                f"Selected provider: "
+                f"{selected}"
+            )
+
+            return selected
+
+    # -----------------------------
+    # PROVIDER STATUS
+    # -----------------------------
 
     async def get_provider_status(
         self
@@ -249,8 +359,11 @@ class ProviderHealthService:
         async with self.lock:
 
             return {
+
                 provider: data.copy()
+
                 for provider, data
+
                 in self.providers.items()
             }
 
@@ -258,3 +371,4 @@ class ProviderHealthService:
 provider_health_service = (
     ProviderHealthService()
 )
+

@@ -44,6 +44,7 @@ class AuthService:
     async def create_user(
         self,
         db: AsyncSession,
+        name: str,
         email: str,
         password: str
     ) -> User:
@@ -61,6 +62,7 @@ class AuthService:
         hashed_password = self.hash_password(password)
 
         user = User(
+            name=name,
             email=email,
             password=hashed_password,
             role="employee"

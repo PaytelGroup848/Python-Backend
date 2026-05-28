@@ -1,6 +1,11 @@
+
+import logging
+
 import pandas as pd
 
-from docx import Document as DocxDocument
+from docx import (
+    Document as DocxDocument
+)
 
 from pptx import Presentation
 
@@ -10,26 +15,65 @@ from app.services.ocr_service import (
     extract_text_from_image
 )
 
+
+logger = logging.getLogger(__name__)
+
+
 # -----------------------------
 # PDF
 # -----------------------------
 
 def parse_pdf(file_path: str):
 
-    reader = PdfReader(file_path)
+    try:
 
-    pages = []
+        reader = PdfReader(file_path)
 
-    for page_num, page in enumerate(reader.pages):
+        pages = []
 
-        text = page.extract_text() or ""
+        for page_num, page in enumerate(
+            reader.pages
+        ):
 
-        pages.append({
-            "page_number": page_num + 1,
-            "text": text
-        })
+            try:
 
-    return pages
+                text = (
+                    page.extract_text()
+                    or ""
+                )
+
+            except Exception:
+
+                logger.warning(
+                    f"Failed to extract "
+                    f"PDF page: "
+                    f"{page_num + 1}"
+                )
+
+                text = ""
+
+            if text.strip():
+
+                pages.append({
+
+                    "page_number": (
+                        page_num + 1
+                    ),
+
+                    "text": text
+                })
+
+        return pages
+
+    except Exception:
+
+        logger.exception(
+            f"PDF parse failed: "
+            f"{file_path}"
+        )
+
+        raise
+
 
 # -----------------------------
 # DOCX
@@ -37,17 +81,35 @@ def parse_pdf(file_path: str):
 
 def parse_docx(file_path: str):
 
-    doc = DocxDocument(file_path)
+    try:
 
-    text = "\n".join([
-        p.text
-        for p in doc.paragraphs
-    ])
+        doc = DocxDocument(
+            file_path
+        )
 
-    return [{
-        "page_number": 1,
-        "text": text
-    }]
+        text = "\n".join([
+
+            p.text
+
+            for p in doc.paragraphs
+
+            if p.text.strip()
+        ])
+
+        return [{
+            "page_number": 1,
+            "text": text
+        }]
+
+    except Exception:
+
+        logger.exception(
+            f"DOCX parse failed: "
+            f"{file_path}"
+        )
+
+        raise
+
 
 # -----------------------------
 # TXT
@@ -55,19 +117,31 @@ def parse_docx(file_path: str):
 
 def parse_txt(file_path: str):
 
-    with open(
-        file_path,
-        "r",
-        encoding="utf-8",
-        errors="ignore"
-    ) as f:
+    try:
 
-        text = f.read()
+        with open(
+            file_path,
+            "r",
+            encoding="utf-8",
+            errors="ignore"
+        ) as f:
 
-    return [{
-        "page_number": 1,
-        "text": text
-    }]
+            text = f.read()
+
+        return [{
+            "page_number": 1,
+            "text": text
+        }]
+
+    except Exception:
+
+        logger.exception(
+            f"TXT parse failed: "
+            f"{file_path}"
+        )
+
+        raise
+
 
 # -----------------------------
 # CSV
@@ -75,14 +149,29 @@ def parse_txt(file_path: str):
 
 def parse_csv(file_path: str):
 
-    df = pd.read_csv(file_path)
+    try:
 
-    text = df.to_string()
+        df = pd.read_csv(
+            file_path,
+            nrows=5000
+        )
 
-    return [{
-        "page_number": 1,
-        "text": text
-    }]
+        text = df.to_string()
+
+        return [{
+            "page_number": 1,
+            "text": text
+        }]
+
+    except Exception:
+
+        logger.exception(
+            f"CSV parse failed: "
+            f"{file_path}"
+        )
+
+        raise
+
 
 # -----------------------------
 # XLSX
@@ -90,23 +179,57 @@ def parse_csv(file_path: str):
 
 def parse_xlsx(file_path: str):
 
-    excel = pd.ExcelFile(file_path)
+    try:
 
-    all_text = []
-
-    for sheet in excel.sheet_names:
-
-        df = pd.read_excel(
-            file_path,
-            sheet_name=sheet
+        excel = pd.ExcelFile(
+            file_path
         )
 
-        all_text.append(df.to_string())
+        all_text = []
 
-    return [{
-        "page_number": 1,
-        "text": "\n\n".join(all_text)
-    }]
+        MAX_SHEETS = 20
+
+        for sheet in (
+            excel.sheet_names[
+                :MAX_SHEETS
+            ]
+        ):
+
+            try:
+
+                df = pd.read_excel(
+                    file_path,
+                    sheet_name=sheet,
+                    nrows=5000
+                )
+
+                all_text.append(
+                    df.to_string()
+                )
+
+            except Exception:
+
+                logger.warning(
+                    f"Failed XLSX sheet: "
+                    f"{sheet}"
+                )
+
+        return [{
+            "page_number": 1,
+            "text": "\n\n".join(
+                all_text
+            )
+        }]
+
+    except Exception:
+
+        logger.exception(
+            f"XLSX parse failed: "
+            f"{file_path}"
+        )
+
+        raise
+
 
 # -----------------------------
 # PPTX
@@ -114,38 +237,93 @@ def parse_xlsx(file_path: str):
 
 def parse_pptx(file_path: str):
 
-    prs = Presentation(file_path)
+    try:
 
-    slides = []
+        prs = Presentation(
+            file_path
+        )
 
-    for idx, slide in enumerate(prs.slides):
+        slides = []
 
-        slide_text = []
+        for idx, slide in enumerate(
+            prs.slides
+        ):
 
-        for shape in slide.shapes:
+            slide_text = []
 
-            if hasattr(shape, "text"):
+            for shape in slide.shapes:
 
-                slide_text.append(shape.text)
+                try:
 
-        slides.append({
-            "page_number": idx + 1,
-            "text": "\n".join(slide_text)
-        })
+                    if hasattr(
+                        shape,
+                        "text"
+                    ):
 
-    return slides
+                        text = (
+                            shape.text
+                            or ""
+                        )
+
+                        if text.strip():
+
+                            slide_text.append(
+                                text
+                            )
+
+                except Exception:
+
+                    continue
+
+            slides.append({
+
+                "page_number": (
+                    idx + 1
+                ),
+
+                "text": "\n".join(
+                    slide_text
+                )
+            })
+
+        return slides
+
+    except Exception:
+
+        logger.exception(
+            f"PPTX parse failed: "
+            f"{file_path}"
+        )
+
+        raise
+
 
 # -----------------------------
 # IMAGE OCR
 # -----------------------------
 
-async def parse_image(file_path: str):
+async def parse_image(
+    file_path: str
+):
 
-    text = await extract_text_from_image(
-        file_path
-    )
+    try:
 
-    return [{
-        "page_number": 1,
-        "text": text
-    }]
+        text = (
+            await extract_text_from_image(
+                file_path
+            )
+        )
+
+        return [{
+            "page_number": 1,
+            "text": text
+        }]
+
+    except Exception:
+
+        logger.exception(
+            f"Image parse failed: "
+            f"{file_path}"
+        )
+
+        raise

@@ -1,3 +1,4 @@
+
 from fastapi import WebSocket
 
 
@@ -5,7 +6,11 @@ class WSConnectionManager:
 
     def __init__(self):
 
-        self.connections = {}
+        self.connections: dict[
+            str,
+            WebSocket
+        ] = {}
+
 
     async def connect(
 
@@ -16,12 +21,17 @@ class WSConnectionManager:
         websocket: WebSocket,
     ):
 
+        await websocket.accept()
+
         self.connections[
             request_id
         ] = websocket
 
+
     def disconnect(
+
         self,
+
         request_id: str,
     ):
 
@@ -30,13 +40,25 @@ class WSConnectionManager:
             None,
         )
 
+
     def get_connection(
+
         self,
+
         request_id: str,
     ):
 
         return self.connections.get(
             request_id
+        )
+
+
+    def connection_count(
+        self
+    ) -> int:
+
+        return len(
+            self.connections
         )
 
 

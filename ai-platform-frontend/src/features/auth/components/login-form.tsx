@@ -57,13 +57,28 @@ export function LoginForm() {
 
       router.push("/");
 
+    
     } catch (err: any) {
 
-      setError(
-        err?.response?.data?.detail ||
-        "Login failed"
-      );
+      const detail =
+        err?.response?.data?.detail;
 
+      if (Array.isArray(detail)) {
+
+        setError(
+          detail[0]?.msg || "Login failed"
+        );
+
+      } else if (
+        typeof detail === "string"
+      ) {
+
+        setError(detail);
+
+      } else {
+
+        setError("Login failed");
+      }
     } finally {
 
       setLoading(false);

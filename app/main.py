@@ -88,7 +88,17 @@ app.add_middleware(
 
     CORSMiddleware,
 
-    allow_origins=settings.ALLOWED_ORIGINS,
+    
+    allow_origins=[
+
+        origin.strip()
+
+        for origin in
+        settings.ALLOWED_ORIGINS.split(",")
+
+    ],
+
+
 
     allow_credentials=True,
 

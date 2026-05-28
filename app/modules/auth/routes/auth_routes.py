@@ -1,12 +1,22 @@
+import asyncio
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.schemas.auth_schema import (
+
     TokenResponse,
-    UserRequest,
+
+    RegisterRequest,
+
+    LoginRequest,
+
     RefreshTokenResponse
 )
+
+
 
 from app.schemas.user_schema import UserResponse
 from app.schemas.common_schema import MessageResponse
@@ -16,15 +26,21 @@ from app.modules.auth.services.auth_service import AuthService
 from app.db.database import AsyncSessionLocal
 
 from app.core.security import (
+
     create_access_token,
-    create_refresh_token
+
+    create_refresh_token,
+
+    SECRET_KEY,
+
+    ALGORITHM
 )
 
 from app.models.session import Session as UserSession
 
 from jose import jwt
 
-from app.core.security import SECRET_KEY, ALGORITHM
+
 
 from fastapi import Request
 
@@ -36,7 +52,9 @@ from app.services.security_service import (
 
 from app.db.redis_client import redis_client
 
-from app.services.memory_service import clear_memory
+
+logger = logging.getLogger(__name__)
+
 
 router = APIRouter(
     prefix="/auth",
@@ -48,13 +66,10 @@ auth_service = AuthService()
 # DB dependency
 async def get_db():
 
-    db = AsyncSessionLocal()
+    async with AsyncSessionLocal() as db:
+       yield db
 
-    try:
-        yield db
-
-    finally:
-        await db.close()
+   
 
 
 
@@ -65,7 +80,7 @@ async def get_db():
     response_model=UserResponse
 )
 async def signup(
-    req: UserRequest,
+    req: RegisterRequest,
     db: AsyncSession = Depends(get_db)
 ):
 
@@ -73,6 +88,7 @@ async def signup(
 
         user = await auth_service.create_user(
             db=db,
+            name=req.name,
             email=req.email,
             password=req.password
         )
@@ -86,16 +102,19 @@ async def signup(
             detail=str(e)
         )
 
-    except Exception:
+    
+    except Exception as e:
 
         await db.rollback()
 
-        raise
+        print(str(e))
 
         raise HTTPException(
-            status_code=400,
+            status_code=500,
             detail=str(e)
         )
+
+
     
 # FORGOT PASSWORD
 @router.post(
@@ -119,10 +138,17 @@ async def forgot_password(
 )
 async def login(
     request: Request,
-    req: UserRequest,
+    req: LoginRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    ip = request.client.host
+    ip = (
+
+        request.client.host
+
+        if request.client
+
+        else "unknown"
+    )
     if await is_locked(req.email, ip):
        raise HTTPException(
            status_code=403,
@@ -130,18 +156,62 @@ async def login(
         )
 
     # authenticate user
-    user = await auth_service.authenticate_user(db, req.email, req.password)
+    try:
 
+        user = await asyncio.wait_for(
+
+            auth_service.authenticate_user(
+                db,
+                req.email,
+                req.password
+            ),
+
+            timeout=30,
+        )
+
+    except asyncio.TimeoutError:
+
+        await record_failed_attempt(
+            req.email,
+            ip
+        )
+
+        raise HTTPException(
+            status_code=504,
+            detail="Authentication timeout"
+        )
+
+    except Exception:
+
+        await record_failed_attempt(
+            req.email,
+            ip
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Authentication failed"
+        )
+    
     if not user:
 
-       await record_failed_attempt(req.email, ip)
+        await record_failed_attempt(
+            req.email,
+            ip
+        )
+        logger.exception(
+            f"Session creation failed: {user.id}"
+        )
 
-       raise HTTPException(
-           status_code=401,
-           detail="Invalid credentials"
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid credentials"
         )
     
     await clear_failed_attempts(req.email, ip)
+    logger.info(
+        f"Login success: {user.id}"
+    )
 
     # create access token
     access_token = create_access_token({
@@ -173,7 +243,10 @@ async def login(
 
         await db.rollback()
 
-        raise
+        raise HTTPException(
+            status_code=500,
+            detail="Session creation failed"
+        )
 
     # return tokens
     return {
@@ -192,11 +265,17 @@ async def refresh_access_token(
     db: AsyncSession = Depends(get_db)
 ):
 
-    result = await db.execute(
-        select(UserSession).where(
-            UserSession.refresh_token == refresh_token
-        )
-     )
+    result = await asyncio.wait_for(
+
+        db.execute(
+            select(UserSession).where(
+                UserSession.refresh_token
+                == refresh_token
+            )
+        ),
+
+        timeout=30,
+    )
 
     session = result.scalar_one_or_none()
 
@@ -239,14 +318,20 @@ async def refresh_access_token(
 )
 async def logout(
     refresh_token: str,
-    session_id: str,
+    
     db: AsyncSession = Depends(get_db)
 ):
 
-    result = await db.execute(
-        select(UserSession).where(
-            UserSession.refresh_token == refresh_token
-        )
+    result = await asyncio.wait_for(
+
+        db.execute(
+            select(UserSession).where(
+                UserSession.refresh_token
+                == refresh_token
+            )
+        ),
+
+        timeout=30,
     )
 
     session = result.scalar_one_or_none()
@@ -263,7 +348,6 @@ async def logout(
             await db.commit()
 
             # clear Redis memory
-            await clear_memory(session_id)
 
             # clear usage tracking
             await redis_client.delete(
@@ -272,14 +356,21 @@ async def logout(
 
             # clear chat history
             await redis_client.delete(
-                str(user_id)
+                f"chat:{user_id}"
+            )
+
+            logger.info(
+                f"Logout success: {user_id}"
             )
 
         except Exception:
 
             await db.rollback()
 
-            raise
+            raise HTTPException(
+                status_code=500,
+                detail="Logout failed"
+            )
 
     return {
         "message": "Logged out successfully"

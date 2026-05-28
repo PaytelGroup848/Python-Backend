@@ -1,5 +1,8 @@
-from pydantic_settings import BaseSettings
 
+from pydantic_settings import (
+    BaseSettings,
+    SettingsConfigDict
+)
 
 
 class Settings(BaseSettings):
@@ -8,9 +11,11 @@ class Settings(BaseSettings):
 
     API_VERSION: str = "1.0.0"
 
-    ALLOWED_ORIGINS: list[str] = [
+    ALLOWED_ORIGINS: str = (
         "http://localhost:3000"
-    ]
+    )
+
+
 
     SECRET_KEY: str
 
@@ -25,25 +30,25 @@ class Settings(BaseSettings):
     DEEPGRAM_API_KEY: str
 
     REDIS_HOST: str
-    
+
     REDIS_PORT: int
 
-    RAG_SIMILARITY_THRESHOLD = 1.5
+    RAG_SIMILARITY_THRESHOLD: float = 1.5
 
-    RAG_MAX_CONTEXT_CHARS = 12000
-    RAG_MAX_INGESTION_CHUNKS = 5000
+    RAG_MAX_CONTEXT_CHARS: int = 12000
 
-    EMBEDDING_WORKER_BATCH_SIZE = 10
+    RAG_MAX_INGESTION_CHUNKS: int = 5000
 
-    PROVIDER_FAILURE_THRESHOLD = 3
+    EMBEDDING_WORKER_BATCH_SIZE: int = 10
 
-    PROVIDER_COOLDOWN_SECONDS = 60
+    PROVIDER_FAILURE_THRESHOLD: int = 3
 
+    PROVIDER_COOLDOWN_SECONDS: int = 60
 
-
-    class Config:
-
-        env_file = ".env"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore"
+    )
 
 
 settings = Settings()

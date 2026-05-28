@@ -1,263 +1,538 @@
-from typing import TypedDict
+from __future__ import annotations
 
+import asyncio
+import logging
+import time
+import uuid
+from enum import Enum
+from typing import Any, Dict, List, Optional, TypedDict
+
+from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, END
+
+from app.db.database import AsyncSessionLocal
+
+from app.modules.chat.services.llm_manager import (
+    llm_manager
+)
 
 from app.modules.chat.services.rag_service import (
     retrieve_context
 )
-import asyncio
 
-from app.modules.chat.services.llm_manager import (
-    get_fastest_response
-)
-
-from app.db.database import AsyncSessionLocal
-from app.services.tool_service import (
-    get_system_stats,
-    search_documents_tool
-)
 from app.modules.chat.services.memory_service import (
-    save_memory,
-    get_memory
+    memory_service
 )
 
 from app.services.language_service import (
     detect_language,
-    translate_to_english,
-    translate_response
+    translate_response,
+    translate_to_english
 )
 
+from app.services.tool_service import (
+    get_system_stats,
+    search_documents_tool
+)
 
-# -----------------------------
+# =========================================================
+# LOGGING
+# =========================================================
+
+logger = logging.getLogger("enterprise_agent")
+
+# =========================================================
+# CONFIG
+# =========================================================
+
+MAX_MEMORY_MESSAGES = 6
+REQUEST_TIMEOUT = 30
+RETRY_ATTEMPTS = 2
+
+# =========================================================
+# ENUMS
+# =========================================================
+
+class IntentType(str, Enum):
+    GENERAL = "general"
+    RAG = "rag"
+    SEARCH = "search"
+    ANALYTICS = "analytics"
+    MULTISTEP = "multistep"
+
+
+# =========================================================
+# STRUCTURED MODELS
+# =========================================================
+
+class RetrievalResult(BaseModel):
+    context: str = ""
+    sources: List[dict] = Field(default_factory=list)
+    needs_general_knowledge: bool = False
+    message: str = ""
+
+
+class ToolResult(BaseModel):
+    success: bool = True
+    data: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ExecutionMetadata(BaseModel):
+    request_id: str
+    started_at: float
+    latency_ms: Optional[int] = None
+
+
+class AgentResponse(BaseModel):
+    response: str
+    metadata: Dict[str, Any]
+
+
+# =========================================================
 # AGENT STATE
-# -----------------------------
+# =========================================================
 
 class AgentState(TypedDict):
 
+    # core request
     query: str
-
     rewritten_query: str
 
-    use_rag: bool
-
-    use_tool: bool
-
-    use_search_tool: bool
-
-    context: str
-
-    tool_result: str
-
-    retrieved_docs: str
-
+    # user
     session_id: str
-
     user_id: int
-
     user_role: str
-
     user_department: str
 
-    memory_context: str
-
-    plan: str
-
-    current_step: str
-
-    execution_results: str
-
-    response: str
-
+    # runtime
+    request_id: str
+    intent: str
     language: str
 
+    # execution
+    memory_context: str
+    plan: str
 
-# -----------------------------
-# DECISION NODE
-# -----------------------------
+    # retrieval
+    context: str
+    sources: list
 
-def decide_rag(state: AgentState):
+    # tools
+    tool_result: dict
 
-    query = state["query"].lower()
+    # generation
+    response: str
 
-    keywords = [
-        "policy",
-        "document",
-        "pdf",
-        "report",
-        "leave",
-        "finance"
-    ]
+    # metadata
+    needs_general_knowledge: bool
 
-    analytics_keywords = [
-        "stats",
-        "analytics",
-        "jobs",
-        "documents",
-        "system"
-    ]
 
-    search_keywords = [
-        "find",
-        "search",
-        "documents",
-        "policy",
-        "report",
-        "analyze",
-        "summary",
-        "summarize",
-        "risk",
-        "review",
-        "finance"
-    ]
+# =========================================================
+# RETRY + TIMEOUT WRAPPER
+# =========================================================
 
-    use_search_tool = any(
-        k in query
-        for k in search_keywords
-    )
+async def execute_with_retry(
+    coro,
+    retries: int = RETRY_ATTEMPTS,
+    timeout: int = REQUEST_TIMEOUT
+):
 
-    use_rag = any(
-        k in query
-        for k in keywords
-    )
+    last_error = None
 
-    use_tool = any(
-        k in query
-        for k in analytics_keywords
-    )
+    for attempt in range(retries):
 
-    return {
-       **state,
-       "use_rag": use_rag,
-       "use_tool": use_tool,
-       "use_search_tool": use_search_tool
-    }
+        try:
 
-# -----------------------------
+            return await asyncio.wait_for(
+                coro,
+                timeout=timeout
+            )
+
+        except Exception as e:
+
+            last_error = e
+
+            logger.exception(
+                f"Retry attempt failed: {attempt + 1}"
+            )
+
+            await asyncio.sleep(1)
+
+    raise last_error
+
+
+# =========================================================
+# INTENT CLASSIFIER
+# =========================================================
+
+class IntentClassifierService:
+
+    @staticmethod
+    async def classify(query: str) -> IntentType:
+
+        q = query.lower()
+
+        # lightweight deterministic routing first
+
+        analytics_terms = [
+            "analytics",
+            "stats",
+            "metrics",
+            "dashboard",
+            "usage"
+        ]
+
+        search_terms = [
+            "find",
+            "search",
+            "lookup"
+        ]
+
+        rag_terms = [
+            "document",
+            "policy",
+            "pdf",
+            "report",
+            "contract"
+        ]
+
+        multistep_terms = [
+            "analyze",
+            "compare",
+            "review",
+            "generate plan",
+            "summarize all"
+        ]
+
+        if any(x in q for x in analytics_terms):
+            return IntentType.ANALYTICS
+
+        if any(x in q for x in search_terms):
+            return IntentType.SEARCH
+
+        if any(x in q for x in multistep_terms):
+            return IntentType.MULTISTEP
+
+        if any(x in q for x in rag_terms):
+            return IntentType.RAG
+
+        return IntentType.GENERAL
+
+
+# =========================================================
+# MEMORY SERVICE
+# =========================================================
+
+class SemanticMemoryService:
+
+    @staticmethod
+    async def load_memory(
+        session_id: str
+    ) -> str:
+
+       
+        memory = await memory_service.get_memory(
+            session_id
+        )
+
+        memory = memory[-MAX_MEMORY_MESSAGES:]
+
+
+
+        formatted = "\n".join(
+            [
+                f"{m['role']}: {m['content']}"
+                for m in memory
+            ]
+        )
+
+        return formatted
+
+
+# =========================================================
 # QUERY REWRITER
-# -----------------------------
+# =========================================================
 
-async def rewrite_query(state: AgentState):
+class QueryRewriteService:
 
-    query = state["query"]
+    @staticmethod
+    async def rewrite(query: str) -> str:
 
-    rewrite_prompt = f"""
-    Rewrite the following user query into a short
-    optimized semantic search query.
+        prompt = f"""
+Rewrite this query into an optimized semantic search query.
 
-    Focus only on:
-    - key topics
-    - important entities
-    - semantic meaning
+USER QUERY:
+{query}
 
-    Remove conversational words.
+OPTIMIZED QUERY:
+"""
 
-    User Query:
-    {query}
+        response = await llm_manager.generate_response(
+            prompt=prompt,
+            user_id=0,
+            temperature=0.1
+        )
 
-    Optimized Query:
-    """
+        return response["response"].strip()
 
-    response = await get_fastest_response(
-        rewrite_prompt,
-        user_id=0
-    )
 
-    
+# =========================================================
+# PLANNER SERVICE
+# =========================================================
 
-    rewritten_query = response.get(
-       "response",
+class PlanningService:
+
+    @staticmethod
+    async def create_plan(query: str) -> str:
+
+        prompt = f"""
+Break this request into concise execution steps.
+
+REQUEST:
+{query}
+
+STEPS:
+"""
+
+        response = await llm_manager.generate_response(
+            prompt=prompt,
+            user_id=0,
+            temperature=0.2
+        )
+
+        return response["response"]
+
+
+# =========================================================
+# CONTEXT BUILDER
+# =========================================================
+
+class ContextBuilderService:
+
+    @staticmethod
+    def sanitize_context(context: str) -> str:
+
+        blocked = [
+            "ignore previous instructions",
+            "reveal system prompt",
+            "bypass security"
+        ]
+
+        lower = context.lower()
+
+        for item in blocked:
+
+            lower = lower.replace(item, "")
+
+        return lower
+
+    @staticmethod
+    def build(
+        memory: str,
+        context: str,
+        tool_result: dict,
+        plan: str
+    ) -> str:
+
+        context = ContextBuilderService.sanitize_context(
+            context
+        )
+
+        return f"""
+You are an enterprise AI platform assistant.
+
+Execution Plan:
+{plan}
+
+Conversation Memory:
+{memory}
+
+Retrieved Context:
+{context}
+
+Tool Result:
+{tool_result}
+
+Generate an accurate response.
+"""
+
+
+# =========================================================
+# ANALYTICS TOOL
+# =========================================================
+
+class AnalyticsService:
+
+    @staticmethod
+    async def execute() -> ToolResult:
+
+        async with AsyncSessionLocal() as db:
+
+            stats = await get_system_stats(db)
+
+            return ToolResult(
+                success=True,
+                data=stats
+            )
+
+
+# =========================================================
+# DOCUMENT SEARCH TOOL
+# =========================================================
+
+class DocumentSearchService:
+
+    @staticmethod
+    async def execute(
+        query: str,
+        role: str,
+        department: str
+    ) -> ToolResult:
+
+        async with AsyncSessionLocal() as db:
+
+            docs = await search_documents_tool(
+                db=db,
+                query=query,
+                user_role=role,
+                user_department=department
+            )
+
+            return ToolResult(
+                success=True,
+                data={
+                    "documents": docs
+                }
+            )
+
+
+# =========================================================
+# RETRIEVAL SERVICE
+# =========================================================
+
+class RetrievalService:
+
+    @staticmethod
+    async def retrieve(
+        query: str,
+        role: str,
+        department: str
+    ) -> RetrievalResult:
+
+        async with AsyncSessionLocal() as db:
+
+            result = await retrieve_context(
+                db=db,
+                query=query,
+                user_role=role,
+                user_department=department
+            )
+
+            if result.get("needs_general_knowledge"):
+
+                return RetrievalResult(
+                    needs_general_knowledge=True,
+                    message=result["message"]
+                )
+
+            return RetrievalResult(
+                context=result.get("context", ""),
+                sources=result.get("sources", [])
+            )
+
+
+# =========================================================
+# LANGUAGE SERVICE
+# =========================================================
+
+class LanguagePipeline:
+
+    @staticmethod
+    async def process_input(
+        query: str
+    ):
+
+        language = detect_language(query)
+
+        translated_query = query
+
+        if language != "en":
+
+            translated_query = translate_to_english(query)
+
+        return translated_query, language
+
+    @staticmethod
+    async def process_output(
+        response: str,
+        language: str
+    ):
+
+        if language == "en":
+            return response
+
+        return translate_response(
+            response,
+            language
+        )
+
+
+# =========================================================
+# GRAPH NODES
+# =========================================================
+
+async def classify_node(state: AgentState):
+
+    intent = await IntentClassifierService.classify(
         state["query"]
-    ).strip()
-
-    print("REWRITTEN QUERY:", rewritten_query)
-
-    return {
-       "query": state["query"],
-
-       "rewritten_query": rewritten_query,
-
-       "use_rag": state["use_rag"],
-
-       "use_tool": state["use_tool"],
-
-       "use_search_tool": state["use_search_tool"],
-
-       "context": state.get("context", ""),
-
-       "tool_result": state.get("tool_result", ""),
-
-       "retrieved_docs": state.get("retrieved_docs", ""),
-
-       "session_id": state["session_id"],
-
-       "user_id": state["user_id"],
-
-       "user_role": state["user_role"],
-
-       "user_department": state["user_department"],
-
-       "memory_context": state.get("memory_context", ""),
-
-       "plan":state.get("plan",""),
-
-       "current_step":state.get("current_step",""),
-
-       "execution_results":state.get("execution_results",""),
-
-       "language": state["language"],
-
-       "response": state.get("response", "")
-    }
-
-
-# -----------------------------
-# MEMORY NODE
-# -----------------------------
-
-async def load_memory(state: AgentState):
-
-    session_id = state["session_id"]
-
-    memory = await get_memory(session_id)
-
-    formatted = "\n".join([
-        f"{m['role']}: {m['content']}"
-        for m in memory[-10:]
-    ])
+    )
 
     return {
         **state,
-        "memory_context": formatted
+        "intent": intent.value
     }
 
-# -----------------------------
-# PLANNER NODE
-# -----------------------------
+
+async def preprocessing_node(state: AgentState):
+
+    query, language = await LanguagePipeline.process_input(
+        state["query"]
+    )
+
+    memory_task = SemanticMemoryService.load_memory(
+        state["session_id"]
+    )
+
+    rewrite_task = QueryRewriteService.rewrite(
+        query
+    )
+
+    memory, rewritten = await asyncio.gather(
+        memory_task,
+        rewrite_task
+    )
+
+    return {
+        **state,
+        "query": query,
+        "language": language,
+        "memory_context": memory,
+        "rewritten_query": rewritten
+    }
+
 
 async def planner_node(state: AgentState):
 
-    query = state["query"]
+    if state["intent"] != IntentType.MULTISTEP.value:
 
-    planning_prompt = f"""
-    You are an autonomous enterprise AI planner.
+        return {
+            **state,
+            "plan": ""
+        }
 
-    Break the user's request into
-    logical execution steps.
-
-    User Request:
-    {query}
-
-    Return concise numbered steps only.
-    """
-
-    response = await get_fastest_response(
-        planning_prompt,
-        user_id=0
+    plan = await PlanningService.create_plan(
+        state["query"]
     )
-
-    plan = response["response"]
-
-    print("PLAN:", plan)
 
     return {
         **state,
@@ -265,211 +540,94 @@ async def planner_node(state: AgentState):
     }
 
 
-# -----------------------------
-# LANGUAGE NODE
-# -----------------------------
+async def retrieval_node(state: AgentState):
 
-def language_node(state: AgentState):
-
-    query = state["query"]
-
-    language = detect_language(query)
-
-    translated_query = query
-
-    if language != "en":
-
-        translated_query = translate_to_english(
-            query
-        )
+    result = await RetrievalService.retrieve(
+        query=state["rewritten_query"],
+        role=state["user_role"],
+        department=state["user_department"]
+    )
 
     return {
         **state,
-        "query": translated_query,
-        "language": language
+        "context": result.context,
+        "sources": result.sources,
+        "needs_general_knowledge":
+            result.needs_general_knowledge,
+        "response": result.message
     }
-# -----------------------------
-# RETRIEVAL NODE
-# -----------------------------
-
-async def retrieve_docs(state: AgentState):
-
-    async with AsyncSessionLocal() as db:
-
-        result = await retrieve_context(
-            db=db,
-            query=state.get(
-                "rewritten_query",
-                state["query"]
-            ),
-            user_department=state["user_department"],
-            user_role=state["user_role"]
-        )
-
-        # -----------------------------
-        # NO RELEVANT DOCUMENT FOUND
-        # -----------------------------
-
-        if result.get("needs_general_knowledge"):
-
-            return {
-                **state,
-                "response": result["message"],
-                "context": "",
-                "needs_general_knowledge": True
-            }
-
-        return {
-            **state,
-            "context": result["context"],
-            "needs_general_knowledge": False
-        }
-
-# -----------------------------
-# TOOL NODE
-# -----------------------------
-
-async def analytics_tool(state: AgentState):
-
-    async with AsyncSessionLocal() as db:
-
-        stats = await get_system_stats(db)
-
-        return {
-            **state,
-            "tool_result": str(stats)
-        }
 
 
-async def document_search_tool(state: AgentState):
+async def analytics_node(state: AgentState):
 
-    async with AsyncSessionLocal() as db:
+    result = await AnalyticsService.execute()
 
-        results = await search_documents_tool(
-            db=db,
-            query=state.get(
-                "rewritten_query",
-                state["query"]
-            ),
-            user_department=state["user_department"],
-            user_role=state["user_role"]
-        )
+    return {
+        **state,
+        "tool_result": result.data
+    }
 
-        return {
-            **state,
-            "retrieved_docs": str(results)
-        }
-# -----------------------------
-# GENERATION NODE
-# -----------------------------
 
-async def generate_response(state: AgentState):
+async def search_node(state: AgentState):
+
+    result = await DocumentSearchService.execute(
+        query=state["rewritten_query"],
+        role=state["user_role"],
+        department=state["user_department"]
+    )
+
+    return {
+        **state,
+        "tool_result": result.data
+    }
+
+
+async def generation_node(state: AgentState):
 
     if state.get("needs_general_knowledge"):
 
-        return {
-            **state,
-            "response": state["response"]
-        }
+        return state
 
-    query = state["query"]
-
-    context = state.get("context", "")
-
-    memory_context = state.get(
-       "memory_context",
-       ""
+    prompt = ContextBuilderService.build(
+        memory=state["memory_context"],
+        context=state["context"],
+        tool_result=state["tool_result"],
+        plan=state["plan"]
     )
 
-    plan = state.get(
-    "plan",
-    ""
-    )
+    final_prompt = f"""
+{prompt}
 
-    
+USER QUESTION:
+{state["query"]}
 
-    retrieved_docs = state.get(
-        "retrieved_docs",
-        ""
-    )
+ANSWER:
+"""
 
-    tool_result = state.get(
-        "tool_result",
-        ""
-    
-    )
-
-    if context or tool_result or retrieved_docs:
-
-        prompt = f"""
-        You are an enterprise AI assistant.
- 
-        Use the retrieved documents and context below
-        to answer the user's question accurately.
-
-        If relevant information exists,
-        summarize it clearly.
-
-        Execution Plan:
-        {plan}
-
-        Conversation Memory:
-        {memory_context}
-
-        Retrieved Documents:
-        {retrieved_docs}
-
-        Context:
-        {context}
-
-        Tool Result:
-        {tool_result}
-
-        Question:
-        {query}
-
-        Answer:
-        """
-
-    else:
-
-        prompt = query
-
-    response = await get_fastest_response(
-        prompt,
-        user_id=0
-    )
-
-    language = state.get(
-       "language",
-       "en"
+    response = await llm_manager.generate_response(
+        prompt=final_prompt,
+        user_id=state["user_id"],
+        temperature=0.3,
+        stream=False
     )
 
     final_response = response["response"]
 
-    if language != "en":
-
-        final_response = translate_response(
-            final_response,
-            language
-        )
-    #final_response = response["response"]    
-
-    print("CONTEXT:", context)
-    print("RETRIEVED DOCS:", retrieved_docs)
-
-    print("LLM RESPONSE:", response)
-
-    await save_memory(
-       session_id=state["session_id"],
-       role="user",
-       message=query
+    final_response = await LanguagePipeline.process_output(
+        final_response,
+        state["language"]
     )
 
-    await save_memory(
-       session_id=state["session_id"],
-       role="assistant",
-       message=final_response
+    await memory_service.save_memory(
+        session_id=state["session_id"],
+        role="user",
+        message=state["query"]
+    )
+
+    await memory_service.save_memory(
+        session_id=state["session_id"],
+        role="assistant",
+        message=final_response
     )
 
     return {
@@ -478,55 +636,43 @@ async def generate_response(state: AgentState):
     }
 
 
-# -----------------------------
+# =========================================================
 # ROUTER
-# -----------------------------
+# =========================================================
 
-def rag_router(state: AgentState):
+def router(state: AgentState):
 
-    if state["use_rag"]:
+    intent = state["intent"]
 
+    if intent == IntentType.ANALYTICS.value:
+        return "analytics"
+
+    if intent == IntentType.SEARCH.value:
+        return "search"
+
+    if intent == IntentType.RAG.value:
+        return "retrieve"
+
+    if intent == IntentType.MULTISTEP.value:
         return "retrieve"
 
     return "generate"
 
-# -----------------------------
-# TOOL ROUTER
-# -----------------------------
 
-def tool_router(state: AgentState):
-
-    if state.get("use_search_tool"):
-
-        return "doc_search"
-
-    if state["use_tool"]:
-
-        return "tool"
-
-    if state["use_rag"]:
-
-        return "retrieve"
-
-    return "generate"
-# -----------------------------
+# =========================================================
 # BUILD GRAPH
-# -----------------------------
+# =========================================================
 
 graph = StateGraph(AgentState)
 
 graph.add_node(
-    "decide",
-    decide_rag
+    "classify",
+    classify_node
 )
 
 graph.add_node(
-    "rewrite",
-    rewrite_query
-)
-graph.add_node(
-    "memory",
-    load_memory
+    "preprocess",
+    preprocessing_node
 )
 
 graph.add_node(
@@ -535,79 +681,60 @@ graph.add_node(
 )
 
 graph.add_node(
-    "language_node",
-    language_node
-)
-
-graph.add_node(
     "retrieve",
-    retrieve_docs
-)
-graph.add_node(
-    "tool",
-    analytics_tool
+    retrieval_node
 )
 
 graph.add_node(
-    "doc_search",
-    document_search_tool
+    "analytics",
+    analytics_node
+)
+
+graph.add_node(
+    "search",
+    search_node
 )
 
 graph.add_node(
     "generate",
-    generate_response
+    generation_node
 )
 
-graph.set_entry_point("decide")
+graph.set_entry_point("classify")
 
 graph.add_edge(
-    "decide",
-    "memory"
+    "classify",
+    "preprocess"
 )
 
 graph.add_edge(
-    "memory",
+    "preprocess",
     "planner"
 )
 
-graph.add_edge(
-    "planner",
-    "language_node"
-)
-
-graph.add_edge(
-    "language_node",
-    "rewrite"
-)
-
-#graph.add_edge(
- #   "planner",
-  #  "rewrite"
-#)
-
 graph.add_conditional_edges(
-    "rewrite",
-    tool_router,
+    "planner",
+    router,
     {
-        "doc_search": "doc_search",
-        "tool": "tool",
+        "analytics": "analytics",
+        "search": "search",
         "retrieve": "retrieve",
         "generate": "generate"
     }
 )
 
 graph.add_edge(
+    "analytics",
+    "generate"
+)
+
+graph.add_edge(
+    "search",
+    "generate"
+)
+
+graph.add_edge(
     "retrieve",
-    "generate"
-)
-
-graph.add_edge(
-    "tool",
-    "generate"
-)
-
-graph.add_edge(
-    "doc_search",
     "generate"
 )
 
@@ -618,10 +745,89 @@ graph.add_edge(
 
 agent = graph.compile()
 
+# =========================================================
+# RUNTIME
+# =========================================================
 
-# -----------------------------
+class AgentRuntime:
+
+    @staticmethod
+    async def execute(
+        query: str,
+        session_id: str,
+        user_id: int,
+        user_role: str,
+        user_department: str
+    ) -> AgentResponse:
+
+        request_id = str(uuid.uuid4())
+
+        started_at = time.time()
+
+        logger.info(
+            f"Agent execution started: {request_id}"
+        )
+
+        state: AgentState = {
+
+            "query": query,
+
+            "rewritten_query": "",
+
+            "session_id": session_id,
+
+            "user_id": user_id,
+
+            "user_role": user_role,
+
+            "user_department": user_department,
+
+            "request_id": request_id,
+
+            "intent": "",
+
+            "language": "en",
+
+            "memory_context": "",
+
+            "plan": "",
+
+            "context": "",
+
+            "sources": [],
+
+            "tool_result": {},
+
+            "response": "",
+
+            "needs_general_knowledge": False
+        }
+
+        result = await execute_with_retry(
+            agent.ainvoke(state)
+        )
+
+        latency = int(
+            (time.time() - started_at) * 1000
+        )
+
+        logger.info(
+            f"Agent completed: {request_id} | {latency}ms"
+        )
+
+        return AgentResponse(
+            response=result["response"],
+            metadata={
+                "request_id": request_id,
+                "latency_ms": latency,
+                "intent": result["intent"]
+            }
+        )
+
+
+# =========================================================
 # PUBLIC FUNCTION
-# -----------------------------
+# =========================================================
 
 async def run_agent(
     query: str,
@@ -631,43 +837,12 @@ async def run_agent(
     user_department: str
 ):
 
-    result = await agent.ainvoke({
+    result = await AgentRuntime.execute(
+        query=query,
+        session_id=session_id,
+        user_id=user_id,
+        user_role=user_role,
+        user_department=user_department
+    )
 
-      "query": query,
-
-      "session_id": session_id,
-
-      "user_id": user_id,
-
-      "user_role": user_role,
-
-      "user_department": user_department,
-
-      "language": "en",
-
-      "memory_context": "",
-
-      "plan": "",
-
-      "current_step": "",
-
-      "execution_results": "",
-
-      "rewritten_query": "",
-
-      "use_rag": False,
-
-      "use_tool": False,
-
-      "use_search_tool": False,
-
-      "context": "",
-
-      "tool_result": "",
-
-      "retrieved_docs": "",
-
-      "response": ""
-    })
-
-    return result["response"]
+    return result.response

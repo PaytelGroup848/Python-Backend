@@ -2,19 +2,26 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer
 from jose import jwt, JWTError
 from datetime import datetime, timedelta, timezone 
-import os
+from app.core.config import settings
+from sqlalchemy import select
+
+
+from app.db.database import AsyncSessionLocal
+from app.models.user import RolePermission, Permission
+
 
 #from dotenv import load_dotenv
 #-load_dotenv()
 
 #  Load secrets from env
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = settings.SECRET_KEY
 
-if not SECRET_KEY:
-    raise ValueError("SECRET_KEY is not set in environment")
 ALGORITHM = "HS256"
+
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440
+
 REFRESH_TOKEN_EXPIRE_DAYS = 7
+
 
 #  Auth scheme
 security = HTTPBearer()
@@ -25,7 +32,7 @@ security = HTTPBearer()
 # =========================
 def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
 
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
@@ -35,7 +42,7 @@ def create_access_token(data: dict):
 def create_refresh_token(data: dict):
     to_encode = data.copy()
 
-    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
 
     to_encode.update({"exp": expire})
 
@@ -80,12 +87,8 @@ def require_role(required_role: str):
 # PERMISSION CHECK 
 # =========================
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.database import AsyncSessionLocal
-from app.models.user import RolePermission, Permission
-from fastapi import Depends, HTTPException
+
 
 def require_permission(permission_name: str):
 
