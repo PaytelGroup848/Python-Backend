@@ -72,22 +72,36 @@ ConversationSidebar() {
 
         setConversations(data);
 
+        
         if (data.length > 0) {
 
-  const latestConversation =
-    data[0];
+          const latestConversation =
+            data[0];
 
-  setActiveConversation(
-    latestConversation.id
-  );
+          try {
 
-  const messages =
-    await getConversationMessages(
-      latestConversation.id
-    );
+            const messages =
+              await getConversationMessages(
+                latestConversation.id
+              );
 
-  setMessages(messages);
-}
+            setActiveConversation(
+              latestConversation.id
+            );
+
+            setMessages(messages);
+
+          } catch {
+
+            setActiveConversation(
+              null
+            );
+
+            setMessages([]);
+          }
+        }
+
+
 
       } catch (error) {
 
@@ -112,6 +126,15 @@ ConversationSidebar() {
     const conversation =
       await createConversation();
 
+    console.log(
+      "CREATED CONVERSATION:",
+      conversation
+    );
+
+    setActiveConversation(
+      conversation.id
+    );
+
     const updatedConversations =
       await getConversations();
 
@@ -124,6 +147,11 @@ ConversationSidebar() {
     );
 
     setMessages([]);
+
+    console.log(
+      "ACTIVE SET:",
+      conversation.id
+    );
 
   } catch (error) {
 
@@ -231,24 +259,32 @@ async function handleDeleteChat(
 
                onClick={async () => {
 
-                setActiveConversation(
-                  conversation.id
-                );
-
                 try {
 
-                 const messages =
-                   await getConversationMessages(
-                    conversation.id
-                   );
+                  const messages =
+                    await getConversationMessages(
+                      conversation.id
+                    );
 
-                 setMessages(messages);
+                  setActiveConversation(
+                    conversation.id
+                  );
+
+                  setMessages(messages);
 
                 } catch (error) {
 
                   console.error(error);
+
+                  setActiveConversation(
+                    null
+                  );
+
+                  setMessages([]);
                 }
               }}
+
+
 
                 className={`
                   w-full

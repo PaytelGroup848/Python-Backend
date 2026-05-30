@@ -23,12 +23,21 @@ class LLMManager:
 
     def __init__(self):
 
+        from app.modules.chat.providers.mistral_provider import (
+            MistralProvider
+        )
+
         self.providers = {
 
             "openai": OpenAIProvider(),
 
             "groq": GroqProvider(),
+
+            "mistral": MistralProvider(),
         }
+
+    
+
 
     async def stream_response(
 
@@ -180,6 +189,111 @@ class LLMManager:
 
                latency,
             )
+
+    async def generate_response(
+
+        self,
+
+        prompt: str,
+
+        user_id: int = 0,
+
+        temperature: float = 0.3,
+
+        stream: bool = False,
+    ):
+
+        messages = [
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        ]
+
+        provider_name = await (
+            provider_health_service
+            .get_best_provider(
+                list(
+                    self.providers.keys()
+                )
+            )
+        )
+
+        if not provider_name:
+
+            raise Exception(
+                "No healthy providers available"
+            )
+        provider = (
+            self.providers[
+                provider_name
+            ]
+        )
+
+        try:
+
+
+            result = await provider.generate(
+                messages
+            )
+
+            return result
+
+
+        except Exception as e:
+
+
+            logger.exception(
+                f"Provider failed: {provider_name}"
+            )
+
+            await (
+                provider_health_service
+                .record_failure(
+                provider_name
+            )
+        )
+
+            fallback_providers = [
+
+                p
+
+                for p in self.providers.keys()
+
+                if p != provider_name
+            ]
+
+            fallback_provider_name = await (
+                provider_health_service
+                .get_best_provider(
+                    fallback_providers
+                )
+            )
+
+            if not fallback_provider_name:
+
+               raise e
+
+            logger.warning(
+                f"Fallback provider used: "
+                f"{fallback_provider_name}"
+            )
+
+            fallback_provider = (
+                self.providers[
+                    fallback_provider_name
+                ]
+            )
+
+            result = await (
+                fallback_provider.generate(
+                    messages
+                )
+            )
+
+            return result
+
+
 
 
 llm_manager = (

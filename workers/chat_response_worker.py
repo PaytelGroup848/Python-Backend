@@ -1,3 +1,4 @@
+
 import asyncio
 import json
 
@@ -42,6 +43,14 @@ async def process_events():
             )
         )
 
+        
+        print(
+            "RESPONSE WORKER EVENTS:",
+            response
+        )
+
+
+
         if not response:
             continue
 
@@ -59,6 +68,14 @@ async def process_events():
                     payload["data"]
                 )
 
+                
+                print(
+                    "RESPONSE WORKER DATA:",
+                    data
+                )
+
+
+
                 request_id = (
                     data["request_id"]
                 )
@@ -70,17 +87,44 @@ async def process_events():
                     )
                 )
 
+                
+                print(
+                    "WEBSOCKET FOUND:",
+                    websocket
+                )
+
+
+
                 if websocket:
 
                     try:
 
-                        await websocket.send_json(
-                            data
+                        await websocket.send_json({
+
+                            "type": "start"
+                        })
+
+                        await websocket.send_json({
+
+                            "type": "chunk",
+
+                            "content":
+                                data.get(
+                                    "response",
+                                    ""
+                                )
+                        })
+
+                        await websocket.send_json({
+
+                            "type": "done"
+                        })
+
+                    except Exception as e:
+
+                        print(
+                            f"WebSocket send failed: {e}"
                         )
-
-                    except Exception:
-
-                        pass
 
                 await redis_client.xack(
 
@@ -95,3 +139,4 @@ async def process_events():
 asyncio.run(
     process_events()
 )
+

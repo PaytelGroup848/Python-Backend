@@ -1,5 +1,6 @@
 import asyncio
 import uuid
+import json
 
 from fastapi import (
     APIRouter,
@@ -26,17 +27,25 @@ from app.shared.redis.stream_service import (
     redis_stream_service
 )
 
-from app.shared.events.chat_event import (
+from app.modules.chat.schemas.chat_event import (
     ChatEvent
-)
-
-from app.shared.constants.streams import (
-    CHAT_REQUEST_STREAM
 )
 
 from app.modules.chat.services.ws_manager import (
     ws_manager
 )
+print(
+    "CHAT EVENT MODEL:",
+    ChatEvent.model_json_schema()
+)
+
+from app.shared.constants.streams import (
+
+    CHAT_REQUEST_STREAM,
+
+    CHAT_RESPONSE_STREAM,
+)
+
 
 from app.modules.chat.services.queue_service import (
     queue_service
@@ -60,7 +69,6 @@ from app.core.security import (
 )
 
 router = APIRouter()
-
 
 @router.websocket("/ws/chat")
 async def websocket_chat(
@@ -122,9 +130,9 @@ async def websocket_chat(
 
         await websocket.accept()
 
-        await metrics_service.set_active_websockets(
-            ws_manager.connection_count()
-        )
+       
+
+       
 
         logger.info(
             "WebSocket connection accepted"
@@ -315,6 +323,18 @@ async def websocket_chat(
                     !=
                     int(user_id)
                 ):
+                    
+                    print(
+                        "DB CONVERSATION USER:",
+                        conversation.user_id
+                        if conversation
+                        else None
+                    )
+
+                    print(
+                        "JWT USER:",
+                        user_id
+                    )
 
                     await websocket.send_json({
 
@@ -362,18 +382,26 @@ async def websocket_chat(
                     uuid.uuid4()
                 )
 
+                
+                ws_manager.connections[
+                    request_id
+                ] = websocket
+
+
+
+               
                 event = ChatEvent(
 
                     request_id=request_id,
 
-                    user_id=int(user_id),
+                    user_id=user_id,
 
-                    conversation_id=int(
-                        conversation_id
-                    ),
+                    conversation_id=conversation_id,
 
-                    query=message,
+                    message=data.get("message"),
                 )
+
+
 
                 allowed = await (
                     queue_service
@@ -394,12 +422,7 @@ async def websocket_chat(
 
                     continue
 
-                await ws_manager.connect(
-
-                    request_id,
-
-                    websocket,
-                )
+               
 
                 await redis_stream_service.publish(
 
@@ -429,23 +452,12 @@ async def websocket_chat(
 
             except WebSocketDisconnect:
 
-                if "request_id" in locals():
-
-                    await ws_manager.disconnect(
-                        request_id
-                    )
-
-                    await metrics_service.set_active_websockets(
-                        ws_manager.connection_count()
-                    )
-
                 logger.info(
 
                     f"Streaming disconnected "
                     f"user={user_id}"
                 )
-
-                break
+            
 
     except asyncio.TimeoutError:
 
@@ -467,39 +479,3 @@ async def websocket_chat(
             f"user={user_id}"
         )
 
-        if request_id:
-
-            await ws_manager.disconnect(
-                request_id
-            )
-
-            await metrics_service.set_active_websockets(
-                ws_manager.connection_count()
-            )
-
-    except Exception as e:
-
-        logger.exception(
-
-            f"WebSocket error "
-            f"user={user_id} "
-            f"error={str(e)}"
-        )
-
-        try:
-
-            logger.info(
-
-                f"Closing websocket "
-                f"user={user_id}"
-            )
-
-            await websocket.close()
-
-        except Exception as close_error:
-
-            logger.warning(
-
-                f"WebSocket close failed: "
-                f"{str(close_error)}"
-            )

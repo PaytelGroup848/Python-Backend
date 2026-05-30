@@ -16,8 +16,18 @@ createConversation() {
       }
     );
 
-  return response.data;
+  console.log(
+    "CREATE CONVERSATION RESPONSE:",
+    response.data
+  );
+
+  return (
+    response.data.data
+    ||
+    response.data
+  );
 }
+
 
 export async function
 getConversations():

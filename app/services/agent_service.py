@@ -132,8 +132,13 @@ class AgentState(TypedDict):
 # =========================================================
 
 async def execute_with_retry(
-    coro,
+
+    func,
+
+    *args,
+
     retries: int = RETRY_ATTEMPTS,
+
     timeout: int = REQUEST_TIMEOUT
 ):
 
@@ -144,7 +149,7 @@ async def execute_with_retry(
         try:
 
             return await asyncio.wait_for(
-                coro,
+                func(*args),
                 timeout=timeout
             )
 
@@ -804,7 +809,8 @@ class AgentRuntime:
         }
 
         result = await execute_with_retry(
-            agent.ainvoke(state)
+            agent.ainvoke,
+            state
         )
 
         latency = int(

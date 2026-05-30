@@ -1,6 +1,7 @@
 
 import asyncio
 import json
+import logging
 
 from app.shared.redis.stream_service import (
     redis_stream_service
@@ -17,142 +18,253 @@ from app.shared.constants.streams import (
     CHAT_RESPONSE_STREAM,
 )
 
-
 from app.services.agent_service import (
     run_agent
 )
-
-
 
 from app.modules.chat.services.queue_service import (
     queue_service
 )
 
 
-GROUP_NAME = "chat_workers"
+logger = logging.getLogger(__name__)
 
-CONSUMER_NAME = "chat_worker_1"
+
+GROUP_NAME = (
+    "chat_workers"
+)
+
+CONSUMER_NAME = (
+    "chat_worker_1"
+)
 
 
 async def process_chat_requests():
 
+    logger.info(
+        "Chat request worker started"
+    )
+
     while True:
 
-        events = await redis_stream_service.consume(
+        try:
 
-            CHAT_REQUEST_STREAM,
+            events = await (
+                redis_stream_service.consume(
 
-            GROUP_NAME,
+                    CHAT_REQUEST_STREAM,
 
-            CONSUMER_NAME,
-        )
+                    GROUP_NAME,
 
-        if not events:
-            continue
+                    CONSUMER_NAME,
+                )
+            )
 
-        for stream in events:
+            if not events:
 
-            messages = stream[1]
-
-            for message in messages:
-
-                message_id = message[0]
-
-                payload = message[1]
-
-                data = json.loads(
-                    payload["data"]
+                await asyncio.sleep(
+                    0.1
                 )
 
-                request_id = (
-                    data["request_id"]
-                )
+                continue
 
-                user_id = str(
-                    data["user_id"]
-                )
+            for stream in events:
 
-                query = (
-                    data["query"]
-                )
+                messages = stream[1]
 
-                conversation_id = (
-                    data["conversation_id"]
-                )
+                for message in messages:
 
-                try:
+                    message_id = message[0]
 
-                    
-                    response = await run_agent(
+                    payload = message[1]
 
-                       query=query,
+                    try:
 
-                       session_id=str(
-                           conversation_id
-                        ),
+                        data = json.loads(
+                            payload["data"]
+                        )
 
-                        user_id=int(
-                            user_id
-                        ),
+                        logger.info(
+                            f"Received chat request: {data}"
+                        )
 
-                        user_role="employee",
+                        request_id = (
+                            data.get(
+                                "request_id"
+                            )
+                        )
 
-                        user_department="general",
-                    )
+                        user_id = str(
+                            data.get(
+                                "user_id"
+                            )
+                        )
+
+                        query = (
+
+                            data.get("query")
+
+                            or
+
+                            data.get("message")
+                        )
+
+                        conversation_id = (
+                            data.get(
+                                "conversation_id"
+                            )
+                        )
+
+                        if not query:
+
+                            raise ValueError(
+                                "Query is required"
+                            )
+
+                        # =========================
+                        # RUN AGENT
+                        # =========================
+
+                        response = await run_agent(
+
+                            query=query,
+
+                            session_id=str(
+                                conversation_id
+                            ),
+
+                            user_id=int(
+                                user_id
+                            ),
+
+                            user_role="employee",
+
+                            user_department="general",
+                        )
+
+                        # =========================
+                        # NORMALIZE RESPONSE
+                        # =========================
+
+                        response_text = (
+
+                            response["response"]
+
+                            if isinstance(
+                                response,
+                                dict
+                            )
+
+                            else str(response)
+                        )
+
+                        logger.info(
+                            f"Generated response for user={user_id}"
+                        )
+
+                        # =========================
+                        # PUBLISH RESPONSE EVENT
+                        # =========================
+
+                        
+                        await redis_stream_service.publish(
+
+                            CHAT_RESPONSE_STREAM,
+
+                            {
+
+                                "request_id":
+                                    request_id,
+
+                                "type":
+                                    "message",
+
+                                "response":
+                                    response_text,
+                            }
+                        )
 
 
 
-                    await redis_stream_service.publish(
-
-                        CHAT_RESPONSE_STREAM,
-
-                        {
-                            "request_id":
-                            request_id,
-
-                            "type":
-                            "message",
-
-                            "response":
-                            response,
-                        }
-                    )
-
-                except Exception as e:
-
-                    await redis_stream_service.publish(
-
-                        CHAT_RESPONSE_STREAM,
-
-                        {
-                            "request_id":
-                            request_id,
-
-                            "type":
-                            "error",
-
-                            "message":
-                            str(e),
-                        }
-                    )
-
-                finally:
-
-                    await queue_service.decrement(
-                        user_id
-                    )
-
-                    await redis_client.xack(
-
-                        CHAT_REQUEST_STREAM,
-
-                        GROUP_NAME,
-
-                        message_id,
-                    )
 
 
-asyncio.run(
-    process_chat_requests()
-)
+                    except Exception as e:
+
+                        logger.exception(
+                            "Chat request processing failed"
+                        )
+
+                        try:
+
+                            
+                            await redis_stream_service.publish(
+
+                                CHAT_RESPONSE_STREAM,
+
+                                {
+
+                                    "request_id":
+                                        request_id,
+
+                                    "type":
+                                        "error",
+
+                                    "message":
+                                        str(e),
+                                }
+                            )
+
+
+
+                        except Exception:
+
+                            logger.exception(
+                                "Failed to publish error response"
+                            )
+
+                    finally:
+
+                        try:
+
+                            await queue_service.decrement(
+                                user_id
+                            )
+
+                        except Exception:
+
+                            logger.exception(
+                                "Queue decrement failed"
+                            )
+
+                        try:
+
+                            await redis_client.xack(
+
+                                CHAT_REQUEST_STREAM,
+
+                                GROUP_NAME,
+
+                                message_id,
+                            )
+
+                        except Exception:
+
+                            logger.exception(
+                                "Redis ACK failed"
+                            )
+
+        except Exception:
+
+            logger.exception(
+                "Worker loop failed"
+            )
+
+            await asyncio.sleep(1)
+
+
+if __name__ == "__main__":
+
+    asyncio.run(
+        process_chat_requests()
+    )
 

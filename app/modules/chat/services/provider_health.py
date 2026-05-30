@@ -41,7 +41,7 @@ class ProviderHealthService:
                 "latency_ms": float("inf"),
             },
 
-            "llama": {
+            "groq": {
 
                 "healthy": True,
 

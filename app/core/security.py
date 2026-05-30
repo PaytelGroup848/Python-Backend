@@ -119,3 +119,31 @@ def require_permission(permission_name: str):
             return user
 
     return checker
+
+
+# =========================
+# CURRENT USER
+# =========================
+
+async def get_current_user(
+
+    user=Depends(
+        verify_token
+    )
+):
+
+    return type(
+
+        "CurrentUser",
+
+        (object,),
+
+        {
+            "id":
+                user["user_id"],
+
+            "role":
+                user["role"],
+        },
+    )()
+

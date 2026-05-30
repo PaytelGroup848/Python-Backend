@@ -48,6 +48,12 @@ class OpenAIProvider(
 
         data = response.json()
 
+        if "choices" not in data:
+
+            raise Exception(
+                f"OpenAI API Error: {data}"
+            )
+
         return {
 
             "model": "openai",

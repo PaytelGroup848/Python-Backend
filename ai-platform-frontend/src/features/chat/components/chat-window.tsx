@@ -212,18 +212,36 @@ const setConversations =
       return;
     }
 
+    
+    const currentConversationId =
+
+      useConversationStore
+        .getState()
+        .activeConversationId;
+
     console.log(
       "ACTIVE CONVERSATION:",
-      activeConversationId
+      currentConversationId
     );
+
+    if (!currentConversationId) {
+
+      alert(
+        "Please create/select a conversation first"
+      );
+
+      return;
+    }
 
     socketClient.send({
 
-     message: content,
+      message: content,
 
-     conversation_id:
-       activeConversationId,
-   });
+      conversation_id:
+        currentConversationId,
+    });
+
+
   }
 
   return (

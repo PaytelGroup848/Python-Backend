@@ -11,47 +11,41 @@ class WSConnectionManager:
             WebSocket
         ] = {}
 
-
     async def connect(
 
         self,
 
-        request_id: str,
+        user_id: str,
 
         websocket: WebSocket,
     ):
 
-        await websocket.accept()
-
         self.connections[
-            request_id
+            str(user_id)
         ] = websocket
 
-
-    def disconnect(
+    async def disconnect(
 
         self,
 
-        request_id: str,
+        user_id: str,
     ):
 
         self.connections.pop(
-            request_id,
+            str(user_id),
             None,
         )
-
 
     def get_connection(
 
         self,
 
-        request_id: str,
+        user_id: str,
     ):
 
         return self.connections.get(
-            request_id
+            str(user_id)
         )
-
 
     def connection_count(
         self

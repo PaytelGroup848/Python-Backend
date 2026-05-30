@@ -29,6 +29,12 @@ from app.schemas.conversation import (
     ConversationResponse,
 )
 
+from app.core.security import (
+    get_current_user
+)
+
+
+
 router = APIRouter(
     prefix="/conversations",
     tags=["Conversations"],
@@ -42,13 +48,22 @@ router = APIRouter(
     "",
     response_model=ConversationResponse
 )
+
 async def create_conversation(
+
     payload: ConversationCreate,
+
     db: AsyncSession = Depends(get_db),
+
+    current_user = Depends(
+        get_current_user
+    ),
 ):
 
+
+
     conversation = ConversationSession(
-        user_id=1,
+        user_id=current_user.id,
         title=payload.title,
     )
 
@@ -71,9 +86,17 @@ async def create_conversation(
         ConversationResponse
     ]
 )
+
 async def get_conversations(
+
     db: AsyncSession = Depends(get_db),
+
+    current_user = Depends(
+        get_current_user
+    ),
 ):
+
+
 
     result = await db.execute(
 
@@ -82,7 +105,8 @@ async def get_conversations(
         )
         .where(
             ConversationSession.user_id
-            == 1
+            ==
+            current_user.id
         )
         .order_by(
             ConversationSession.created_at.desc()
@@ -137,11 +161,21 @@ async def get_conversation_messages(
 @router.patch(
     "/{conversation_id}/title"
 )
+
 async def update_conversation_title(
+
     conversation_id: int,
+
     data: dict,
+
     db: AsyncSession = Depends(get_db),
+
+    current_user = Depends(
+        get_current_user
+    ),
 ):
+
+
 
     result = await db.execute(
 
@@ -156,7 +190,8 @@ async def update_conversation_title(
 
         .where(
             ConversationSession.user_id
-            == 1
+            ==
+            current_user.id
         )
     )
 
@@ -189,10 +224,19 @@ async def update_conversation_title(
 @router.delete(
     "/{conversation_id}"
 )
+
 async def delete_conversation(
+
     conversation_id: int,
+
     db: AsyncSession = Depends(get_db),
+
+    current_user = Depends(
+        get_current_user
+    ),
 ):
+
+
 
     result = await db.execute(
 
@@ -207,7 +251,8 @@ async def delete_conversation(
 
         .where(
             ConversationSession.user_id
-            == 1
+            ==
+            current_user.id
         )
     )
 

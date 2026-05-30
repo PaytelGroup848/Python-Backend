@@ -46,7 +46,14 @@ class GroqProvider(
             },
         )
 
+        
         data = response.json()
+
+        if "choices" not in data:
+
+            raise Exception(
+                f"Groq API Error: {data}"
+            )
 
         return {
 
@@ -58,3 +65,4 @@ class GroqProvider(
             "usage":
             data.get("usage", {}),
         }
+
