@@ -4,6 +4,8 @@ import { useState } from "react";
 
 import { useRouter } from "next/navigation";
 
+import axios from "axios";
+
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -12,13 +14,11 @@ import { authService } from "../services/auth.service";
 import { useAuthStore } from "@/stores/auth-store";
 
 export function LoginForm() {
-
   const router = useRouter();
 
-  const setAuth =
-    useAuthStore(
-      (state) => state.setAuth
-    );
+  const setAuth = useAuthStore(
+    (state) => state.setAuth
+  );
 
   const [email, setEmail] =
     useState("");
@@ -38,7 +38,6 @@ export function LoginForm() {
     e.preventDefault();
 
     try {
-
       setLoading(true);
 
       setError("");
@@ -53,32 +52,42 @@ export function LoginForm() {
         response.user,
         response.access_token,
         response.refresh_token
-    );
+      );
 
       router.push("/");
 
-    
-    } catch (err: any) {
+    } catch (err: unknown) {
 
-      const detail =
-        err?.response?.data?.detail;
+      if (axios.isAxiosError(err)) {
 
-      if (Array.isArray(detail)) {
+        const detail =
+          err.response?.data?.detail;
 
-        setError(
-          detail[0]?.msg || "Login failed"
-        );
+        if (Array.isArray(detail)) {
 
-      } else if (
-        typeof detail === "string"
-      ) {
+          setError(
+            detail[0]?.msg ||
+            "Login failed"
+          );
 
-        setError(detail);
+        } else if (
+          typeof detail === "string"
+        ) {
+
+          setError(detail);
+
+        } else {
+
+          setError("Login failed");
+        }
 
       } else {
 
-        setError("Login failed");
+        setError(
+          "Unexpected error occurred"
+        );
       }
+
     } finally {
 
       setLoading(false);
@@ -111,7 +120,6 @@ export function LoginForm() {
       {/* Email */}
 
       <div className="space-y-2">
-
         <label className="text-sm text-zinc-300">
           Email
         </label>
@@ -134,7 +142,6 @@ export function LoginForm() {
       {/* Password */}
 
       <div className="space-y-2">
-
         <label className="text-sm text-zinc-300">
           Password
         </label>

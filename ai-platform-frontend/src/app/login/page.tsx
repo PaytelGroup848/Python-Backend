@@ -1,7 +1,6 @@
 import { LoginForm } from "@/features/auth/components/login-form";
 
 export default function LoginPage() {
-
   return (
     <div
       className="
@@ -52,9 +51,7 @@ export default function LoginPage() {
         {/* LOGIN FORM */}
 
         <div className="mt-8">
-
           <LoginForm />
-
         </div>
 
         {/* REGISTER LINK */}
@@ -67,7 +64,7 @@ export default function LoginPage() {
             text-zinc-600 dark:text-zinc-400
           "
         >
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
 
           <a
             href="/register"
@@ -87,7 +84,6 @@ export default function LoginPage() {
         {/* FORGOT PASSWORD */}
 
         <div className="mt-3 text-center">
-
           <a
             href="/forgot-password"
             className="

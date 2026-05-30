@@ -48,14 +48,17 @@ export default function RegisterPage() {
       router.push("/login");
 
     
-    } catch (error: any) {
+    } catch (error: unknown) {
 
-      console.error(
-        error.response?.data
-      );
+      if (error instanceof Error) {
 
-      console.error(error);
+        console.error(error.message);
 
+      } else {
+
+        console.error(error);
+
+      }
     } finally {
 
       setLoading(false);

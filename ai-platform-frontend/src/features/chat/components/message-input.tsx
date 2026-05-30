@@ -55,9 +55,11 @@ export function MessageInput({
 
   useEffect(() => {
 
-    if (!transcript) {
-      return;
-    }
+  if (!transcript) {
+    return;
+  }
+
+  const timeout = setTimeout(() => {
 
     setMessage((prev) => {
 
@@ -68,13 +70,18 @@ export function MessageInput({
       if (
         prev.includes(transcript)
       ) {
-      return prev;
+        return prev;
       }
 
       return `${prev} ${transcript}`;
     });
 
-  }, [transcript]);
+  }, 0);
+
+  return () =>
+    clearTimeout(timeout);
+
+}, [transcript]);
 
   const addDocument =
     useDocumentStore(

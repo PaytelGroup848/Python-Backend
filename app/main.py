@@ -70,6 +70,9 @@ from app.api.routes.metrics import (
 from app.api.routes.prometheus_routes import (
     router as prometheus_router
 )
+from app.modules.admin.routes.admin_routes import (
+    router as admin_dashboard_router
+)
 
 logging.basicConfig(
     level=logging.INFO
@@ -243,6 +246,10 @@ app.include_router(
 
 app.include_router(
     prometheus_router
+)
+
+app.include_router(
+    admin_dashboard_router
 )
 
 

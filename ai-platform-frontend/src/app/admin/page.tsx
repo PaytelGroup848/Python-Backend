@@ -1,19 +1,57 @@
+"use client";
+
 import { StatCard } from "@/features/admin/components";
 
 import {
   Users,
   MessageSquare,
-  FileText,
   Activity,
   Bot,
   Cpu,
 } from "lucide-react";
 
-import { ProviderStatusCard } from "@/features/admin/components/provider-status-card";
-import { WorkerStatusCard } from "@/features/admin/components/worker-status-card";
-import { QueueStatusCard } from "@/features/admin/components/queue-status-card";
+import {
+  ProviderStatusCard,
+} from "@/features/admin/components/provider-status-card";
+
+import {
+  WorkerStatusCard,
+} from "@/features/admin/components/worker-status-card";
+
+import {
+  QueueStatusCard,
+} from "@/features/admin/components/queue-status-card";
+
+import {
+  useDashboard,
+} from "@/features/admin/hooks/use-dashboard";
 
 export default function AdminDashboardPage() {
+
+  const {
+    data,
+    isLoading,
+    error,
+  } = useDashboard();
+
+  if (isLoading) {
+
+    return (
+      <div className="p-8">
+        Loading Dashboard...
+      </div>
+    );
+  }
+
+  if (error) {
+
+    return (
+      <div className="p-8 text-red-500">
+        Failed to load dashboard
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
 
@@ -35,42 +73,43 @@ export default function AdminDashboardPage() {
 
         <StatCard
           title="Total Users"
-          value={125}
+          value={data?.total_users ?? 0}
           trend="+12%"
           icon={Users}
         />
 
         <StatCard
           title="Conversations"
-          value={2450}
+          value={
+            data?.total_conversations ?? 0
+          }
           trend="+8%"
           icon={MessageSquare}
         />
 
         <StatCard
-          title="Documents"
-          value={340}
+          title="Messages"
+          value={
+            data?.total_messages ?? 0
+          }
           trend="+15%"
-          icon={FileText}
-        />
-
-        <StatCard
-          title="Requests"
-          value={12000}
-          trend="+25%"
           icon={Activity}
         />
 
         <StatCard
           title="Active Providers"
-          value={5}
+          value={
+            data?.active_providers ?? 0
+          }
           trend="+2"
           icon={Bot}
         />
 
         <StatCard
           title="Active Workers"
-          value={4}
+          value={
+            data?.active_workers ?? 0
+          }
           trend="100%"
           icon={Cpu}
         />
