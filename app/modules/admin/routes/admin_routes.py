@@ -29,7 +29,9 @@ from app.modules.admin.services.user_service import (
 )
 
 from app.modules.admin.schemas.user_schema import (
-    UserListResponse
+    UserListResponse,
+    UserStatusUpdate,
+    UserPlanUpdate
 )
 
 
@@ -94,4 +96,38 @@ async def get_users(
     return await (
         user_service
         .get_users(db)
+    )
+
+@router.patch(
+    "/users/{user_id}/status"
+)
+async def update_user_status(
+    user_id: int,
+    payload: UserStatusUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+
+    return await (
+        user_service.update_user_status(
+            db,
+            user_id,
+            payload.is_active
+        )
+    )
+
+@router.patch(
+    "/users/{user_id}/plan"
+)
+async def update_user_plan(
+    user_id: int,
+    payload: UserPlanUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+
+    return await (
+        user_service.update_user_plan(
+            db,
+            user_id,
+            payload.plan_name
+        )
     )

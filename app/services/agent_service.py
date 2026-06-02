@@ -35,6 +35,14 @@ from app.services.tool_service import (
     search_documents_tool
 )
 
+from app.modules.chat.services.token_usage_service import (
+    token_usage_service
+)
+
+from app.modules.chat.services.quota_service import (
+    quota_service
+)
+
 # =========================================================
 # LOGGING
 # =========================================================
@@ -601,13 +609,22 @@ async def generation_node(state: AgentState):
     )
 
     final_prompt = f"""
-{prompt}
+    {prompt}
 
-USER QUESTION:
-{state["query"]}
+    USER QUESTION:
+    {state["query"]}
 
-ANSWER:
-"""
+    ANSWER:
+    """
+
+    async with AsyncSessionLocal() as db:
+
+        await quota_service.check_limit(
+
+            db=db,
+
+            user_id=state["user_id"]
+        )
 
     response = await llm_manager.generate_response(
         prompt=final_prompt,
@@ -615,6 +632,30 @@ ANSWER:
         temperature=0.3,
         stream=False
     )
+
+    async with AsyncSessionLocal() as db:
+
+        await token_usage_service.log_usage(
+
+            db=db,
+
+            user_id=state["user_id"],
+
+            provider=response.get(
+                "model",
+                "unknown"
+            ),
+
+            model=response.get(
+                "model",
+                "unknown"
+            ),
+
+            usage=response.get(
+                "usage",
+                {}
+            )
+        )
 
     final_response = response["response"]
 

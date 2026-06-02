@@ -9,6 +9,14 @@ import type {
   User,
 } from "@/features/admin/services/user-service";
 
+import {
+  useUpdateUserStatus,
+} from "@/features/admin/hooks/use-update-user-status";
+
+import {
+  updateUserPlan,
+} from "@/features/admin/services/user-service";
+
 export default function UsersPage() {
 
   const {
@@ -16,6 +24,11 @@ export default function UsersPage() {
     isLoading,
     error,
   } = useUsers();
+
+  const {
+    mutate,
+    isPending,
+  } = useUpdateUserStatus();
 
   if (isLoading) {
 
@@ -87,7 +100,29 @@ export default function UsersPage() {
               </th>
 
               <th className="p-4 text-left">
+                Plan
+              </th>
+
+              <th className="p-4 text-left">
+                Used
+              </th>
+
+              <th className="p-4 text-left">
+                Limit
+              </th>
+
+              <th className="p-4 text-left">
+                Remaining
+              </th>
+
+              <th className="p-4 text-left">
                 Status
+              </th>
+
+              
+
+              <th className="p-4 text-left">
+                Actions
               </th>
 
             </tr>
@@ -134,6 +169,63 @@ export default function UsersPage() {
 
                 <td className="p-4">
 
+                  <select
+
+                    className="
+                      rounded-lg
+                      border
+                      px-3
+                      py-2
+                      text-sm
+                    "
+
+                    value={user.plan_name}
+
+                    onChange={async (e) => {
+
+                      await updateUserPlan(
+                        user.id,
+                        e.target.value
+                      );
+
+                      window.location.reload();
+                    }}
+                  >
+
+                    <option value="free">
+                      FREE
+                    </option>
+
+                    <option value="pro">
+                      PRO
+                    </option>
+
+                    <option value="business">
+                      BUSINESS
+                    </option>
+
+                    <option value="enterprise">
+                      ENTERPRISE
+                    </option>
+
+                  </select>
+
+                </td>
+
+                <td className="p-4 font-medium">
+                  {user.total_tokens.toLocaleString()}
+                </td>
+
+                <td className="p-4">
+                  {user.token_limit.toLocaleString()}
+                </td>
+
+                <td className="p-4 font-medium text-green-600">
+                  {user.remaining_tokens.toLocaleString()}
+                </td>
+
+                <td className="p-4">
+
                   <span
                     className={`
                       rounded-full
@@ -154,6 +246,57 @@ export default function UsersPage() {
                   </span>
 
                 </td>
+
+                
+
+                <td className="p-4">
+
+                  <button
+
+                  disabled={isPending}
+
+                  onClick={() =>
+                    mutate({
+
+                      userId: user.id,
+
+                      isActive:
+                        !user.is_active,
+                    })
+                  }
+
+                  className={
+                    user.is_active
+
+                      ? `
+                          rounded-lg
+                          bg-red-600
+                          px-3
+                          py-2
+                          text-sm
+                          font-medium
+                          text-white
+                        `
+
+                      : `
+                          rounded-lg
+                          bg-green-600
+                          px-3
+                          py-2
+                          text-sm
+                          font-medium
+                          text-white
+                        `
+                  }
+                >
+
+                  {user.is_active
+                    ? "Block"
+                    : "Unblock"}
+
+                </button>
+
+              </td>
 
               </tr>
 

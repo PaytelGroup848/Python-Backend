@@ -1,4 +1,4 @@
-// src/features/admin/services/user-service.ts
+
 
 import { apiClient } from "@/services/api/client";
 
@@ -7,7 +7,17 @@ export interface User {
   name: string;
   email: string;
   role: string;
+
+  plan_name: string;
+
+  token_limit: number;
+
+  total_tokens: number;
+
+  remaining_tokens: number;
+
   is_active: boolean;
+
   created_at: string;
 }
 
@@ -20,6 +30,42 @@ export async function getUsers(): Promise<UsersResponse> {
   const { data } =
     await apiClient.get<UsersResponse>(
       "/admin/users"
+    );
+
+  return data;
+}
+
+export async function updateUserStatus(
+  userId: number,
+  isActive: boolean
+) {
+
+  const { data } =
+    await apiClient.patch(
+
+      `/admin/users/${userId}/status`,
+
+      {
+        is_active: isActive,
+      }
+    );
+
+  return data;
+}
+
+export async function updateUserPlan(
+  userId: number,
+  planName: string
+) {
+
+  const { data } =
+    await apiClient.patch(
+
+      `/admin/users/${userId}/plan`,
+
+      {
+        plan_name: planName,
+      }
     );
 
   return data;

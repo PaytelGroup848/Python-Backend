@@ -4,6 +4,7 @@ from app.db.database import Base
 from sqlalchemy import Boolean
 from sqlalchemy import DateTime
 from datetime import datetime
+from sqlalchemy import BigInteger
 
 class User(Base):
 
@@ -33,6 +34,18 @@ class User(Base):
     role = Column(
         String,
         default="employee"
+    )
+
+    plan_name = Column(
+        String,
+        default="free",
+        nullable=False
+    )
+
+    token_limit = Column(
+        BigInteger,
+        default=1000000,
+        nullable=False
     )
 
     is_active = Column(

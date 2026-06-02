@@ -1,7 +1,17 @@
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import (
+    select,
+    func
+)
+
+from sqlalchemy.ext.asyncio import (
+    AsyncSession
+)
 
 from app.models.user import User
+
+from app.models.token_usage import (
+    TokenUsage
+)
 
 
 class UserRepository:
@@ -12,7 +22,61 @@ class UserRepository:
     ):
 
         result = await db.execute(
-            select(User)
+
+            select(
+
+                User,
+
+                func.coalesce(
+                    func.sum(
+                        TokenUsage.total_tokens
+                    ),
+                    0
+                ).label(
+                    "total_tokens"
+                )
+
+            )
+
+            .outerjoin(
+                TokenUsage,
+                User.id == TokenUsage.user_id
+            )
+
+            .group_by(
+                User.id
+            )
         )
 
-        return result.scalars().all()
+        rows = result.all()
+
+        users = []
+
+        for user, total_tokens in rows:
+
+            user.total_tokens = (
+                total_tokens
+            )
+
+            user.remaining_tokens = max(
+                0,
+                user.token_limit - total_tokens
+            )
+
+            users.append(user)
+
+        return users
+
+    async def get_by_id(
+        self,
+        db: AsyncSession,
+        user_id: int
+    ):
+
+        result = await db.execute(
+            select(User).where(
+                User.id == user_id
+            )
+        )
+
+        return result.scalar_one_or_none()

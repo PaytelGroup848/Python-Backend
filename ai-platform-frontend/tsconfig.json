@@ -1,12 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
 
     "allowJs": true,
     "skipLibCheck": true,
@@ -24,8 +19,6 @@
     "jsx": "preserve",
 
     "incremental": true,
-
-    "ignoreDeprecations": "6.0",
 
     "plugins": [
       {
@@ -48,7 +41,5 @@
     ".next/dev/types/**/*.ts"
   ],
 
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }
