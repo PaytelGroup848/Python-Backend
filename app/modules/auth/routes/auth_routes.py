@@ -199,8 +199,9 @@ async def login(
             req.email,
             ip
         )
-        logger.exception(
-            f"Session creation failed: {user.id}"
+
+        logger.warning(
+            f"Login failed for email: {req.email}"
         )
 
         raise HTTPException(
