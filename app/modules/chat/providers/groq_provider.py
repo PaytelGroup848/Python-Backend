@@ -49,6 +49,11 @@ class GroqProvider(
         
         data = response.json()
 
+        print(
+            "GROQ RESPONSE:",
+            data
+        )
+
         if "choices" not in data:
 
             raise Exception(

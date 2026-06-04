@@ -10,15 +10,18 @@ from app.modules.chat.providers.mistral_provider import (
     MistralProvider
 )
 
+from app.modules.chat.providers.gemini_provider import (
+    GeminiProvider
+)
+
 
 provider_registry = {
 
-    "openai":
-        OpenAIProvider(),
+    "openai": OpenAIProvider(),
 
-    "llama":
-        GroqProvider(),
+    "groq": GroqProvider(),
 
-    "mistral":
-        MistralProvider(),
+    "mistral": MistralProvider(),
+
+    "gemini": GeminiProvider()
 }

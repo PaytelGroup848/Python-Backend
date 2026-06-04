@@ -9,6 +9,7 @@ import {
   Bot,
   Cpu,
   Database,
+  Package,
   FileText,
   Mic,
   ScanText,
@@ -41,6 +42,11 @@ const navigation = [
         label: "Providers",
         href: "/admin/providers",
         icon: Bot,
+      },
+      {
+        label: "Models",
+        href: "/admin/models",
+        icon: Package,
       },
       {
         label: "Workers",

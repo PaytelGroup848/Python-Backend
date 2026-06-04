@@ -187,8 +187,14 @@ async def chat_stream(
         media_type="text/plain"
     )
 
-
-@router.get("/usage")
+# Deprecated:
+# Replaced by
+# /usage/overview
+# in app/modules/usage
+@router.get(
+    "/usage",
+    deprecated=True
+)
 @limiter.limit("20/minute")
 async def get_usage(
 

@@ -25,6 +25,8 @@ class Settings(BaseSettings):
 
     GROQ_API_KEY: str
 
+    GEMINI_API_KEY: str
+
     DATABASE_URL: str
 
     DEEPGRAM_API_KEY: str

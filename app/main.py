@@ -74,6 +74,26 @@ from app.modules.admin.routes.admin_routes import (
     router as admin_dashboard_router
 )
 
+from app.modules.api_keys.routes.api_key_routes import (
+    router as api_key_router
+)
+
+from app.modules.public_api.routes.ai_api_routes import (
+    router as public_api_router
+)
+
+from app.modules.models.routes.model_routes import (
+    router as model_router
+)
+
+from app.modules.analytics.routes.analytics_routes import (
+    router as analytics_router
+)
+
+from app.modules.usage.routes.usage_routes import (
+    router as usage_router
+)
+
 logging.basicConfig(
     level=logging.INFO
 )
@@ -252,6 +272,25 @@ app.include_router(
     admin_dashboard_router
 )
 
+app.include_router(
+    api_key_router
+)
+
+app.include_router(
+    public_api_router
+)
+
+app.include_router(
+    model_router
+)
+
+app.include_router(
+    analytics_router
+)
+
+app.include_router(
+    usage_router
+)
 
 # =========================
 # Health Route

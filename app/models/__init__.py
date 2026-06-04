@@ -28,3 +28,13 @@ from app.models.audit import AuditLog
 from app.models.token_usage import (
     TokenUsage
 )
+
+from app.models.api_key import (
+    ApiKey
+)
+from app.models.api_request import (
+    ApiRequest
+)
+from app.models.model import (
+    ModelRegistry
+)
