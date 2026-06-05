@@ -8,6 +8,10 @@ from app.modules.chat.providers.base_provider import (
     BaseProvider
 )
 
+MODEL_NAME = (
+    "llama-3.1-8b-instant"
+)
+
 
 class GroqProvider(
     BaseProvider
@@ -35,8 +39,7 @@ class GroqProvider(
 
             json={
 
-                "model":
-                "llama-3.1-8b-instant",
+                "model": MODEL_NAME,
 
                 "messages":
                 messages,
@@ -54,6 +57,14 @@ class GroqProvider(
             data
         )
 
+        print(
+            "GROQ USAGE:",
+            data.get(
+                "usage",
+                {}
+            )
+        )
+
         if "choices" not in data:
 
             raise Exception(
@@ -62,12 +73,15 @@ class GroqProvider(
 
         return {
 
-            "model": "llama",
+            "model": MODEL_NAME,
 
             "response":
             data["choices"][0]["message"]["content"],
 
             "usage":
-            data.get("usage", {}),
+            data.get(
+                "usage",
+                {}
+            ),
         }
 

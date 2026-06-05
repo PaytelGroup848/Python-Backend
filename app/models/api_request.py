@@ -49,6 +49,11 @@ class ApiRequest(Base):
         String,
         nullable=False
     )
+    source = Column(
+        String,
+        nullable=False,
+        default="api"
+    )
 
     prompt_tokens = Column(
         BigInteger,

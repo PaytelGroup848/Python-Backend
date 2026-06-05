@@ -35,6 +35,10 @@ from app.models.user import User
 from app.models.audit import AuditLog
 from app.models.session import Session
 
+from app.models.model_pricing import (
+    ModelPricing
+)
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

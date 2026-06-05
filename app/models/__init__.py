@@ -38,3 +38,5 @@ from app.models.api_request import (
 from app.models.model import (
     ModelRegistry
 )
+
+from app.models.model_pricing import ModelPricing

@@ -269,7 +269,10 @@ class SemanticMemoryService:
 class QueryRewriteService:
 
     @staticmethod
-    async def rewrite(query: str) -> str:
+    async def rewrite(
+        query: str,
+        user_id: int
+    ) -> str:
 
         prompt = f"""
 Rewrite this query into an optimized semantic search query.
@@ -282,10 +285,9 @@ OPTIMIZED QUERY:
 
         response = await llm_manager.generate_response(
             prompt=prompt,
-            user_id=0,
+            user_id=user_id,
             temperature=0.1
         )
-
         return response["response"].strip()
 
 
@@ -296,7 +298,10 @@ OPTIMIZED QUERY:
 class PlanningService:
 
     @staticmethod
-    async def create_plan(query: str) -> str:
+    async def create_plan(
+        query: str,
+        user_id: int
+    ) -> str:
 
         prompt = f"""
 Break this request into concise execution steps.
@@ -309,7 +314,7 @@ STEPS:
 
         response = await llm_manager.generate_response(
             prompt=prompt,
-            user_id=0,
+            user_id=user_id,
             temperature=0.2
         )
 
@@ -517,7 +522,8 @@ async def preprocessing_node(state: AgentState):
     )
 
     rewrite_task = QueryRewriteService.rewrite(
-        query
+        query=query,
+        user_id=state["user_id"]
     )
 
     memory, rewritten = await asyncio.gather(
@@ -544,7 +550,8 @@ async def planner_node(state: AgentState):
         }
 
     plan = await PlanningService.create_plan(
-        state["query"]
+        query=state["query"],
+        user_id=state["user_id"]
     )
 
     return {

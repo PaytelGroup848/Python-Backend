@@ -8,6 +8,9 @@ from app.modules.chat.providers.base_provider import (
     BaseProvider
 )
 
+MODEL_NAME = (
+    "mistral-small"
+)
 
 class MistralProvider(
     BaseProvider
@@ -36,7 +39,7 @@ class MistralProvider(
             json={
 
                 "model":
-                "mistral-small",
+                MODEL_NAME,
 
                 "messages":
                 messages,
@@ -50,11 +53,15 @@ class MistralProvider(
 
         return {
 
-            "model": "mistral",
+            "model":
+            MODEL_NAME,
 
             "response":
             data["choices"][0]["message"]["content"],
 
             "usage":
-            data.get("usage", {}),
+            data.get(
+                "usage",
+                {}
+            ),
         }

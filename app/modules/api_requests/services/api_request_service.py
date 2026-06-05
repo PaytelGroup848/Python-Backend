@@ -24,6 +24,7 @@ class ApiRequestService:
         api_key_id: int | None,
         model_name: str,
         provider: str,
+        source: str,
         prompt_tokens: int,
         completion_tokens: int,
         total_tokens: int,
@@ -44,6 +45,8 @@ class ApiRequestService:
             model_name=model_name,
 
             provider=provider,
+
+            source=source,
 
             prompt_tokens=prompt_tokens,
 

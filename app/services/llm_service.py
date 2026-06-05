@@ -25,6 +25,10 @@ from app.modules.chat.providers.provider_registry import (
     provider_registry
 )
 
+from app.modules.usage.services.usage_tracker import (
+    usage_tracker
+)
+
 # =========================
 # ROUTES (ADD HERE)
 # =========================
@@ -33,7 +37,7 @@ def route_query(query):
     query_lower = query.lower()
 
     if any(word in query_lower for word in ["code", "bug", "error", "debug", "fix"]):
-        return "llama"
+        return "groq"
 
     elif any(word in query_lower for word in ["write", "story", "poem", "creative", "imagine"]):
         return "openai"
@@ -41,7 +45,7 @@ def route_query(query):
     elif any(word in query_lower for word in ["what", "why", "explain", "define", "concept"]):
         return "mistral"
 
-    return "llama"
+    return "groq"
 
 
 
@@ -52,7 +56,7 @@ from app.modules.chat.services.usage_service import (
 # =========================
 #  MAIN ORCHESTRATOR
 # =========================
-async def get_fastest_response(query, user_id="default"):
+async def get_fastest_response(query, user_id: int):
     normalized_query = query.strip().lower()
     cache_key = f"{user_id}:{normalized_query}"
 
@@ -118,7 +122,20 @@ async def get_fastest_response(query, user_id="default"):
     ]
 
 # add previous conversation
-    messages.extend(history)
+    clean_history = []
+
+    for msg in history:
+
+        clean_history.append({
+
+            "role": msg["role"],
+
+            "content": msg["content"]
+        })
+
+    messages.extend(
+        clean_history
+    )
 
 # add current query with context
     messages.append({
@@ -134,9 +151,10 @@ async def get_fastest_response(query, user_id="default"):
     ]
 
     fallbacks = [
-        "llama",
+        "groq",
         "mistral",
         "openai",
+        "gemini"
     ]
 
     for fallback in fallbacks:
@@ -150,6 +168,8 @@ async def get_fastest_response(query, user_id="default"):
     tried = set()
 
     result = None
+
+    start_time = time.time()
 
     for provider in providers:
 
@@ -169,6 +189,8 @@ async def get_fastest_response(query, user_id="default"):
            result = await provider_instance.generate(
                 messages
             )
+           
+           result["provider"] = provider
 
            print(f"Success: {provider}")
 
@@ -183,11 +205,11 @@ async def get_fastest_response(query, user_id="default"):
 
     if result is None:
 
-       result = {
-          "model": "system",
-          "response": "All AI providers failed"
-       }
-
+        return {
+            "model": "system",
+            "response": "All AI providers failed",
+            "sources": sources
+        }
     #  Cost tracking (ADD HERE)
     tokens = 0
 
@@ -198,10 +220,79 @@ async def get_fastest_response(query, user_id="default"):
             {}
         )
 
+        prompt_tokens = usage.get(
+            "prompt_tokens",
+            0
+        )
+
+        completion_tokens = usage.get(
+            "completion_tokens",
+            0
+        )
+
         tokens = usage.get(
             "total_tokens",
             0
         )
+        print(
+            "TRACKING:",
+            {
+                "provider": result.get("provider"),
+                "model": result.get("model"),
+                "tokens": tokens,
+                "source": "chat"
+            }
+        )
+
+        async with AsyncSessionLocal() as db:
+
+            print(
+                "BEFORE TRACK:",
+                result.get("provider"),
+                result.get("model"),
+                tokens
+            )
+
+            print(
+                "TRACKING START"
+            )
+
+            await usage_tracker.track(
+
+                db=db,
+
+                user_id=user_id,
+
+                api_key_id=None,
+
+                model_name=result.get(
+                    "model",
+                    "unknown"
+                ),
+
+                provider=result.get(
+                    "provider",
+                    "unknown"
+                ),
+
+                source="chat",
+
+                prompt_tokens=prompt_tokens,
+
+                completion_tokens=completion_tokens,
+
+                total_tokens=tokens,
+
+                latency_ms=int(
+                    (
+                        time.time()
+                        - start_time
+                    ) * 1000
+                )
+            )
+
+            print("AFTER TRACK")
+
 
     await usage_service.track_usage(
 

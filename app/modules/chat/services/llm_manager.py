@@ -16,6 +16,18 @@ from app.shared.metrics.metrics_service import (
     metrics_service
 )
 
+from app.db.database import (
+    AsyncSessionLocal
+)
+
+from app.modules.usage.services.usage_tracker import (
+    usage_tracker
+)
+
+from app.modules.chat.providers.gemini_provider import (
+    GeminiProvider
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,6 +46,8 @@ class LLMManager:
             "groq": GroqProvider(),
 
             "mistral": MistralProvider(),
+
+            "gemini": GeminiProvider(),
         }
 
     
@@ -109,7 +123,7 @@ class LLMManager:
                 f"Provider failed: "
                 f"{provider_name}"
             )
-
+     
             await (
                 provider_health_service
                 .record_failure(
@@ -232,9 +246,66 @@ class LLMManager:
 
         try:
 
+            start_time = (
+                time.perf_counter()
+            )
 
             result = await provider.generate(
                 messages
+            )
+
+            latency_ms = int(
+                (
+                    time.perf_counter()
+                    - start_time
+                ) * 1000
+            )
+
+            usage = result.get(
+                "usage",
+                {}
+            )
+
+            async with AsyncSessionLocal() as db:
+
+                await usage_tracker.track(
+
+                    db=db,
+
+                    user_id=user_id,
+
+                    api_key_id=None,
+
+                    model_name=result.get(
+                        "model",
+                        "unknown"
+                    ),
+
+                    provider=provider_name,
+
+                    source="chat",
+
+                    prompt_tokens=usage.get(
+                        "prompt_tokens",
+                        0
+                    ),
+
+                    completion_tokens=usage.get(
+                        "completion_tokens",
+                        0
+                    ),
+
+                    total_tokens=usage.get(
+                        "total_tokens",
+                        0
+                    ),
+
+                    latency_ms=latency_ms
+                )
+
+            logger.info(
+                f"USAGE TRACKED: "
+                f"{usage}"
             )
 
             return result
@@ -285,10 +356,68 @@ class LLMManager:
                 ]
             )
 
+            fallback_start = (
+                time.perf_counter()
+            )
+
             result = await (
                 fallback_provider.generate(
                     messages
                 )
+            )
+
+            fallback_latency_ms = int(
+                (
+                    time.perf_counter()
+                    - fallback_start
+                ) * 1000
+            )
+
+            usage = result.get(
+                "usage",
+                {}
+            )
+
+            async with AsyncSessionLocal() as db:
+
+                await usage_tracker.track(
+
+                    db=db,
+
+                    user_id=user_id,
+
+                    api_key_id=None,
+
+                    model_name=result.get(
+                        "model",
+                        "unknown"
+                    ),
+
+                    provider=fallback_provider_name,
+
+                    source="chat",
+
+                    prompt_tokens=usage.get(
+                        "prompt_tokens",
+                        0
+                    ),
+
+                    completion_tokens=usage.get(
+                        "completion_tokens",
+                        0
+                    ),
+
+                    total_tokens=usage.get(
+                        "total_tokens",
+                    0
+                    ),
+
+                    latency_ms=fallback_latency_ms
+                )
+
+            logger.info(
+                f"USAGE TRACKED FALLBACK: "
+                f"{usage}"
             )
 
             return result

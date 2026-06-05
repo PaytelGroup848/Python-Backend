@@ -153,6 +153,20 @@ async def semantic_search(
             timeout=30,
         )
 
+        embedding_str = (
+
+            "[" +
+
+            ",".join(
+                map(
+                    str,
+                    embedding
+                )
+            )
+
+            + "]"
+        )
+
     except Exception as e:
 
         logger.exception(
@@ -245,7 +259,7 @@ async def semantic_search(
                 vector_sql,
 
                 {
-                    "embedding": embedding,
+                    "embedding": embedding_str,
 
                     "limit": limit,
 

@@ -189,9 +189,14 @@ async def chat_completions(
 
             api_key_id=None,
 
-            model_name=payload.model,
+            model_name=response.get(
+                "model",
+                payload.model
+            ),
 
             provider=provider,
+
+            source="api",
 
             prompt_tokens=prompt_tokens,
 

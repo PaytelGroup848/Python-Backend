@@ -8,6 +8,10 @@ from app.modules.chat.providers.base_provider import (
     BaseProvider
 )
 
+MODEL_NAME = (
+    "gpt-4o-mini"
+)
+
 
 class OpenAIProvider(
     BaseProvider
@@ -36,7 +40,7 @@ class OpenAIProvider(
             json={
 
                 "model":
-                "gpt-4o-mini",
+                MODEL_NAME,
 
                 "messages":
                 messages,
@@ -56,11 +60,15 @@ class OpenAIProvider(
 
         return {
 
-            "model": "openai",
+            "model":
+            MODEL_NAME,
 
             "response":
             data["choices"][0]["message"]["content"],
 
             "usage":
-            data.get("usage", {}),
+            data.get(
+                "usage",
+                {}
+            ),
         }

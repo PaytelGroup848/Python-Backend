@@ -94,6 +94,14 @@ from app.modules.usage.routes.usage_routes import (
     router as usage_router
 )
 
+from app.modules.billing.routes.billing_routes import (
+    router as billing_router
+)
+
+from app.modules.pricing.routes.pricing_routes import (
+    router as pricing_router
+)
+
 logging.basicConfig(
     level=logging.INFO
 )
@@ -290,6 +298,14 @@ app.include_router(
 
 app.include_router(
     usage_router
+)
+
+app.include_router(
+    billing_router
+)
+
+app.include_router(
+    pricing_router
 )
 
 # =========================
