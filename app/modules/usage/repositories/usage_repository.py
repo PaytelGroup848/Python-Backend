@@ -103,6 +103,57 @@ class UsageRepository:
         )
 
         return result.all()
+    
+    async def get_user_total_tokens(
+        self,
+        db,
+        user_id: int
+    ):
+
+        result = await db.execute(
+
+            select(
+
+                func.coalesce(
+
+                    func.sum(
+                        ApiRequest.total_tokens
+                    ),
+
+                    0
+                )
+            )
+
+            .where(
+                ApiRequest.user_id
+                == user_id
+            )
+        )
+
+        return result.scalar() or 0
+    
+    async def get_user_total_requests(
+        self,
+        db,
+        user_id: int
+    ):
+
+        result = await db.execute(
+
+            select(
+
+                func.count(
+                    ApiRequest.id
+                )
+            )
+
+            .where(
+                ApiRequest.user_id
+                == user_id
+            )
+        )
+
+        return result.scalar() or 0
 
 
 usage_repository = (

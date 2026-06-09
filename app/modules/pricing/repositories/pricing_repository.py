@@ -65,6 +65,33 @@ class PricingRepository:
         return (
             result.scalar_one_or_none()
         )
+    
+    async def get_active_pricing(
+        self,
+        db,
+        model_name: str
+    ):
+
+        result = await db.execute(
+
+            select(
+                ModelPricing
+            )
+
+            .where(
+                ModelPricing.model_name
+                == model_name
+            )
+
+            .where(
+                ModelPricing.is_active
+                == True
+            )
+        )
+
+        return (
+            result.scalar_one_or_none()
+        )
 
 
 pricing_repository = (

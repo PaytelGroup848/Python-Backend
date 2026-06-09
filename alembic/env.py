@@ -39,6 +39,12 @@ from app.models.model_pricing import (
     ModelPricing
 )
 
+from app.modules.billing.models.wallet import Wallet
+from app.modules.billing.models.wallet_transaction import WalletTransaction
+from app.modules.billing.models.subscription import Subscription
+from app.modules.billing.models.usage_limit import UsageLimit
+from app.modules.billing.models.invoice import Invoice
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

@@ -1,0 +1,67 @@
+from sqlalchemy import select
+
+from sqlalchemy.ext.asyncio import (
+    AsyncSession
+)
+
+from app.modules.billing.models.wallet import (
+    Wallet
+)
+
+
+class WalletRepository:
+
+    async def create(
+        self,
+        db: AsyncSession,
+        wallet: Wallet
+    ):
+
+        db.add(wallet)
+
+        await db.commit()
+
+        await db.refresh(
+            wallet
+        )
+
+        return wallet
+
+    async def get_by_user_id(
+        self,
+        db: AsyncSession,
+        user_id: int
+    ):
+
+        result = await db.execute(
+
+            select(Wallet)
+
+            .where(
+                Wallet.user_id
+                == user_id
+            )
+        )
+
+        return (
+            result.scalar_one_or_none()
+        )
+
+    async def update(
+        self,
+        db: AsyncSession,
+        wallet: Wallet
+    ):
+
+        await db.commit()
+
+        await db.refresh(
+            wallet
+        )
+
+        return wallet
+        
+
+wallet_repository = (
+    WalletRepository()
+)

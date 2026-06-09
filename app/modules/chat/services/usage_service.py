@@ -1,45 +1,32 @@
+from app.modules.billing.repositories.subscription_repository import (
+    subscription_repository
+)
+
+from app.modules.billing.repositories.usage_limit_repository import (
+    usage_limit_repository
+)
+
+from app.modules.usage.repositories.usage_repository import (
+    usage_repository
+)
+
 from app.db.redis_client import (
     redis_client
 )
 
 
-USER_PLANS = {
-
-    "free": 10000,
-
-    "pro": 100000,
-
-    "enterprise": 1000000,
-}
-
-
-USER_PLAN_MAP = {
-
-    "user1": "free",
-
-    "user2": "pro",
-}
-
-
 class UsageService:
 
     async def track_usage(
-
         self,
+        user_id: int,
+        tokens: int
+    ):
 
-        user_id: str,
+        key = f"usage:{user_id}"
 
-        tokens: int,
-    ) -> None:
-
-        key = (
-            f"usage:{user_id}"
-        )
-
-        current = (
-            await redis_client.get(
-                key
-            )
+        current = await redis_client.get(
+            key
         )
 
         current = (
@@ -51,61 +38,92 @@ class UsageService:
         current += tokens
 
         await redis_client.setex(
-
             key,
-
             86400,
-
-            current,
+            current
         )
 
-    async def check_usage_limit(
-
+    async def get_user_plan(
         self,
+        db,
+        user_id: int
+    ):
 
-        user_id: str,
-    ) -> bool:
-
-        plan = (
-            USER_PLAN_MAP.get(
-                user_id,
-                "free",
+        subscription = await (
+            subscription_repository
+            .get_active_subscription(
+                db,
+                user_id
             )
         )
 
-        max_tokens = (
-            USER_PLANS[plan]
+        if not subscription:
+
+            return "free"
+
+        return subscription.plan_name
+
+    async def check_usage_limit(
+        self,
+        db,
+        user_id: int
+    ):
+
+        subscription = await (
+            subscription_repository
+            .get_active_subscription(
+                db,
+                user_id
+            )
         )
 
-        key = (
-            f"usage:{user_id}"
+        if not subscription:
+
+            return False
+
+        limits = await (
+            usage_limit_repository
+            .get_by_plan(
+                db,
+                subscription.plan_name
+            )
         )
 
-        usage = (
-            await redis_client.get(
-                key
+        if not limits:
+
+            return False
+
+        used_tokens = await (
+            usage_repository
+            .get_user_total_tokens(
+                db,
+                user_id
+            )
+        )
+
+        total_requests = await (
+            usage_repository
+            .get_user_total_requests(
+                db,
+                user_id
             )
         )
 
         if (
-            usage
-            and int(usage)
-            >= max_tokens
+            used_tokens
+            >= limits.monthly_token_limit
+        ):
+
+            return False
+
+        if (
+            total_requests
+            >= limits.monthly_request_limit
         ):
 
             return False
 
         return True
-
-    async def get_user_plan(
-        self,
-        user_id: str,
-    ) -> str:
-
-        return USER_PLAN_MAP.get(
-            user_id,
-            "free",
-        )
 
 
 usage_service = (

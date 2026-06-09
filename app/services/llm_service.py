@@ -4,6 +4,8 @@ import asyncio
 
 import time
 
+import uuid
+
 from app.modules.chat.services.rag_service import (
     retrieve_context
 )
@@ -56,23 +58,23 @@ from app.modules.chat.services.usage_service import (
 # =========================
 #  MAIN ORCHESTRATOR
 # =========================
-async def get_fastest_response(query, user_id: int):
+async def get_fastest_response(
+    query,
+    user_id,
+    user_department,
+    user_role
+):
     normalized_query = query.strip().lower()
     cache_key = f"{user_id}:{normalized_query}"
 
-    # HARD LIMIT CHECK (ADD HERE)
-    if not await usage_service.check_usage_limit(
-       user_id
-    ):
-       plan = await usage_service.get_user_plan(
-            user_id
-        )
+    request_id = str(
+        uuid.uuid4()
+    )
 
-       return {
-            "model": "system",
-            "response": f"Daily limit reached for {plan} plan. Upgrade to continue."
-        }
-    #  Cache check
+    print(
+        f"REQUEST_ID={request_id}"
+    )
+
     cached_data = await cache_service.get(
         cache_key
     )
@@ -82,10 +84,31 @@ async def get_fastest_response(query, user_id: int):
         print("Cache hit")
 
         return cached_data
-
     print("Cache miss")
 
-    
+    # HARD LIMIT CHECK (ADD HERE)
+    async with AsyncSessionLocal() as db:
+
+        if not await usage_service.check_usage_limit(
+            db,
+            user_id
+        ):
+
+            plan = await usage_service.get_user_plan(
+                db,
+                user_id
+            )
+
+            return {
+                "model": "system",
+                "error_code": "PLAN_LIMIT_EXCEEDED",
+                "response": (
+                    f"You have reached the monthly "
+                    f"usage limit for your "
+                    f"{plan} subscription."
+                )
+            }
+ 
 
     #  RAG
     async with AsyncSessionLocal() as db:
@@ -93,8 +116,8 @@ async def get_fastest_response(query, user_id: int):
        rag_result = await retrieve_context(
            db=db,
            query=query,
-           user_department="general",
-           user_role="employee",
+           user_department=user_department,
+           user_role=user_role,
            top_k=3
         )
 
@@ -192,13 +215,26 @@ async def get_fastest_response(query, user_id: int):
            
            result["provider"] = provider
 
-           print(f"Success: {provider}")
+           print(
+                f"REQUEST_ID={request_id}"
+            )
+
+           print(
+               f"PROVIDER_SUCCESS={provider}"
+            )
 
            break
 
         except Exception as e:
 
-            print(f"Provider failed: {provider}")
+            print(
+                f"REQUEST_ID={request_id}"
+            )
+
+            print(
+                f"PROVIDER_FAILED={provider}"
+            )
+
             print(str(e))
 
             continue
@@ -362,7 +398,7 @@ async def get_fastest_response(query, user_id: int):
 
 async def stream_response(text):
 
-    words = text.split(" ")
+    words = text.split(" ")  
 
     for word in words:
 

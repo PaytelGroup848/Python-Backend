@@ -1,52 +1,57 @@
 from app.modules.billing.repositories.billing_repository import (
     billing_repository
 )
+from app.modules.pricing.repositories.pricing_repository import (
+    pricing_repository
+)
+
+from decimal import Decimal
 
 
 class BillingService:
 
-    MODEL_PRICING = {
+    
 
-        "gpt-4o":
-            0.005,
-
-        "gpt-4o-mini":
-            0.00015,
-
-        "llama-3.1-8b-instant":
-            0.0002,
-
-        "gemini-2.5-flash":
-            0.0003,
-
-        "mistral-small":
-            0.0002,
-
-        "deepseek-v3":
-            0.00015
-    }
-
-    def calculate_cost(
+    async def calculate_cost(
         self,
+        db,
         model_name,
-        tokens
+        prompt_tokens,
+        completion_tokens
     ):
 
-        price = (
-            self.MODEL_PRICING
-            .get(
-                model_name,
-                0.0002
+        pricing = await (
+            pricing_repository
+            .get_active_pricing(
+                db,
+                model_name
             )
         )
 
-        return round(
+        if not pricing:
 
-            (
-                tokens / 1000
-            ) * price,
+            return 0
 
-            6
+        input_cost = (
+            Decimal(str(prompt_tokens))
+            / Decimal("1000")
+        ) * Decimal(str(pricing.input_cost_per_1k))
+
+        output_cost = (
+            Decimal(str(completion_tokens))
+            / Decimal("1000")
+        ) * Decimal(str(pricing.output_cost_per_1k))
+
+        return float(
+
+            round(
+
+                input_cost
+                +
+                output_cost,
+
+                8
+            )
         )
 
     async def get_billing_overview(
@@ -89,12 +94,16 @@ class BillingService:
 
         for row in models:
 
-            cost = (
+            cost = await (
                 self.calculate_cost(
+
+                    db,
 
                     row.model_name,
 
-                    row.tokens or 0
+                    row.prompt_tokens or 0,
+
+                    row.completion_tokens or 0
                 )
             )
 

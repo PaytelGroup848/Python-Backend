@@ -146,6 +146,11 @@ async def chat_completions(
         )
     )
 
+    print(
+        "PUBLIC API MODEL:",
+        response.get("model")
+    )
+
     usage = response.get(
         "usage",
         {}

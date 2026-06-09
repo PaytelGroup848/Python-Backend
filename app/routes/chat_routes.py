@@ -87,7 +87,9 @@ async def chat(
 
     response = await get_fastest_response(
         req.message,
-        user_id
+        user["user_id"],
+        user.get("department", "general"),
+        user["role"]
     )
 
     try:
@@ -172,10 +174,10 @@ async def chat_stream(
     user_id = user["user_id"]
 
     result = await get_fastest_response(
-
         req.message,
-
-        user_id
+        user["user_id"],
+        user.get("department", "general"),
+        user["role"]
     )
 
     return StreamingResponse(

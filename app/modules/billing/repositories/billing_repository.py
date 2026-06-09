@@ -83,6 +83,18 @@ class BillingRepository:
                 ),
 
                 func.sum(
+                    ApiRequest.prompt_tokens
+                ).label(
+                    "prompt_tokens"
+                ),
+
+                func.sum(
+                    ApiRequest.completion_tokens
+                ).label(
+                    "completion_tokens"
+                ),
+
+                func.sum(
                     ApiRequest.total_tokens
                 ).label(
                     "tokens"

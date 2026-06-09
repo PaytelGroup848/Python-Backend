@@ -62,6 +62,8 @@ def verify_token(token=Depends(security)):
         if not user_id or not role:
             raise HTTPException(status_code=401, detail="Invalid token payload")
 
+        department = payload.get("department")
+
         return {
             "user_id": user_id,
             "role": role
@@ -86,9 +88,6 @@ def require_role(required_role: str):
 # =========================
 # PERMISSION CHECK 
 # =========================
-
-
-
 
 def require_permission(permission_name: str):
 
@@ -133,17 +132,11 @@ async def get_current_user(
 ):
 
     return type(
-
         "CurrentUser",
-
         (object,),
-
         {
-            "id":
-                user["user_id"],
-
-            "role":
-                user["role"],
+            "id": user["user_id"],
+            "role": user["role"],
         },
     )()
 
