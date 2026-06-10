@@ -106,6 +106,13 @@ from app.jobs.scheduler import (
     scheduler
 )
 
+from app.modules.billing.routes.payment_routes import (
+    router as payment_router
+)
+from app.modules.billing.routes.webhook_routes import (
+    router as webhook_router
+)
+
 logging.basicConfig(
     level=logging.INFO
 )
@@ -320,6 +327,14 @@ app.include_router(
 
 app.include_router(
     pricing_router
+)
+
+app.include_router(
+    payment_router
+)
+
+app.include_router(
+    webhook_router
 )
 
 # =========================

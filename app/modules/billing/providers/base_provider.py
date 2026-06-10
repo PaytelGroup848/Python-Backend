@@ -23,6 +23,14 @@ class BasePaymentProvider(
         pass
 
     @abstractmethod
+    async def verify_webhook(
+        self,
+        payload,
+        signature
+    ):
+        pass
+
+    @abstractmethod
     async def refund_payment(
         self,
         payment_id,

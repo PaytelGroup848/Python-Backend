@@ -13,6 +13,10 @@ from app.modules.billing.constants.payment_status import (
     REFUNDED
 )
 
+from app.modules.billing.services.payment_gateway_service import (
+    payment_gateway_service
+)
+
 
 class PaymentService:
 
@@ -29,6 +33,18 @@ class PaymentService:
         gateway_order_id: str = None,
         payment_metadata: dict = None
     ):
+        gateway_response = await (
+            payment_gateway_service.create_payment(
+
+                provider_name=provider,
+
+                amount=amount,
+
+                currency=currency,
+
+                metadata=payment_metadata
+            )
+        )
 
         payment = Payment(
 
@@ -49,18 +65,41 @@ class PaymentService:
             status=PENDING,
 
             gateway_order_id=
-                gateway_order_id,
+                gateway_response.get(
+                    "payment_intent_id"
+                ),
 
             payment_metadata=
                 payment_metadata
         )
 
-        return await (
+        saved_payment = await (
             payment_repository.create(
                 db,
                 payment
             )
         )
+
+        return {
+
+            "payment":
+                saved_payment,
+
+            "client_secret":
+                gateway_response[
+                    "client_secret"
+                ],
+
+            "payment_intent_id":
+                gateway_response[
+                    "payment_intent_id"
+                ],
+
+            "status":
+                gateway_response[
+                    "status"
+                ]
+        }
 
     async def get_payment(
         self,
@@ -113,6 +152,40 @@ class PaymentService:
 
         payment.gateway_payment_id = (
             gateway_payment_id
+        )
+
+        return await (
+            payment_repository
+            .update(
+                db,
+                payment
+            )
+        )
+    
+    async def mark_paid_by_gateway_id(
+        self,
+        db,
+        gateway_order_id: str
+    ):
+
+        payment = await (
+            payment_repository
+            .get_by_gateway_order_id(
+
+                db,
+
+                gateway_order_id
+            )
+        )
+
+        if not payment:
+
+            return None
+
+        payment.status = PAID
+
+        payment.gateway_payment_id = (
+            gateway_order_id
         )
 
         return await (

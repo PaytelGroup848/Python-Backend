@@ -1,5 +1,6 @@
 import stripe
 
+from decimal import Decimal
 from app.core.config import (
     settings
 )
@@ -8,15 +9,23 @@ from app.modules.billing.providers.base_provider import (
     BasePaymentProvider
 )
 
-
-stripe.api_key = (
-    settings.STRIPE_SECRET_KEY
+from app.modules.billing.constants.payment_provider import (
+    STRIPE
 )
+
 
 
 class StripeProvider(
     BasePaymentProvider
 ):
+    
+    def __init__(
+        self
+    ):
+
+        stripe.api_key = (
+            settings.STRIPE_SECRET_KEY
+        )
 
     async def create_payment(
         self,
@@ -25,24 +34,33 @@ class StripeProvider(
         metadata=None
     ):
 
-        intent = (
-            stripe.PaymentIntent.create(
+        try:
 
-                amount=int(
-                    amount * 100
-                ),
+            intent = (
+                stripe.PaymentIntent.create(
 
-                currency=currency,
+                    amount=int(
+                        Decimal(str(amount))
+                        * 100
+                    ),
 
-                metadata=
-                    metadata or {}
+                    currency=currency,
+
+                    metadata=
+                        metadata or {}
+                )
             )
-        )
+
+        except stripe.error.StripeError as e:
+
+            raise Exception(
+                f"Stripe payment creation failed: {str(e)}"
+            )
 
         return {
 
             "provider":
-                "stripe",
+                STRIPE,
 
             "client_secret":
                 intent.client_secret,
@@ -65,11 +83,19 @@ class StripeProvider(
             )
         )
 
-        payment = (
-            stripe.PaymentIntent.retrieve(
-                payment_intent_id
+        try:
+
+            payment = (
+                stripe.PaymentIntent.retrieve(
+                    payment_intent_id
+                )
             )
-        )
+
+        except stripe.error.StripeError as e:
+
+            raise Exception(
+                f"Stripe payment verification failed: {str(e)}"
+            )
 
         return {
 
@@ -79,6 +105,34 @@ class StripeProvider(
             "status":
                 payment.status
         }
+    
+    async def verify_webhook(
+        self,
+        payload,
+        signature
+    ):
+
+        try:
+
+            event = (
+                stripe.Webhook.construct_event(
+
+                    payload,
+
+                    signature,
+
+                    settings.STRIPE_WEBHOOK_SECRET
+                )
+            )
+
+            return event
+
+        except Exception as e:
+
+            raise Exception(
+                f"Stripe webhook verification failed: "
+                f"{str(e)}"
+            )
 
     async def refund_payment(
         self,
@@ -86,19 +140,32 @@ class StripeProvider(
         amount=None
     ):
 
-        refund = (
-            stripe.Refund.create(
+        try:
 
-                payment_intent=
-                    payment_id,
+            refund = (
+                stripe.Refund.create(
 
-                amount=(
-                    int(amount * 100)
-                    if amount
-                    else None
+                    payment_intent=
+                        payment_id,
+
+                    amount=(
+
+                        int(
+                            Decimal(str(amount))
+                            * 100
+                        )
+
+                        if amount
+                        else None
+                    )
                 )
             )
-        )
+
+        except stripe.error.StripeError as e:
+
+            raise Exception(
+                f"Stripe refund failed: {str(e)}"
+            )
 
         return {
 

@@ -1,0 +1,3 @@
+STRIPE = "stripe"
+
+RAZORPAY = "razorpay"

@@ -6,19 +6,31 @@ from typing import Any
 
 from pydantic import BaseModel
 from pydantic import ConfigDict
+from pydantic import Field
 
 
 class CreatePaymentRequest(
     BaseModel
 ):
 
-    provider: str
+    provider: str = Field(
+        min_length=1,
+        max_length=50
+    )
 
-    payment_type: str
+    payment_type: str = Field(
+        min_length=1,
+        max_length=50
+    )
 
-    amount: Decimal
+    amount: Decimal = Field(
+        gt=0
+    )
 
-    currency: str
+    currency: str = Field(
+        min_length=3,
+        max_length=10
+    )
 
     invoice_id: Optional[int] = None
 
@@ -86,6 +98,10 @@ class PaymentWebhookPayload(
         Dict[str, Any]
     ] = None
 
+    payload: Optional[
+        Dict[str, Any]
+    ] = None
+
 
 class PaymentListResponse(
     BaseModel
@@ -96,3 +112,15 @@ class PaymentListResponse(
     ]
 
     total: int
+
+class PaymentGatewayResponse(
+    BaseModel
+):
+
+    payment: PaymentResponse
+
+    client_secret: str
+
+    payment_intent_id: str
+
+    status: str
