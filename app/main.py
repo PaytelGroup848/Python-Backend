@@ -102,6 +102,10 @@ from app.modules.pricing.routes.pricing_routes import (
     router as pricing_router
 )
 
+from app.jobs.scheduler import (
+    scheduler
+)
+
 logging.basicConfig(
     level=logging.INFO
 )
@@ -222,6 +226,16 @@ async def security_headers(
     )
 
     return response
+
+
+#=============
+# schedular
+#=============
+
+@app.on_event("startup")
+async def startup_event():
+
+    scheduler.start()
 
 
 # =========================

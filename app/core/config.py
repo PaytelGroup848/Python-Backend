@@ -15,6 +15,16 @@ class Settings(BaseSettings):
         "http://localhost:3000"
     )
 
+    STRIPE_SECRET_KEY: str = ""
+
+    STRIPE_WEBHOOK_SECRET: str = ""
+
+    RAZORPAY_KEY_ID: str = ""
+
+    RAZORPAY_KEY_SECRET: str = ""
+
+    RAZORPAY_WEBHOOK_SECRET: str = ""
+
 
 
     SECRET_KEY: str

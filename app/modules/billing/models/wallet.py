@@ -5,7 +5,8 @@ from sqlalchemy import (
     Integer,
     Numeric,
     DateTime,
-    ForeignKey
+    ForeignKey,
+    String
 )
 
 from app.db.database import Base
@@ -30,10 +31,29 @@ class Wallet(Base):
 
     balance = Column(
         Numeric(18, 6),
-        default=0
+        default=0,
+        nullable=False
+    )
+
+    currency = Column(
+        String(10),
+        default="USD",
+        nullable=False
+    )
+
+    status = Column(
+        String(20),
+        default="active",
+        nullable=False
     )
 
     created_at = Column(
         DateTime,
         default=datetime.utcnow
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
     )

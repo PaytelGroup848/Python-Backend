@@ -1,5 +1,7 @@
 from sqlalchemy import select
 
+from datetime import datetime
+
 from sqlalchemy.ext.asyncio import (
     AsyncSession
 )
@@ -17,15 +19,25 @@ class SubscriptionRepository:
         subscription: Subscription
     ):
 
-        db.add(subscription)
+        try:
 
-        await db.commit()
+            db.add(
+                subscription
+            )
 
-        await db.refresh(
-            subscription
-        )
+            await db.commit()
 
-        return subscription
+            await db.refresh(
+                subscription
+            )
+
+            return subscription
+
+        except Exception:
+
+            await db.rollback()
+
+            raise
 
     async def get_user_subscription(
         self,
@@ -93,13 +105,21 @@ class SubscriptionRepository:
         subscription: Subscription
     ):
 
-        await db.commit()
+        try:
 
-        await db.refresh(
-            subscription
-        )
+            await db.commit()
 
-        return subscription
+            await db.refresh(
+                subscription
+            )
+
+            return subscription
+
+        except Exception:
+
+            await db.rollback()
+
+            raise
 
     async def delete(
         self,
@@ -130,6 +150,11 @@ class SubscriptionRepository:
             .where(
                 Subscription.end_date
                 != None
+            )
+
+            .where(
+                Subscription.end_date
+                < datetime.utcnow()
             )
         )
 

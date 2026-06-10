@@ -4,9 +4,10 @@ from sqlalchemy import (
     Column,
     Integer,
     String,
-    Float,
+    Numeric,
     DateTime,
-    ForeignKey
+    ForeignKey,
+    Boolean
 )
 
 from app.db.database import Base
@@ -28,33 +29,105 @@ class Invoice(Base):
         nullable=False
     )
 
+    subscription_id = Column(
+        Integer,
+        ForeignKey("subscriptions.id"),
+        nullable=True
+    )
+
     invoice_number = Column(
-        String,
+        String(100),
         unique=True,
+        nullable=False,
+        index=True
+    )
+
+    invoice_type = Column(
+        String(50),
+        default="subscription",
+        nullable=False
+    )
+
+    subtotal = Column(
+        Numeric(18, 6),
+        default=0,
+        nullable=False
+    )
+
+    tax_amount = Column(
+        Numeric(18, 6),
+        default=0,
         nullable=False
     )
 
     amount = Column(
-        Float,
+        Numeric(18, 6),
         nullable=False
     )
 
     currency = Column(
-        String,
-        default="USD"
+        String(10),
+        default="USD",
+        nullable=False
     )
 
     status = Column(
-        String,
-        default="pending"
+        String(20),
+        default="pending",
+        nullable=False
     )
 
     billing_month = Column(
-        String,
+        String(20),
+        nullable=False
+    )
+
+    payment_provider = Column(
+        String(50),
+        nullable=True
+    )
+
+    payment_reference = Column(
+        String(255),
+        nullable=True
+    )
+
+    auto_renew = Column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+
+    due_date = Column(
+        DateTime,
+        nullable=True
+    )
+
+    paid_at = Column(
+        DateTime,
+        nullable=True
+    )
+
+    notes = Column(
+        String(500),
+        nullable=True
+    )
+
+    is_active = Column(
+        Boolean,
+        default=True,
         nullable=False
     )
 
     created_at = Column(
         DateTime,
-        default=datetime.utcnow
+        default=datetime.utcnow,
+        nullable=False
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False
     )

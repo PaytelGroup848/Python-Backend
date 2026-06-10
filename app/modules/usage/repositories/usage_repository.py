@@ -1,5 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy import func
+from datetime import datetime
 
 from app.models.api_request import (
     ApiRequest
@@ -132,6 +133,47 @@ class UsageRepository:
 
         return result.scalar() or 0
     
+    async def get_user_monthly_tokens(
+        self,
+        db,
+        user_id: int
+    ):
+
+        start_of_month = datetime.utcnow().replace(
+            day=1,
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0
+        )
+
+        result = await db.execute(
+
+            select(
+
+                func.coalesce(
+
+                    func.sum(
+                        ApiRequest.total_tokens
+                    ),
+
+                    0
+                )
+            )
+
+            .where(
+                ApiRequest.user_id
+                == user_id
+            )
+
+            .where(
+                ApiRequest.created_at
+                >= start_of_month
+            )
+        )
+
+        return result.scalar() or 0
+    
     async def get_user_total_requests(
         self,
         db,
@@ -150,6 +192,42 @@ class UsageRepository:
             .where(
                 ApiRequest.user_id
                 == user_id
+            )
+        )
+
+        return result.scalar() or 0
+    
+    async def get_user_monthly_requests(
+        self,
+        db,
+        user_id: int
+    ):
+
+        start_of_month = datetime.utcnow().replace(
+            day=1,
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0
+        )
+
+        result = await db.execute(
+
+            select(
+
+                func.count(
+                    ApiRequest.id
+                )
+            )
+
+            .where(
+                ApiRequest.user_id
+                == user_id
+            )
+
+            .where(
+                ApiRequest.created_at
+                >= start_of_month
             )
         )
 

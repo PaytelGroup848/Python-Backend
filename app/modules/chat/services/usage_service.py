@@ -14,6 +14,8 @@ from app.db.redis_client import (
     redis_client
 )
 
+from datetime import datetime
+
 
 class UsageService:
 
@@ -79,7 +81,30 @@ class UsageService:
 
         if not subscription:
 
-            return False
+            limits = await (
+                usage_limit_repository
+                .get_by_plan(
+                    db,
+                    "free"
+                )
+            )
+
+        else:
+
+            if (
+                subscription.end_date
+                and
+                subscription.end_date < datetime.utcnow()
+            ):
+                return False
+
+            limits = await (
+            usage_limit_repository
+            .get_by_plan(
+                db,
+                subscription.plan_name
+            )
+        )
 
         limits = await (
             usage_limit_repository
@@ -95,7 +120,7 @@ class UsageService:
 
         used_tokens = await (
             usage_repository
-            .get_user_total_tokens(
+            .get_user_monthly_tokens(
                 db,
                 user_id
             )
@@ -103,7 +128,7 @@ class UsageService:
 
         total_requests = await (
             usage_repository
-            .get_user_total_requests(
+            .get_user_monthly_requests(
                 db,
                 user_id
             )
@@ -124,6 +149,98 @@ class UsageService:
             return False
 
         return True
+    
+    async def get_user_limits(
+        self,
+        db,
+        user_id: int
+    ):
+
+        plan = await self.get_user_plan(
+            db,
+            user_id
+        )
+
+        limits = await (
+            usage_limit_repository
+                .get_by_plan(
+                db,
+                plan
+            )
+        )
+
+        return limits
+    
+    async def get_usage_summary(
+        self,
+        db,
+        user_id: int
+    ):
+
+        plan = await self.get_user_plan(
+            db,
+            user_id
+        )
+
+        limits = await (
+            usage_limit_repository
+            .get_by_plan(
+                db,
+                plan
+            )
+        )
+
+        used_tokens = await (
+            usage_repository
+            .get_user_monthly_tokens(
+                db,
+                user_id
+            )
+        )
+
+        used_requests = await (
+            usage_repository
+            .get_user_monthly_requests(
+                db,
+                user_id
+            )
+        )
+
+        return {
+
+            "plan":
+                plan,
+
+            "used_tokens":
+                used_tokens,
+
+            "remaining_tokens":
+                max(
+                    0,
+                    limits.monthly_token_limit
+                    - used_tokens
+                ),
+
+            "used_requests":
+                used_requests,
+
+            "remaining_requests":
+                max(
+                    0,
+                    limits.monthly_request_limit
+                    - used_requests
+                ),
+
+            "monthly_token_limit":
+                limits.monthly_token_limit,
+
+            "monthly_request_limit":
+                limits.monthly_request_limit,
+
+            "monthly_cost_limit":
+                limits.monthly_cost_limit
+        }
+    
 
 
 usage_service = (

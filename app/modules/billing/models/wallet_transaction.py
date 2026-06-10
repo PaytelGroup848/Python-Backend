@@ -29,14 +29,46 @@ class WalletTransaction(Base):
         nullable=False
     )
 
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
     transaction_type = Column(
-        String,
+        String(50),
+        nullable=False
+    )
+
+    status = Column(
+        String(20),
+        default="completed",
         nullable=False
     )
 
     amount = Column(
         Numeric(18, 6),
         nullable=False
+    )
+
+    balance_before = Column(
+        Numeric(18, 6),
+        nullable=False
+    )
+
+    balance_after = Column(
+        Numeric(18, 6),
+        nullable=False
+    )
+
+    reference_type = Column(
+        String(50),
+        nullable=True
+    )
+
+    reference_id = Column(
+        String(255),
+        nullable=True
     )
 
     description = Column(

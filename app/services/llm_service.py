@@ -9,9 +9,7 @@ import uuid
 from app.modules.chat.services.rag_service import (
     retrieve_context
 )
-from app.db.redis_client import (
-    redis_client
-)
+
 
 from app.services.conversation_service import save_conversation
 from app.db.database import AsyncSessionLocal
@@ -290,6 +288,10 @@ async def get_fastest_response(
             )
 
             print(
+                f"REQUEST_ID={request_id}"
+            )
+
+            print(
                 "TRACKING START"
             )
 
@@ -327,7 +329,20 @@ async def get_fastest_response(
                 )
             )
 
+            print(
+                f"REQUEST_ID={request_id}"
+            )
+
             print("AFTER TRACK")
+
+            # Future wallet deduction
+
+            # await credit_deduction_service.deduct(
+            #     user_id=user_id,
+            #     model_name=result.get("model"),
+            #     prompt_tokens=prompt_tokens,
+            #     completion_tokens=completion_tokens
+            # )
 
 
     await usage_service.track_usage(
@@ -369,7 +384,11 @@ async def get_fastest_response(
     if isinstance(result, dict):
 
         print(
-            " Final response from:",
+            f"REQUEST_ID={request_id}"
+        )
+
+        print(
+            "FINAL RESPONSE FROM:",
             result.get("model")
         )
 
