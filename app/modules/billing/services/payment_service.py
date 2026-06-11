@@ -165,7 +165,8 @@ class PaymentService:
     async def mark_paid_by_gateway_id(
         self,
         db,
-        gateway_order_id: str
+        gateway_order_id: str,
+        gateway_payment_id: str = None
     ):
 
         payment = await (
@@ -185,7 +186,7 @@ class PaymentService:
         payment.status = PAID
 
         payment.gateway_payment_id = (
-            gateway_order_id
+            gateway_payment_id
         )
 
         return await (

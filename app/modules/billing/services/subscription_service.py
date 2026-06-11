@@ -57,7 +57,7 @@ class SubscriptionService:
 
             plan_name=plan_name,
 
-            status="active",
+            status="pending",
 
             monthly_token_limit=
                 monthly_token_limit,
@@ -65,17 +65,48 @@ class SubscriptionService:
             auto_renew=
                 auto_renew,
 
-            start_date=
-                datetime.utcnow(),
+            start_date=None,
 
-            end_date=
-                datetime.utcnow()
-                + timedelta(days=30)
+            end_date=None
         )
 
         return await (
             subscription_repository
             .create(
+                db,
+                subscription
+            )
+        )
+    
+    async def activate_subscription(
+        self,
+        db,
+        subscription_id: int
+    ):
+
+        subscription = await (
+            subscription_repository.get_by_id(
+                db,
+                subscription_id
+            )
+        )
+
+        if not subscription:
+            return None
+
+        subscription.status = "active"
+
+        subscription.start_date = (
+            datetime.utcnow()
+        )
+
+        subscription.end_date = (
+            datetime.utcnow()
+            + timedelta(days=30)
+        )
+
+        return await (
+            subscription_repository.update(
                 db,
                 subscription
             )

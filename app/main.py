@@ -113,6 +113,16 @@ from app.modules.billing.routes.webhook_routes import (
     router as webhook_router
 )
 
+from app.modules.billing.routes.razorpay_webhook_routes import (
+    router as razorpay_webhook_router
+)
+
+from app.modules.admin.routes.plan_admin_routes import (
+    router as plan_admin_router
+)
+
+
+
 logging.basicConfig(
     level=logging.INFO
 )
@@ -335,6 +345,14 @@ app.include_router(
 
 app.include_router(
     webhook_router
+)
+
+app.include_router(
+    razorpay_webhook_router
+)
+
+app.include_router(
+    plan_admin_router
 )
 
 # =========================

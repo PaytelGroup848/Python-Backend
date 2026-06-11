@@ -83,6 +83,26 @@ class SubscriptionRepository:
         return (
             result.scalar_one_or_none()
         )
+    
+    async def get_by_id(
+        self,
+        db: AsyncSession,
+        subscription_id: int
+    ):
+
+        result = await db.execute(
+
+            select(Subscription)
+
+        .   where(
+                Subscription.id
+                == subscription_id
+            )
+        )
+
+        return(
+            result.scalar_one_or_none()
+        )
 
     async def get_all(
         self,

@@ -46,6 +46,16 @@ from app.modules.billing.models.usage_limit import UsageLimit
 from app.modules.billing.models.invoice import Invoice
 from app.modules.billing.models.payment import Payment
 
+from app.modules.billing.models.plan import Plan
+
+from app.modules.billing.models.plan_version import (
+    PlanVersion
+)
+
+from app.modules.billing.models.plan_price import (
+    PlanPrice
+)
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
