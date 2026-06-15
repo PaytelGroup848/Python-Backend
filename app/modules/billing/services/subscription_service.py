@@ -11,6 +11,10 @@ from app.modules.billing.repositories.subscription_repository import (
     subscription_repository
 )
 
+from app.modules.billing.services.plan_service import (
+    plan_service
+)
+
 
 class SubscriptionService:
 
@@ -46,21 +50,55 @@ class SubscriptionService:
         self,
         db,
         user_id: int,
-        plan_name: str,
-        monthly_token_limit: int,
+        plan_id: int,
+        plan_version_id: int,
         auto_renew: bool = False
     ):
+
+        plan = await (
+            plan_service
+            .get_by_id(
+                db,
+                plan_id
+            )
+        )
+
+        if not plan:
+
+            raise ValueError(
+                "Plan not found"
+            )
+
+        version = await (
+            plan_service
+            .get_version_by_id(
+                db,
+                plan_version_id
+            )
+        )
+
+        if not version:
+
+            raise ValueError(
+                "Plan version not found"
+            )
 
         subscription = Subscription(
 
             user_id=user_id,
 
-            plan_name=plan_name,
+            plan_id=plan_id,
 
-            status="pending",
+            plan_version_id=
+                plan_version_id,
+
+            plan_name=
+                plan.plan_code,
 
             monthly_token_limit=
-                monthly_token_limit,
+                version.monthly_token_limit,
+
+            status="pending",
 
             auto_renew=
                 auto_renew,
@@ -203,6 +241,79 @@ class SubscriptionService:
             return False
 
         return True
+    
+    async def change_user_plan(
+        self,
+        db,
+        user_id: int,
+        plan_name: str
+    ):
+
+        subscription = await (
+            subscription_repository
+            .get_active_subscription(
+                db,
+                user_id
+            )
+        )
+
+        if not subscription:
+
+            raise ValueError(
+                "Active subscription not found"
+            )
+
+        plan = await (
+            plan_service
+            .get_by_plan_code(
+                db,
+                plan_name
+            )
+        )
+
+        if not plan:
+
+            raise ValueError(
+                f"Plan '{plan_name}' not found"
+            )
+
+        version = await (
+            plan_service
+            .get_active_version(
+                db,
+                plan.id
+            )
+        )
+
+        if not version:
+
+            raise ValueError(
+                "Active plan version not found"
+            )
+
+        subscription.plan_id = (
+            plan.id
+        )
+
+        subscription.plan_version_id = (
+            version.id
+        )
+
+        subscription.plan_name = (
+            plan.plan_code
+        )
+
+        subscription.monthly_token_limit = (
+            version.monthly_token_limit
+        )
+
+        return await (
+            subscription_repository
+            .update(
+                db,
+                subscription
+            )
+        )
 
 
 subscription_service = (

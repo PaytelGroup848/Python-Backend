@@ -23,6 +23,13 @@ class Payment(Base):
         index=True
     )
 
+    payment_reference = Column(
+        String(100),
+        unique=True,
+        nullable=False,
+        index=True
+    )
+
     user_id = Column(
         Integer,
         ForeignKey("users.id"),
@@ -51,6 +58,11 @@ class Payment(Base):
         nullable=False
     )
 
+    payment_method = Column(
+        String(100),
+        nullable=True
+    )
+
     amount = Column(
         Numeric(18, 6),
         nullable=False
@@ -66,18 +78,37 @@ class Payment(Base):
         nullable=False
     )
 
+    failure_reason = Column(
+        String(500),
+        nullable=True
+    )
+
     gateway_order_id = Column(
         String(255),
         nullable=True
     )
+
+
 
     gateway_payment_id = Column(
         String(255),
         nullable=True
     )
 
+    idempotency_key = Column(
+        String(255),
+        unique=True,
+        nullable=True,
+        index=True
+    )
+
     payment_metadata = Column(
         JSON,
+        nullable=True
+    )
+
+    processed_at = Column(
+        DateTime,
         nullable=True
     )
 

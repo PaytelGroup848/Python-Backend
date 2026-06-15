@@ -9,8 +9,16 @@ from sqlalchemy.ext.asyncio import (
 
 from app.models.user import User
 
-from app.models.token_usage import (
-    TokenUsage
+from app.models.api_request import (
+    ApiRequest
+)
+
+from app.modules.billing.models.subscription import (
+    Subscription
+)
+
+from app.modules.billing.models.plan_version import (
+    PlanVersion
 )
 
 
@@ -27,24 +35,47 @@ class UserRepository:
 
                 User,
 
+                Subscription.plan_name,
+
+                PlanVersion.monthly_token_limit,
+
                 func.coalesce(
                     func.sum(
-                        TokenUsage.total_tokens
+                        ApiRequest.total_tokens
                     ),
                     0
                 ).label(
                     "total_tokens"
                 )
-
             )
 
             .outerjoin(
-                TokenUsage,
-                User.id == TokenUsage.user_id
+                Subscription,
+                (
+                    (Subscription.user_id == User.id)
+                    &
+                    (Subscription.status == "active")
+                )
+            )
+
+            .outerjoin(
+                PlanVersion,
+                (
+                    PlanVersion.id
+                    ==
+                    Subscription.plan_version_id
+                )
+            )
+
+            .outerjoin(
+                ApiRequest,
+                User.id == ApiRequest.user_id
             )
 
             .group_by(
-                User.id
+                User.id,
+                Subscription.plan_name,
+                PlanVersion.monthly_token_limit
             )
         )
 
@@ -52,7 +83,24 @@ class UserRepository:
 
         users = []
 
-        for user, total_tokens in rows:
+        for (
+            user,
+            plan_name,
+            monthly_token_limit,
+            total_tokens
+        ) in rows:
+
+            monthly_token_limit = (
+                monthly_token_limit or 0
+            )
+
+            user.plan_name = (
+                plan_name or "free"
+            )
+
+            user.monthly_token_limit = (
+                monthly_token_limit
+            )
 
             user.total_tokens = (
                 total_tokens
@@ -60,7 +108,9 @@ class UserRepository:
 
             user.remaining_tokens = max(
                 0,
-                user.token_limit - total_tokens
+                monthly_token_limit
+                -
+                total_tokens
             )
 
             users.append(user)

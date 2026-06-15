@@ -50,29 +50,6 @@ class PaymentRepository:
 
         return result.scalar_one_or_none()
     
-    async def get_paid_payment(
-        self,
-        db: AsyncSession,
-        payment_id: int
-    ):
-
-        result = await db.execute(
-
-            select(Payment)
-
-            .where(
-                Payment.id == payment_id
-            )
-
-            .where(
-                Payment.status == "paid"
-            )
-        )
-
-        return (
-            result.scalar_one_or_none()
-        )
-
     async def get_by_gateway_payment_id(
         self,
         db: AsyncSession,

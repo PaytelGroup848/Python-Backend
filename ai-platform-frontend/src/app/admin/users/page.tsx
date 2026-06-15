@@ -179,7 +179,7 @@ export default function UsersPage() {
                       text-sm
                     "
 
-                    value={user.plan_name}
+                    value={user.plan_name ?? "free"}
 
                     onChange={async (e) => {
 
@@ -213,15 +213,15 @@ export default function UsersPage() {
                 </td>
 
                 <td className="p-4 font-medium">
-                  {user.total_tokens.toLocaleString()}
+                  {(user.total_tokens ?? 0).toLocaleString()}
                 </td>
 
                 <td className="p-4">
-                  {user.token_limit.toLocaleString()}
+                  {(user.monthly_token_limit ?? 0).toLocaleString()}
                 </td>
 
                 <td className="p-4 font-medium text-green-600">
-                  {user.remaining_tokens.toLocaleString()}
+                  {(user.remaining_tokens ?? 0).toLocaleString()}
                 </td>
 
                 <td className="p-4">

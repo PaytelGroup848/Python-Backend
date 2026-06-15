@@ -5,16 +5,15 @@ from app.modules.billing.providers.provider_registry import (
 
 class PaymentGatewayService:
 
-    async def create_payment(
+    def _get_provider(
         self,
-        provider_name: str,
-        amount,
-        currency: str,
-        metadata=None
+        provider_name: str
     ):
 
-        provider = provider_registry.get(
-            provider_name
+        provider = (
+            provider_registry.get(
+                provider_name
+            )
         )
 
         if not provider:
@@ -23,6 +22,22 @@ class PaymentGatewayService:
                 f"Unsupported payment provider: "
                 f"{provider_name}"
             )
+
+        return provider
+
+    async def create_payment(
+        self,
+        provider_name: str,
+        amount,
+        currency: str,
+        metadata=None
+    ):
+
+        provider = (
+            self._get_provider(
+                provider_name
+            )
+        )
 
         return await (
             provider.create_payment(
@@ -41,16 +56,11 @@ class PaymentGatewayService:
         payload
     ):
 
-        provider = provider_registry.get(
-            provider_name
-        )
-
-        if not provider:
-
-            raise ValueError(
-                f"Unsupported payment provider: "
-                f"{provider_name}"
+        provider = (
+            self._get_provider(
+                provider_name
             )
+        )
 
         return await (
             provider.verify_payment(
@@ -65,16 +75,11 @@ class PaymentGatewayService:
         signature
     ):
 
-        provider = provider_registry.get(
-            provider_name
-        )
-
-        if not provider:
-
-            raise ValueError(
-                f"Unsupported payment provider: "
-                f"{provider_name}"
+        provider = (
+            self._get_provider(
+                provider_name
             )
+        )
 
         return await (
             provider.verify_webhook(
@@ -82,33 +87,6 @@ class PaymentGatewayService:
                 payload,
 
                 signature
-            )
-        )
-
-    async def refund_payment(
-        self,
-        provider_name: str,
-        payment_id: str,
-        amount=None
-    ):
-
-        provider = provider_registry.get(
-            provider_name
-        )
-
-        if not provider:
-
-            raise ValueError(
-                f"Unsupported payment provider: "
-                f"{provider_name}"
-            )
-
-        return await (
-            provider.refund_payment(
-
-                payment_id,
-
-                amount
             )
         )
 

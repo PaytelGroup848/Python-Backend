@@ -19,8 +19,8 @@ class SubscriptionCheckoutService:
         self,
         db,
         user_id: int,
-        plan_name: str,
-        monthly_token_limit: int,
+        plan_id: int,
+        plan_version_id: int,
         amount: Decimal,
         currency: str,
         provider: str,
@@ -43,13 +43,13 @@ class SubscriptionCheckoutService:
         subscription = await (
             subscription_service
             .create_subscription(
-                db=db,
-                user_id=user_id,
-                plan_name=plan_name,
-                monthly_token_limit=monthly_token_limit,
-                auto_renew=auto_renew
-            )
+            db=db,
+            user_id=user_id,
+            plan_id=plan_id,
+            plan_version_id=plan_version_id,
+            auto_renew=auto_renew
         )
+    )
 
         # Create Invoice
         invoice = await (
@@ -60,8 +60,7 @@ class SubscriptionCheckoutService:
                 subscription_id=subscription.id,
                 amount=amount,
                 currency=currency,
-                auto_renew=auto_renew,
-                notes=f"{plan_name} subscription"
+                auto_renew=auto_renew
             )
         )
 

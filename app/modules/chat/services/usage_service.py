@@ -2,12 +2,16 @@ from app.modules.billing.repositories.subscription_repository import (
     subscription_repository
 )
 
-from app.modules.billing.repositories.usage_limit_repository import (
-    usage_limit_repository
+from app.modules.billing.repositories.plan_repository import (
+    plan_repository
 )
 
 from app.modules.usage.repositories.usage_repository import (
     usage_repository
+)
+
+from app.modules.billing.repositories.plan_version_repository import (
+    plan_version_repository
 )
 
 from app.db.redis_client import (
@@ -64,8 +68,8 @@ class UsageService:
             return "free"
 
         return subscription.plan_name
-
-    async def check_usage_limit(
+    
+    async def get_user_plan_version(
         self,
         db,
         user_id: int
@@ -81,36 +85,74 @@ class UsageService:
 
         if not subscription:
 
-            limits = await (
-                usage_limit_repository
-                .get_by_plan(
+            free_plan = await (
+                plan_repository
+                .get_by_code(
                     db,
                     "free"
                 )
             )
 
-        else:
+            if not free_plan:
 
-            if (
-                subscription.end_date
-                and
-                subscription.end_date < datetime.utcnow()
-            ):
-                return False
+                return None
 
-            limits = await (
-            usage_limit_repository
-            .get_by_plan(
+            return await (
+                plan_version_repository
+                .get_active_by_plan(
+                    db,
+                    free_plan.id
+                )
+            )
+
+        if not subscription.plan_version_id:
+
+            return None
+
+        return await (
+            plan_version_repository
+            .get_by_id(
                 db,
-                subscription.plan_name
+               subscription.plan_version_id
+            )
+        )
+
+    async def check_usage_limit(
+        self,
+        db,
+        user_id: int
+    ):
+
+        subscription = await (
+            subscription_repository
+            .get_active_subscription(
+                db,
+                user_id
             )
         )
 
         limits = await (
-            usage_limit_repository
-            .get_by_plan(
+            self.get_user_plan_version(
                 db,
-                subscription.plan_name
+                user_id
+            )
+        )
+
+        if not limits:
+
+            return False
+
+        if (
+            subscription.end_date
+            and
+            subscription.end_date < datetime.utcnow()
+        ):
+            return False
+
+        limits = await (
+            self.get_user_plan_version(
+                db,
+                user_id
             )
         )
 
@@ -156,20 +198,14 @@ class UsageService:
         user_id: int
     ):
 
-        plan = await self.get_user_plan(
-            db,
-            user_id
-        )
-
-        limits = await (
-            usage_limit_repository
-                .get_by_plan(
+        version = await (
+            self.get_user_plan_version(
                 db,
-                plan
+                user_id
             )
         )
 
-        return limits
+        return version
     
     async def get_usage_summary(
         self,
@@ -177,17 +213,46 @@ class UsageService:
         user_id: int
     ):
 
-        plan = await self.get_user_plan(
-            db,
-            user_id
+        subscription = await (
+            subscription_repository
+            .get_active_subscription(
+                db,
+                user_id
+            )
         )
 
         limits = await (
-            usage_limit_repository
-            .get_by_plan(
+            self.get_user_plan_version(
                 db,
-                plan
+                user_id
             )
+        )
+
+        if not limits:
+
+            return {
+
+                "plan": "free",
+
+                "used_tokens": 0,
+
+                "remaining_tokens": 0,
+
+                "used_requests": 0,
+
+                "remaining_requests": 0,
+
+                "monthly_token_limit": 0,
+
+                "monthly_request_limit": 0,
+
+                "monthly_cost_limit": 0
+            }
+
+        plan = (
+            subscription.plan_name
+            if subscription
+            else "free"
         )
 
         used_tokens = await (
@@ -241,8 +306,6 @@ class UsageService:
                 limits.monthly_cost_limit
         }
     
-
-
 usage_service = (
     UsageService()
 )

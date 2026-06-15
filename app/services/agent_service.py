@@ -35,12 +35,8 @@ from app.services.tool_service import (
     search_documents_tool
 )
 
-from app.modules.chat.services.token_usage_service import (
-    token_usage_service
-)
-
-from app.modules.chat.services.quota_service import (
-    quota_service
+from app.modules.chat.services.usage_service import (
+    usage_service
 )
 
 # =========================================================
@@ -275,13 +271,13 @@ class QueryRewriteService:
     ) -> str:
 
         prompt = f"""
-Rewrite this query into an optimized semantic search query.
+                    Rewrite this query into an optimized semantic search query.
 
-USER QUERY:
-{query}
+                    USER QUERY:
+                    {query}
 
-OPTIMIZED QUERY:
-"""
+                    OPTIMIZED QUERY:
+                """
 
         response = await llm_manager.generate_response(
             prompt=prompt,
@@ -304,13 +300,13 @@ class PlanningService:
     ) -> str:
 
         prompt = f"""
-Break this request into concise execution steps.
+                    Break this request into concise execution steps.
 
-REQUEST:
-{query}
+                    REQUEST:
+                    {query}
 
-STEPS:
-"""
+                    STEPS:
+                """
 
         response = await llm_manager.generate_response(
             prompt=prompt,
@@ -357,22 +353,22 @@ class ContextBuilderService:
         )
 
         return f"""
-You are an enterprise AI platform assistant.
+                    You are an enterprise AI platform assistant.
 
-Execution Plan:
-{plan}
+                    Execution Plan:
+                    {plan}
 
-Conversation Memory:
-{memory}
+                    Conversation Memory:
+                    {memory}
 
-Retrieved Context:
-{context}
+                    Retrieved Context:
+                    {context}
 
-Tool Result:
-{tool_result}
+                    Tool Result:
+                    {tool_result}
 
-Generate an accurate response.
-"""
+                    Generate an accurate response.
+                """
 
 
 # =========================================================
@@ -626,12 +622,19 @@ async def generation_node(state: AgentState):
 
     async with AsyncSessionLocal() as db:
 
-        await quota_service.check_limit(
-
-            db=db,
-
-            user_id=state["user_id"]
+        allowed = await (
+            usage_service
+            .check_usage_limit(
+                db,
+                state["user_id"]
+            )
         )
+
+        if not allowed:
+
+            raise Exception(
+                "Plan limit exceeded"
+            )
 
     response = await llm_manager.generate_response(
         prompt=final_prompt,
@@ -639,30 +642,6 @@ async def generation_node(state: AgentState):
         temperature=0.3,
         stream=False
     )
-
-    async with AsyncSessionLocal() as db:
-
-        await token_usage_service.log_usage(
-
-            db=db,
-
-            user_id=state["user_id"],
-
-            provider=response.get(
-                "model",
-                "unknown"
-            ),
-
-            model=response.get(
-                "model",
-                "unknown"
-            ),
-
-            usage=response.get(
-                "usage",
-                {}
-            )
-        )
 
     final_response = response["response"]
 

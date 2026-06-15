@@ -1,6 +1,7 @@
 from fastapi import (
     APIRouter,
-    Depends
+    Depends,
+    HTTPException
 )
 
 from sqlalchemy.ext.asyncio import (
@@ -17,6 +18,10 @@ from app.core.security import (
 
 from app.modules.billing.services.subscription_checkout_service import (
     subscription_checkout_service
+)
+
+from app.modules.billing.services.plan_service import (
+    plan_service
 )
 
 from app.modules.billing.schemas.subscription_schema import (
@@ -46,36 +51,67 @@ async def purchase_subscription(
     )
 ):
 
-    result = await (
-        subscription_checkout_service
-        .create_subscription_checkout(
+    try:
 
-            db=db,
+        checkout_plan = await (
+            plan_service
+            .get_checkout_plan(
 
-            user_id=
-                user["user_id"],
+                db=db,
 
-            plan_name=
-                payload.plan_name,
+                plan_code=
+                    payload.plan_code,
 
-            monthly_token_limit=
-                payload.monthly_token_limit,
+                provider=
+                    payload.provider,
 
-            amount=
-                payload.amount,
+                billing_cycle=
+                    payload.billing_cycle,
 
-            currency=
-                payload.currency,
-
-            provider=
-                payload.provider,
-
-            auto_renew=
-                payload.auto_renew,
-
-            payment_metadata=
-                payload.payment_metadata
+                currency=
+                    payload.currency
+            )
         )
-    )
 
-    return result
+        result = await (
+            subscription_checkout_service
+            .create_subscription_checkout(
+
+                db=db,
+
+                user_id=
+                    user["user_id"],
+
+                plan_id=
+                    checkout_plan["plan"].id,
+
+                plan_version_id=
+                    checkout_plan["version"].id,
+
+                amount=
+                    checkout_plan["price"].amount,
+
+                currency=
+                    checkout_plan["price"].currency,
+
+                provider=
+                    checkout_plan["price"].provider,
+
+                auto_renew=
+                    payload.auto_renew,
+
+                payment_metadata=
+                    payload.payment_metadata
+            )
+        )
+
+        return result
+
+    except ValueError as e:
+
+        raise HTTPException(
+
+            status_code=400,
+
+            detail=str(e)
+        )

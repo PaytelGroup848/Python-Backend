@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 
 from datetime import (
@@ -21,27 +22,20 @@ class InvoiceService:
         db
     ):
 
-        latest_invoice = await (
-            invoice_repository
-            .get_latest_invoice(db)
-        )
-
         current_month = (
             datetime.utcnow()
             .strftime("%Y%m")
         )
 
-        next_number = 1
-
-        if latest_invoice:
-
-            next_number = (
-                latest_invoice.id + 1
-            )
+        unique_part = (
+            uuid.uuid4()
+            .hex[:8]
+            .upper()
+        )
 
         return (
             f"INV-{current_month}-"
-            f"{str(next_number).zfill(6)}"
+            f"{unique_part}"
         )
 
     async def create_subscription_invoice(
@@ -62,6 +56,12 @@ class InvoiceService:
         )
 
         now = datetime.utcnow()
+
+        period_start = now
+
+        period_end = (
+            now + timedelta(days=30)
+        )
 
         invoice = Invoice(
 
@@ -93,6 +93,12 @@ class InvoiceService:
 
             billing_month=
                 now.strftime("%Y-%m"),
+
+            period_start=
+                period_start,
+
+            period_end=
+                period_end,
 
             auto_renew=
                 auto_renew,
@@ -177,7 +183,8 @@ class InvoiceService:
         db,
         invoice_id: int,
         payment_provider: str,
-        payment_reference: str
+        payment_reference: str,
+        external_reference: str = None
     ):
 
         invoice = await (
@@ -191,6 +198,10 @@ class InvoiceService:
         if not invoice:
 
             return None
+        
+        if invoice.status == "paid":
+
+            return invoice
 
         invoice.status = "paid"
 
@@ -204,6 +215,10 @@ class InvoiceService:
 
         invoice.payment_reference = (
             payment_reference
+        )
+
+        invoice.external_reference = (
+            external_reference
         )
 
         return await (

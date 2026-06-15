@@ -30,10 +30,4 @@ class BasePaymentProvider(
     ):
         pass
 
-    @abstractmethod
-    async def refund_payment(
-        self,
-        payment_id,
-        amount=None
-    ):
-        pass
+   

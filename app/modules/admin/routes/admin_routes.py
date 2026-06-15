@@ -28,6 +28,10 @@ from app.modules.admin.services.user_service import (
     UserService
 )
 
+from app.modules.billing.services.subscription_service import (
+    subscription_service
+)
+
 from app.modules.admin.schemas.user_schema import (
     UserListResponse,
     UserStatusUpdate,
@@ -124,10 +128,26 @@ async def update_user_plan(
     db: AsyncSession = Depends(get_db)
 ):
 
-    return await (
-        user_service.update_user_plan(
+    subscription = await (
+        subscription_service
+        .change_user_plan(
             db,
             user_id,
             payload.plan_name
         )
     )
+
+    return {
+
+        "message":
+            "Plan updated successfully",
+
+        "subscription_id":
+            subscription.id,
+
+        "plan_name":
+            subscription.plan_name,
+
+        "monthly_token_limit":
+            subscription.monthly_token_limit
+    }

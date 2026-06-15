@@ -1,4 +1,5 @@
 from datetime import datetime
+from sqlalchemy import JSON
 
 from sqlalchemy import (
     Column,
@@ -7,7 +8,8 @@ from sqlalchemy import (
     Numeric,
     DateTime,
     ForeignKey,
-    Boolean
+    Boolean,
+    JSON
 )
 
 from app.db.database import Base
@@ -71,15 +73,26 @@ class Invoice(Base):
         nullable=False
     )
 
+    currency_symbol = Column(
+        String(10),
+        nullable=True
+    )
+
     status = Column(
         String(20),
         default="pending",
         nullable=False
     )
 
-    billing_month = Column(
-        String(20),
-        nullable=False
+
+    period_start = Column(
+        DateTime,
+        nullable=True
+    )
+
+    period_end = Column(
+        DateTime,
+        nullable=True
     )
 
     payment_provider = Column(
@@ -88,6 +101,11 @@ class Invoice(Base):
     )
 
     payment_reference = Column(
+        String(255),
+        nullable=True
+    )
+
+    external_reference = Column(
         String(255),
         nullable=True
     )
@@ -108,6 +126,11 @@ class Invoice(Base):
         nullable=True
     )
 
+    invoice_metadata = Column(
+        JSON,
+        nullable=True
+    )
+
     notes = Column(
         String(500),
         nullable=True
@@ -116,6 +139,12 @@ class Invoice(Base):
     is_active = Column(
         Boolean,
         default=True,
+        nullable=False
+    )
+
+    generated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
         nullable=False
     )
 

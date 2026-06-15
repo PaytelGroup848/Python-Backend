@@ -10,7 +10,7 @@ export interface User {
 
   plan_name: string;
 
-  token_limit: number;
+  monthly_token_limit?: number;
 
   total_tokens: number;
 

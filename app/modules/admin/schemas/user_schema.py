@@ -5,13 +5,16 @@ from pydantic import BaseModel
 class UserResponse(BaseModel):
 
     id: int
+
     name: str
+
     email: str
+
     role: str
 
-    plan_name: str
+    plan_name: str | None = None
 
-    token_limit: int
+    monthly_token_limit: int = 0
 
     total_tokens: int = 0
 

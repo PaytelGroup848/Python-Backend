@@ -204,6 +204,21 @@ class PlanService:
                 plan_id
             )
         )
+    
+
+    async def get_version_by_id(
+        self,
+        db,
+        version_id: int
+    ):
+
+        return await (
+            plan_version_repository
+            .get_by_id(
+                db,
+                version_id
+            )
+        )
 
     async def get_public_plans(
         self,

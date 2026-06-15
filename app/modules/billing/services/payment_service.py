@@ -9,13 +9,16 @@ from app.modules.billing.repositories.payment_repository import (
 from app.modules.billing.constants.payment_status import (
     PENDING,
     PAID,
-    FAILED,
-    REFUNDED
+    FAILED
 )
 
 from app.modules.billing.services.payment_gateway_service import (
     payment_gateway_service
 )
+
+from datetime import datetime
+
+import uuid
 
 
 class PaymentService:
@@ -28,6 +31,7 @@ class PaymentService:
         payment_type: str,
         amount,
         currency: str,
+        payment_method: str = None,
         invoice_id: int = None,
         subscription_id: int = None,
         gateway_order_id: str = None,
@@ -46,6 +50,10 @@ class PaymentService:
             )
         )
 
+        payment_reference = (
+            f"PAY-{uuid.uuid4().hex[:12].upper()}"
+        )
+
         payment = Payment(
 
             user_id=user_id,
@@ -58,11 +66,17 @@ class PaymentService:
 
             payment_type=payment_type,
 
+            payment_method=
+                payment_method,
+
             amount=amount,
 
             currency=currency,
 
             status=PENDING,
+
+            payment_reference=
+                payment_reference,
 
             gateway_order_id=
                 gateway_response.get(
@@ -147,8 +161,16 @@ class PaymentService:
         if not payment:
 
             return None
+        
+        if payment.status == PAID:
+
+            return payment
 
         payment.status = PAID
+
+        payment.processed_at = (
+            datetime.utcnow()
+        )
 
         payment.gateway_payment_id = (
             gateway_payment_id
@@ -182,8 +204,16 @@ class PaymentService:
         if not payment:
 
             return None
+        
+        if payment.status == PAID:
+
+            return payment
 
         payment.status = PAID
+
+        payment.processed_at = (
+            datetime.utcnow()
+        )
 
         payment.gateway_payment_id = (
             gateway_payment_id
@@ -200,7 +230,8 @@ class PaymentService:
     async def mark_failed(
         self,
         db,
-        payment_id: int
+        payment_id: int,
+        reason: str = None
     ):
 
         payment = await (
@@ -215,7 +246,19 @@ class PaymentService:
 
             return None
 
+        if payment.status == PAID:
+
+            return payment
+
         payment.status = FAILED
+
+        payment.failure_reason = (
+            reason
+        )
+
+        payment.processed_at = (
+            datetime.utcnow()
+        )
 
         return await (
             payment_repository
@@ -225,34 +268,6 @@ class PaymentService:
             )
         )
     
-    async def mark_refunded(
-        self,
-        db,
-        payment_id: int
-    ):
-
-        payment = await (
-            payment_repository
-            .get_by_id(
-                db,
-                payment_id
-            )
-        )
-
-        if not payment:
-
-            return None
-
-        payment.status = REFUNDED
-
-        return await (
-            payment_repository
-            .update(
-                db,
-                payment
-            )
-        )
-
     async def get_by_gateway_order_id(
         self,
         db,

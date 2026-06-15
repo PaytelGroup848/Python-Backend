@@ -29,6 +29,18 @@ class Subscription(Base):
         nullable=False
     )
 
+    plan_id = Column(
+        BigInteger,
+        ForeignKey("plans.id"),
+        nullable=True
+    )
+
+    plan_version_id = Column(
+        BigInteger,
+        ForeignKey("plan_versions.id"),
+        nullable=True
+    )
+
     plan_name = Column(
         String,
         nullable=False

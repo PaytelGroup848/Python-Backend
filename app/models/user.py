@@ -36,18 +36,6 @@ class User(Base):
         default="employee"
     )
 
-    plan_name = Column(
-        String,
-        default="free",
-        nullable=False
-    )
-
-    token_limit = Column(
-        BigInteger,
-        default=1000000,
-        nullable=False
-    )
-
     is_active = Column(
         Boolean,
         default=True,
