@@ -282,6 +282,35 @@ class PlanService:
                 currency
             )
         )
+    
+    async def get_plan_versions(
+        self,
+        db,
+        plan_id: int
+    ):
+
+        return await (
+            plan_version_repository
+            .get_versions_by_plan(
+                db,
+                plan_id
+            )
+        )
+
+
+    async def get_plan_prices(
+        self,
+        db,
+        plan_id: int
+    ):
+
+        return await (
+            plan_price_repository
+            .get_prices_by_plan(
+                db,
+                plan_id
+            )
+        )
 
     async def get_checkout_plan(
         self,

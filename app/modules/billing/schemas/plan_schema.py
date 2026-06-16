@@ -149,3 +149,51 @@ class PlanPriceResponse(
     class Config:
 
         from_attributes = True
+
+class UpdatePlanVersionRequest(
+    BaseModel
+):
+
+    monthly_token_limit: int = Field(
+        ...,
+        ge=0
+    )
+
+    monthly_request_limit: int = Field(
+        ...,
+        ge=0
+    )
+
+    monthly_cost_limit: int | None = Field(
+        default=None,
+        ge=0
+    )
+
+class UpdatePlanPriceRequest(
+    BaseModel
+):
+
+    provider: str = Field(
+        ...,
+        min_length=2,
+        max_length=50
+    )
+
+    currency: str = Field(
+        ...,
+        min_length=3,
+        max_length=10
+    )
+
+    amount: Decimal = Field(
+        ...,
+        ge=0
+    )
+
+    billing_cycle: str = Field(
+        ...,
+        min_length=3,
+        max_length=20
+    )
+
+    external_price_id: str | None = None

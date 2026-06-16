@@ -103,6 +103,94 @@ class PlanManagementService:
                 external_price_id=external_price_id
             )
         )
+    
+    async def update_plan_version(
+        self,
+        db,
+        version_id: int,
+        monthly_token_limit: int,
+        monthly_request_limit: int,
+        monthly_cost_limit: int | None = None
+    ):
+
+        version = await (
+            plan_version_repository
+            .get_by_id(
+                db,
+                version_id
+            )
+        )
+
+        if not version:
+
+            raise ValueError(
+                "Plan version not found"
+            )
+
+        version.monthly_token_limit = (
+            monthly_token_limit
+        )
+
+        version.monthly_request_limit = (
+            monthly_request_limit
+        )
+
+        version.monthly_cost_limit = (
+            monthly_cost_limit
+        )
+
+        return await (
+            plan_version_repository
+            .update(
+                db,
+                version
+            )
+        )
+    
+    async def update_plan_price(
+        self,
+        db,
+        price_id: int,
+        provider: str,
+        currency: str,
+        amount: Decimal,
+        billing_cycle: str,
+        external_price_id: str | None = None
+    ):
+
+        price = await (
+            plan_price_repository
+            .get_by_id(
+                db,
+                price_id
+            )
+        )
+
+        if not price:
+
+            raise ValueError(
+                "Price not found"
+            )
+
+        price.provider = provider
+
+        price.currency = currency
+
+        price.amount = amount
+
+        price.billing_cycle = billing_cycle
+
+        price.external_price_id = (
+            external_price_id
+        )
+
+        return await (
+            plan_price_repository
+            .update(
+                db,
+                price
+            )
+        )
 
     async def deactivate_plan(
         self,

@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+
+import {
+  usePathname,
+  useRouter,
+} from "next/navigation";
+
+import {
+  CreditCard,
+} from "lucide-react";
 
 import {
   LayoutDashboard,
@@ -17,6 +25,17 @@ import {
   Activity,
   Settings,
 } from "lucide-react";
+
+import {
+  LogOut,
+} from "lucide-react";
+
+
+
+
+import {
+  useAuthStore,
+} from "@/stores/auth-store";
 
 const navigation = [
   {
@@ -36,30 +55,35 @@ const navigation = [
   },
 
   {
-    title: "OPERATIONS",
-    items: [
-      {
-        label: "Providers",
-        href: "/admin/providers",
-        icon: Bot,
-      },
-      {
-        label: "Models",
-        href: "/admin/models",
-        icon: Package,
-      },
-      {
-        label: "Workers",
-        href: "/admin/workers",
-        icon: Cpu,
-      },
-      {
-        label: "Queues",
-        href: "/admin/queues",
-        icon: Database,
-      },
-    ],
-  },
+  title: "OPERATIONS",
+  items: [
+    {
+      label: "Providers",
+      href: "/admin/providers",
+      icon: Bot,
+    },
+    {
+      label: "Models",
+      href: "/admin/models",
+      icon: Package,
+    },
+    {
+      label: "Plans",
+      href: "/admin/plans",
+      icon: CreditCard,
+    },
+    {
+      label: "Workers",
+      href: "/admin/workers",
+      icon: Cpu,
+    },
+    {
+      label: "Queues",
+      href: "/admin/queues",
+      icon: Database,
+    },
+  ],
+},
 
   {
     title: "AI SERVICES",
@@ -105,10 +129,45 @@ const navigation = [
 ];
 
 export function AdminSidebar() {
-  const pathname = usePathname();
+
+  const pathname =
+    usePathname();
+
+  const router =
+    useRouter();
+
+  const user =
+    useAuthStore(
+      state => state.user
+    );
+
+  const logout =
+    useAuthStore(
+      state => state.logout
+    );
+
+  const handleLogout = () => {
+
+    logout();
+
+    router.replace(
+      "/login"
+    );
+  };
 
   return (
-    <aside className="w-72 border-r bg-white p-4">
+
+    <aside
+  className="
+    flex
+    h-screen
+    w-72
+    flex-col
+    border-r
+    bg-white
+    p-4
+  "
+>
 
       <div className="mb-8">
         <h1 className="text-xl font-bold">
@@ -120,7 +179,7 @@ export function AdminSidebar() {
         </p>
       </div>
 
-      <nav className="space-y-6">
+      <nav className="space-y-6 flex-1">
         {navigation.map((section) => (
           <div key={section.title}>
             <p className="mb-2 text-xs font-semibold text-zinc-400">
@@ -156,6 +215,92 @@ export function AdminSidebar() {
           </div>
         ))}
       </nav>
+
+      <div
+  className="
+    mt-auto
+    border-t
+    pt-4
+  "
+>
+
+  <button
+    onClick={handleLogout}
+    className="
+      flex
+      w-full
+      items-center
+      justify-center
+      gap-2
+      rounded-lg
+      bg-red-600
+      px-4
+      py-3
+      text-white
+      transition
+      hover:bg-red-700
+    "
+  >
+
+    <LogOut size={18} />
+
+    Logout
+
+  </button>
+
+  <div
+    className="
+      mt-4
+      flex
+      items-center
+      gap-3
+      rounded-lg
+      border
+      p-3
+    "
+  >
+
+    <div
+      className="
+        flex
+        h-10
+        w-10
+        items-center
+        justify-center
+        rounded-full
+        bg-zinc-800
+        text-white
+      "
+    >
+
+      {user?.email?.[0]?.toUpperCase() ?? "A"}
+
+    </div>
+
+    <div>
+
+      <p className="text-sm font-medium">
+
+        {user?.email ?? "Admin"}
+
+      </p>
+
+      <p
+        className="
+          text-xs
+          text-zinc-500
+        "
+      >
+
+        {user?.role ?? "admin"}
+
+      </p>
+
+    </div>
+
+  </div>
+
+</div>
 
     </aside>
   );

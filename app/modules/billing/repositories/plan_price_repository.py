@@ -10,6 +10,10 @@ from app.modules.billing.models.plan_price import (
     PlanPrice
 )
 
+from app.modules.billing.models.plan_version import (
+    PlanVersion
+)
+
 
 class PlanPriceRepository:
 
@@ -184,6 +188,37 @@ class PlanPriceRepository:
 
         return (
             result.scalar_one_or_none()
+        )
+    
+    async def get_prices_by_plan(
+        self,
+        db: AsyncSession,
+        plan_id: int
+    ):
+
+        result = await db.execute(
+
+            select(
+                PlanPrice
+            )
+
+            .join(
+                PlanVersion,
+                PlanVersion.id
+                ==
+                PlanPrice.plan_version_id
+            )
+
+            .where(
+                PlanVersion.plan_id
+                ==
+                plan_id
+            )
+        )
+
+        return (
+            result.scalars()
+            .all()
         )
 
     async def update(

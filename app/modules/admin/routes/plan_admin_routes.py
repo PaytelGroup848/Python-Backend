@@ -27,7 +27,9 @@ from app.modules.billing.services.plan_management_service import (
 from app.modules.billing.schemas.plan_schema import (
     CreatePlanRequest,
     CreatePlanVersionRequest,
-    CreatePlanPriceRequest
+    CreatePlanPriceRequest,
+    UpdatePlanVersionRequest,
+    UpdatePlanPriceRequest
 )
 
 router = APIRouter(
@@ -91,6 +93,128 @@ async def get_plans(
             }
 
             for plan in plans
+        ]
+    }
+
+@router.get(
+    "/{plan_id}/versions"
+)
+async def get_plan_versions(
+
+    plan_id: int,
+
+    user=Depends(
+        require_role("admin")
+    ),
+
+    db: AsyncSession = Depends(
+        get_db
+    )
+):
+
+    versions = await (
+        plan_service
+        .get_plan_versions(
+            db,
+            plan_id
+        )
+    )
+
+    return {
+
+        "count":
+            len(versions),
+
+        "versions": [
+
+            {
+                "id":
+                    version.id,
+
+                "plan_id":
+                    version.plan_id,
+
+                "version_number":
+                    version.version_number,
+
+                "monthly_token_limit":
+                    version.monthly_token_limit,
+
+                "monthly_request_limit":
+                    version.monthly_request_limit,
+
+                "monthly_cost_limit":
+                    version.monthly_cost_limit,
+
+                "is_active":
+                    version.is_active,
+
+                "created_at":
+                    version.created_at
+            }
+
+            for version in versions
+        ]
+    }
+
+@router.get(
+    "/{plan_id}/prices"
+)
+async def get_plan_prices(
+
+    plan_id: int,
+
+    user=Depends(
+        require_role("admin")
+    ),
+
+    db: AsyncSession = Depends(
+        get_db
+    )
+):
+
+    prices = await (
+        plan_service
+        .get_plan_prices(
+            db,
+            plan_id
+        )
+    )
+
+    return {
+
+        "count":
+            len(prices),
+
+        "prices": [
+
+            {
+                "id":
+                    price.id,
+
+                "plan_version_id":
+                    price.plan_version_id,
+
+                "provider":
+                    price.provider,
+
+                "external_price_id":
+                    price.external_price_id,
+
+                "currency":
+                    price.currency,
+
+                "amount":
+                    float(price.amount),
+
+                "billing_cycle":
+                    price.billing_cycle,
+
+                "is_active":
+                    price.is_active
+            }
+
+            for price in prices
         ]
     }
 
@@ -251,6 +375,173 @@ async def create_plan_version(
             detail=str(e)
         )
 
+@router.put(
+    "/versions/{version_id}"
+)
+async def update_plan_version(
+
+    version_id: int,
+
+    payload: UpdatePlanVersionRequest,
+
+    user=Depends(
+        require_role("admin")
+    ),
+
+    db: AsyncSession = Depends(
+        get_db
+    )
+):
+
+    try:
+
+        version = await (
+
+            plan_management_service
+            .update_plan_version(
+
+                db=db,
+
+                version_id=
+                    version_id,
+
+                monthly_token_limit=
+                    payload.monthly_token_limit,
+
+                monthly_request_limit=
+                    payload.monthly_request_limit,
+
+                monthly_cost_limit=
+                    payload.monthly_cost_limit
+            )
+        )
+
+        return {
+
+            "message":
+                "Plan version updated successfully",
+
+            "version": {
+
+                "id":
+                    version.id,
+
+                "plan_id":
+                    version.plan_id,
+
+                "version_number":
+                    version.version_number,
+
+                "monthly_token_limit":
+                    version.monthly_token_limit,
+
+                "monthly_request_limit":
+                    version.monthly_request_limit,
+
+                "monthly_cost_limit":
+                    version.monthly_cost_limit,
+
+                "is_active":
+                    version.is_active
+            }
+        }
+
+    except ValueError as e:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail=str(e)
+        )
+    
+@router.put(
+    "/prices/{price_id}"
+)
+async def update_plan_price(
+
+    price_id: int,
+
+    payload: UpdatePlanPriceRequest,
+
+    user=Depends(
+        require_role("admin")
+    ),
+
+    db: AsyncSession = Depends(
+        get_db
+    )
+):
+
+    try:
+
+        price = await (
+
+            plan_management_service
+            .update_plan_price(
+
+                db=db,
+
+                price_id=
+                    price_id,
+
+                provider=
+                    payload.provider,
+
+                currency=
+                    payload.currency,
+
+                amount=
+                    payload.amount,
+
+                billing_cycle=
+                    payload.billing_cycle,
+
+                external_price_id=
+                    payload.external_price_id
+            )
+        )
+
+        return {
+
+            "message":
+                "Price updated successfully",
+
+            "price": {
+
+                "id":
+                    price.id,
+
+                "provider":
+                    price.provider,
+
+                "currency":
+                    price.currency,
+
+                "amount":
+                    float(
+                        price.amount
+                    ),
+
+                "billing_cycle":
+                    price.billing_cycle,
+
+                "external_price_id":
+                    price.external_price_id,
+
+                "is_active":
+                    price.is_active
+            }
+        }
+
+    except ValueError as e:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail=str(e)
+        )
 
 @router.post(
     "/{plan_id}/prices"

@@ -5,9 +5,15 @@ class DashboardResponse(BaseModel):
 
     total_users: int
 
-    total_conversations: int
+    active_users: int
 
-    total_messages: int
+    active_subscriptions: int
+
+    total_requests: int
+
+    total_tokens: int
+
+    monthly_revenue: float
 
     active_providers: int
 

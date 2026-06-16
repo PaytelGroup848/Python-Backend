@@ -4,11 +4,25 @@ import {
   Bell,
   Moon,
   Search,
-  User,
+  User
 } from "lucide-react";
 
+import { useRouter } from "next/navigation";
+
+import {
+  useAuthStore,
+} from "@/stores/auth-store";
+
 export function AdminHeader() {
+
+  const user =
+  useAuthStore(
+    state => state.user
+  );
+
+
   return (
+
     <header
       className="
         flex
@@ -21,6 +35,7 @@ export function AdminHeader() {
         px-6
       "
     >
+
       {/* Search */}
 
       <div className="relative w-96">
@@ -86,22 +101,55 @@ export function AdminHeader() {
           className="
             flex
             items-center
-            gap-2
-            rounded-lg
-            border
-            border-zinc-200
-            px-3
-            py-2
+            gap-3
           "
         >
-          <User size={18} />
 
-          <span className="text-sm">
-            Admin
-          </span>
+          <div
+            className="
+              flex
+              items-center
+              gap-2
+              rounded-lg
+              border
+              border-zinc-200
+              px-3
+              py-2
+            "
+          >
+
+            <User size={18} />
+
+            <div>
+
+              <p className="text-sm font-medium">
+
+                {user?.email?.split("@")[0] ?? "Admin"}
+
+              </p>
+
+              <p
+                className="
+                  text-xs
+                  text-zinc-500
+                "
+              >
+
+                {user?.role ??
+                  "admin"}
+
+              </p>
+
+            </div>
+
+          </div>
+
+
+
         </div>
 
       </div>
+
     </header>
   );
 }

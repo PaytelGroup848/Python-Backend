@@ -4,11 +4,17 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
-from app.models.conversation_session import (
-    ConversationSession
+from app.models.api_request import (
+    ApiRequest
 )
 
-from app.models.message import Message
+from app.modules.billing.models.subscription import (
+    Subscription
+)
+
+from app.modules.billing.models.payment import (
+    Payment
+)
 
 
 class AdminRepository:
@@ -18,49 +24,94 @@ class AdminRepository:
         db: AsyncSession,
     ):
 
-        users_result = await db.execute(
-            select(
-                func.count(User.id)
+        total_users_result = await db.execute(
+            select(func.count(User.id))
+        )
+
+        active_users_result = await db.execute(
+            select(func.count(User.id))
+            .where(User.is_active == True)
+        )
+
+        active_subscriptions_result = await db.execute(
+            select(func.count(Subscription.id))
+            .where(
+                Subscription.status == "active"
             )
         )
 
-        conversations_result = await db.execute(
+        total_requests_result = await db.execute(
+            select(func.count(ApiRequest.id))
+        )
+
+        total_tokens_result = await db.execute(
             select(
-                func.count(
-                    ConversationSession.id
+                func.coalesce(
+                    func.sum(
+                        ApiRequest.total_tokens
+                    ),
+                    0
                 )
             )
         )
 
-        messages_result = await db.execute(
+        revenue_result = await db.execute(
             select(
-                func.count(
-                    Message.id
+                func.coalesce(
+                    func.sum(
+                        Payment.amount
+                    ),
+                    0
                 )
+            )
+            .where(
+                Payment.status == "paid"
             )
         )
 
         total_users = (
-            users_result.scalar() or 0
+            total_users_result.scalar() or 0
         )
 
-        total_conversations = (
-            conversations_result.scalar() or 0
+        active_users = (
+            active_users_result.scalar() or 0
         )
 
-        total_messages = (
-            messages_result.scalar() or 0
+        active_subscriptions = (
+            active_subscriptions_result.scalar() or 0
+        )
+
+        total_requests = (
+            total_requests_result.scalar() or 0
+        )
+
+        total_tokens = (
+            total_tokens_result.scalar() or 0
+        )
+
+        monthly_revenue = float(
+            revenue_result.scalar() or 0
         )
 
         return {
+
             "total_users":
                 total_users,
 
-            "total_conversations":
-                total_conversations,
+            "active_users":
+                active_users,
 
-            "total_messages":
-                total_messages,
+            "active_subscriptions":
+                active_subscriptions,
+
+            "total_requests":
+                total_requests,
+
+            "total_tokens":
+                total_tokens,
+
+            "monthly_revenue":
+                monthly_revenue,
 
             "active_providers":
                 5,

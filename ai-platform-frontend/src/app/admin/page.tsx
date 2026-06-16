@@ -4,10 +4,13 @@ import { StatCard } from "@/features/admin/components";
 
 import {
   Users,
-  MessageSquare,
+  UserCheck,
+  CreditCard,
   Activity,
+  Coins,
   Bot,
   Cpu,
+  IndianRupee,
 } from "lucide-react";
 
 import {
@@ -69,50 +72,77 @@ export default function AdminDashboardPage() {
 
       {/* KPI Cards */}
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
 
         <StatCard
           title="Total Users"
           value={data?.total_users ?? 0}
-          trend="+12%"
+          trend="Live"
           icon={Users}
         />
 
         <StatCard
-          title="Conversations"
-          value={
-            data?.total_conversations ?? 0
-          }
-          trend="+8%"
-          icon={MessageSquare}
+          title="Active Users"
+          value={data?.active_users ?? 0}
+          trend="Live"
+          icon={UserCheck}
         />
 
         <StatCard
-          title="Messages"
+          title="Subscriptions"
           value={
-            data?.total_messages ?? 0
+            data?.active_subscriptions ?? 0
           }
-          trend="+15%"
+          trend="Live"
+          icon={CreditCard}
+        />
+
+        <StatCard
+          title="API Requests"
+          value={
+            data?.total_requests ?? 0
+          }
+          trend="Live"
           icon={Activity}
         />
 
         <StatCard
-          title="Active Providers"
+          title="Tokens Used"
           value={
-            data?.active_providers ?? 0
+            (
+              data?.total_tokens ?? 0
+            ).toLocaleString()
           }
-          trend="+2"
-          icon={Bot}
+          trend="Live"
+          icon={Coins}
         />
 
         <StatCard
-          title="Active Workers"
-          value={
-            data?.active_workers ?? 0
-          }
-          trend="100%"
-          icon={Cpu}
+          title="Revenue"
+          value={`₹${
+             data?.monthly_revenue ?? 0
+          }`}
+          trend="Live"
+          icon={IndianRupee} 
         />
+
+      <StatCard
+        title="Active Providers"
+        value={
+          data?.active_providers ?? 0
+        }
+        trend="Live"
+        icon={Bot}
+      />
+
+      <StatCard
+        title="Active Workers"
+        value={
+          data?.active_workers ?? 0
+        }
+        trend="Live"
+        icon={Cpu}
+      />
 
       </div>
 
