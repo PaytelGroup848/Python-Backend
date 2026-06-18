@@ -84,6 +84,12 @@ class Invoice(Base):
         nullable=False
     )
 
+    billing_month = Column(
+        String(7),
+        nullable=False,
+        index=True
+    )
+
 
     period_start = Column(
         DateTime,

@@ -142,6 +142,18 @@ class PaymentService:
                 user_id
             )
         )
+    
+    async def get_all_payments(
+        self,
+        db
+    ):
+
+        return await (
+            payment_repository
+            .get_all(
+                db
+            )
+        )
 
     async def mark_paid(
         self,

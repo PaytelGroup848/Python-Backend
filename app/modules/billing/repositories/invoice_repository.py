@@ -186,6 +186,27 @@ class InvoiceRepository:
             .all()
         )
     
+    async def get_all(
+        self,
+        db: AsyncSession
+    ):
+
+        result = await db.execute(
+
+            select(
+                Invoice
+            )
+
+            .order_by(
+                Invoice.created_at.desc()
+            )
+        )
+
+        return (
+            result.scalars()
+            .all()
+        )
+    
 
     async def update(
         self,

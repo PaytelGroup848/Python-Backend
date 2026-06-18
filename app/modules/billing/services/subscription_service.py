@@ -314,6 +314,36 @@ class SubscriptionService:
                 subscription
             )
         )
+    
+    async def cancel_subscription_by_id(
+        self,
+        db,
+        subscription_id: int
+    ):
+
+        subscription = await (
+            subscription_repository
+            .get_by_id(
+                db,
+                subscription_id
+            )
+        )
+
+        if not subscription:
+
+            return None
+
+        subscription.status = (
+            "cancelled"
+        )
+
+        return await (
+            subscription_repository
+            .update(
+                db,
+                subscription
+            )
+        )
 
 
 subscription_service = (

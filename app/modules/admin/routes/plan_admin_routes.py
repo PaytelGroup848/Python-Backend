@@ -666,3 +666,144 @@ async def create_plan_price(
 
             detail=str(e)
         )
+    
+@router.patch(
+    "/prices/{price_id}/deactivate"
+)
+async def deactivate_plan_price(
+
+    price_id: int,
+
+    user=Depends(
+        require_role("admin")
+    ),
+
+    db: AsyncSession = Depends(
+        get_db
+    )
+):
+
+    price = await (
+        plan_management_service
+        .deactivate_plan_price(
+            db,
+            price_id
+        )
+    )
+
+    if not price:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Price not found"
+        )
+
+    return {
+        "message":
+            "Price deactivated successfully"
+    }
+
+@router.patch(
+    "/versions/{version_id}/deactivate"
+)
+async def deactivate_plan_version(
+
+    version_id: int,
+
+    user=Depends(
+        require_role("admin")
+    ),
+
+    db: AsyncSession = Depends(
+        get_db
+    )
+):
+
+    version = await (
+        plan_management_service
+        .deactivate_plan_version(
+            db,
+            version_id
+        )
+    )
+
+    if not version:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Version not found"
+        )
+
+    return {
+        "message":
+            "Version deactivated successfully"
+    }
+
+@router.patch(
+    "/{plan_id}/deactivate"
+)
+async def deactivate_plan(
+    plan_id: int,
+    user=Depends(
+        require_role("admin")
+    ),
+    db: AsyncSession = Depends(
+        get_db
+    )
+):
+
+    plan = await (
+        plan_management_service
+        .deactivate_plan(
+            db,
+            plan_id
+        )
+    )
+
+    if not plan:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Plan not found"
+        )
+
+    return {
+        "message":
+            "Plan deactivated successfully"
+    }
+
+@router.patch(
+    "/{plan_id}/activate"
+)
+async def activate_plan(
+
+    plan_id: int,
+
+    user=Depends(
+        require_role("admin")
+    ),
+
+    db: AsyncSession = Depends(
+        get_db
+    )
+):
+
+    plan = await (
+        plan_management_service
+        .activate_plan(
+            db,
+            plan_id
+        ) 
+    )
+
+    if not plan:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Plan not found"
+        )
+
+    return {
+        "message":
+            "Plan activated successfully"
+    }

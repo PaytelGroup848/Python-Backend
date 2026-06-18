@@ -140,3 +140,80 @@ export async function updateVersion(
 
   return data;
 }
+
+export async function updatePrice(
+
+  priceId: number,
+
+  payload: {
+
+    provider: string;
+
+    currency: string;
+
+    amount: number;
+
+    billing_cycle: string;
+
+    external_price_id?: string;
+  }
+) {
+
+  const { data } =
+    await apiClient.put(
+
+      `/admin/plans/prices/${priceId}`,
+
+      payload
+    );
+
+  return data;
+}
+
+export async function deactivatePrice(
+  priceId: number
+) {
+
+  const { data } =
+    await apiClient.patch(
+      `/admin/plans/prices/${priceId}/deactivate`
+    );
+
+  return data;
+}
+
+export async function deactivateVersion(
+  versionId: number
+) {
+
+  const { data } =
+    await apiClient.patch(
+      `/admin/plans/versions/${versionId}/deactivate`
+    );
+
+  return data;
+}
+
+export async function deactivatePlan(
+  planId: number
+) {
+
+  const { data } =
+    await apiClient.patch(
+      `/admin/plans/${planId}/deactivate`
+    );
+
+  return data;
+}
+
+export async function activatePlan(
+  planId: number
+) {
+
+  const { data } =
+    await apiClient.patch(
+      `/admin/plans/${planId}/activate`
+    );
+
+  return data;
+}

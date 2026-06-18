@@ -73,6 +73,16 @@ const navigation = [
       icon: CreditCard,
     },
     {
+      label: "Subscriptions",
+      href: "/admin/subscriptions",
+      icon: CreditCard,
+    },
+    {
+      label: "Payments",
+      href: "/admin/payments",
+      icon: CreditCard,
+    },
+    {
       label: "Workers",
       href: "/admin/workers",
       icon: Cpu,

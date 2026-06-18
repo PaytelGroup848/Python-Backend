@@ -247,7 +247,62 @@ class PlanManagementService:
                 price
             )
         )
+    
+    async def deactivate_plan_version(
+        self,
+        db,
+        version_id: int
+    ):
 
+        version = await (
+            plan_version_repository
+            .get_by_id(
+                db,
+                version_id
+            )
+        )
+
+        if not version:
+
+            return None
+
+        version.is_active = False
+
+        return await (
+            plan_version_repository
+            .update(
+                db,
+                version
+            )
+        )
+    
+    async def activate_plan(
+        self,
+        db,
+        plan_id: int
+    ):
+
+        plan = await (
+            plan_repository
+            .get_by_id(
+                db,
+                plan_id
+            )
+        )
+
+        if not plan:
+
+            return None
+
+        plan.is_active = True
+
+        return await (
+            plan_repository
+            .update(
+                db,
+                plan
+            )
+        )
 
 plan_management_service = (
     PlanManagementService()

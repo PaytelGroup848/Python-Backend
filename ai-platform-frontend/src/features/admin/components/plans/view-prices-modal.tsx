@@ -14,6 +14,14 @@ import {
   CreatePriceModal,
 } from "./create-price-modal";
 
+import {
+  EditPriceModal,
+} from "./edit-price-modal";
+
+import {
+  useDeactivatePrice,
+} from "@/features/admin/hooks/use-deactivate-price";
+
 interface Props {
 
   planId: number;
@@ -41,6 +49,21 @@ export function ViewPricesModal({
   showCreatePrice,
   setShowCreatePrice,
 ] = useState(false);
+
+const [
+  selectedPrice,
+  setSelectedPrice,
+] = useState<PlanPrice | null>(
+  null
+);
+
+const [
+  showEditPrice,
+  setShowEditPrice,
+] = useState(false);
+
+const deactivatePriceMutation =
+  useDeactivatePrice();
 
   return (
 
@@ -198,6 +221,10 @@ export function ViewPricesModal({
                     Status
                   </th>
 
+                  <th className="p-4 text-left">
+                    Actions
+                  </th>
+
                 </tr>
 
               </thead>
@@ -209,7 +236,7 @@ export function ViewPricesModal({
                   <tr>
 
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="
                         p-8
                         text-center
@@ -285,6 +312,72 @@ export function ViewPricesModal({
 
                       </td>
 
+                      <td className="p-4">
+
+                        <div className="flex gap-2">
+
+                          <button
+
+                          onClick={() => {
+
+                            setSelectedPrice(
+                              price
+                            );
+
+                            setShowEditPrice(
+                              true
+                            );
+                          }}
+
+                          className="
+                            rounded-lg
+                            bg-amber-600
+                            px-3
+                            py-2
+                            text-sm
+                            text-white
+                           "
+                          >
+
+                           Edit
+
+                  </button>
+
+    <button
+
+      onClick={() => {
+
+        if (
+          confirm(
+            "Deactivate this price?"
+          )
+        ) {
+
+          deactivatePriceMutation
+            .mutate(
+              price.id
+            );
+        }
+      }}
+
+      className="
+        rounded-lg
+        bg-red-600
+        px-3
+        py-2
+        text-sm
+        text-white
+      "
+    >
+
+      Disable
+
+    </button>
+
+  </div>
+
+</td>
+
                     </tr>
                   )
                 )}
@@ -307,6 +400,25 @@ export function ViewPricesModal({
 
     onClose={() =>
       setShowCreatePrice(
+        false
+      )
+    }
+
+  />
+
+)}
+
+{showEditPrice &&
+ selectedPrice && (
+
+  <EditPriceModal
+
+    price={
+      selectedPrice
+    }
+
+    onClose={() =>
+      setShowEditPrice(
         false
       )
     }

@@ -5,7 +5,8 @@ from sqlalchemy import (
     Integer,
     String,
     Boolean,
-    DateTime
+    DateTime,
+    ForeignKey
 )
 
 from app.db.database import Base
@@ -21,14 +22,20 @@ class ModelRegistry(Base):
         index=True
     )
 
-    model_name = Column(
-        String,
+    provider_id = Column(
+        Integer,
+        ForeignKey("providers.id"),
+        nullable=False
+    )
+
+    code = Column(
+        String(100),
         unique=True,
         nullable=False
     )
 
-    provider = Column(
-        String,
+    display_name = Column(
+        String(255),
         nullable=False
     )
 
@@ -39,10 +46,12 @@ class ModelRegistry(Base):
 
     is_active = Column(
         Boolean,
-        default=True
+        default=True,
+        nullable=False
     )
 
     created_at = Column(
         DateTime,
-        default=datetime.utcnow
+        default=datetime.utcnow,
+        nullable=False
     )

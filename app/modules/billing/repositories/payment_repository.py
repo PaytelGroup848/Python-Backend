@@ -109,6 +109,27 @@ class PaymentRepository:
             result.scalars()
             .all()
         )
+    
+    async def get_all(
+        self,
+        db: AsyncSession
+   ):
+
+        result = await db.execute(
+
+            select(
+                Payment
+            )
+
+            .order_by(
+                Payment.created_at.desc()
+            )
+        )
+
+        return (
+            result.scalars()
+            .all()
+        )
 
     async def update(
         self,
@@ -129,6 +150,25 @@ class PaymentRepository:
             await db.rollback()
 
             raise
+
+    async def get_by_invoice_id(
+        self,
+        db: AsyncSession,
+        invoice_id: int
+    ):
+
+        result = await db.execute(
+
+            select(Payment)
+
+            .where(
+                Payment.invoice_id == invoice_id
+            )
+        )
+
+        return (
+            result.scalar_one_or_none()
+        )
 
 
 payment_repository = (

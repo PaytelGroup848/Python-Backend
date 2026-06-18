@@ -38,3 +38,7 @@ from app.models.model import (
 )
 
 from app.models.model_pricing import ModelPricing
+
+from app.modules.billing.models.company_settings import (
+    CompanySettings
+)

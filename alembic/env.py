@@ -56,6 +56,8 @@ from app.modules.billing.models.plan_price import (
     PlanPrice
 )
 
+from app.modules.providers.models.provider import Provider
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

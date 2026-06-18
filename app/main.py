@@ -121,6 +121,27 @@ from app.modules.admin.routes.plan_admin_routes import (
     router as plan_admin_router
 )
 
+from app.modules.billing.routes.admin_subscription_routes import (
+    router as admin_subscription_router
+)
+
+from app.modules.billing.routes.admin_payment_routes import (
+    router as admin_payment_router
+)
+
+from app.modules.billing.routes.admin_invoice_routes import router as admin_invoice_router
+from app.modules.billing.routes.subscription_routes import (
+    router as subscription_router
+)
+
+from app.modules.billing.routes.invoice_download_routes import (
+    router as invoice_download_router
+)
+
+from app.modules.billing.routes.company_settings_routes import (
+    router as company_settings_router
+)
+
 
 
 logging.basicConfig(
@@ -336,6 +357,10 @@ app.include_router(
 )
 
 app.include_router(
+    subscription_router
+)
+
+app.include_router(
     pricing_router
 )
 
@@ -355,6 +380,25 @@ app.include_router(
     plan_admin_router
 )
 
+app.include_router(
+    admin_subscription_router
+)
+
+app.include_router(
+    admin_payment_router
+)
+
+app.include_router(
+    admin_invoice_router
+)
+
+app.include_router(
+    invoice_download_router
+)
+
+app.include_router(
+    company_settings_router
+)
 # =========================
 # Health Route
 # =========================

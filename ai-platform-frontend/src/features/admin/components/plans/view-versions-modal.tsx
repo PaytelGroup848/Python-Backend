@@ -18,6 +18,10 @@ import {
   EditVersionModal,
 } from "./edit-version-modal";
 
+import {
+  useDeactivateVersion,
+} from "@/features/admin/hooks/use-deactivate-version";
+
 interface Props {
 
   planId: number;
@@ -57,6 +61,9 @@ const [
   showEditVersion,
   setShowEditVersion,
 ] = useState(false);
+
+const deactivateVersionMutation =
+  useDeactivateVersion();
 
   return (
 
@@ -307,32 +314,65 @@ const [
 
                       <td className="p-4">
 
-                        <button
+  <div className="flex gap-2">
 
-                          onClick={() => {
+    <button
 
-                            setSelectedVersion(
-                              version
-                            );
+      onClick={() => {
 
-                            setShowEditVersion(
-                              true
-                            );
-                          }}
+        setSelectedVersion(
+          version
+        );
 
-                          className="
-                            rounded-lg
-                            bg-amber-600
-                            px-3
-                            py-2
-                            text-sm
-                            text-white
-                          "
-                        >
-                          Edit
-                        </button>
+        setShowEditVersion(
+          true
+        );
+      }}
 
-                      </td>
+      className="
+        rounded-lg
+        bg-amber-600
+        px-3
+        py-2
+        text-sm
+        text-white
+      "
+    >
+      Edit
+    </button>
+
+    <button
+
+      onClick={() => {
+
+        if (
+          confirm(
+            "Deactivate this version?"
+          )
+        ) {
+
+          deactivateVersionMutation
+            .mutate(
+              version.id
+            );
+        }
+      }}
+
+      className="
+        rounded-lg
+        bg-red-600
+        px-3
+        py-2
+        text-sm
+        text-white
+      "
+    >
+      Disable
+    </button>
+
+  </div>
+
+</td>
 
                     </tr>
                   )

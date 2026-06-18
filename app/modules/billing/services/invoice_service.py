@@ -296,6 +296,18 @@ class InvoiceService:
                 invoice
             )
         )
+    
+    async def get_all_invoices(
+        self,
+        db
+    ):
+
+        return await (
+            invoice_repository
+            .get_all(
+                db
+            )
+        )
 
     async def get_user_invoices(
         self,

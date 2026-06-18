@@ -18,6 +18,14 @@ import {
   CreatePlanModal,
 } from "@/features/admin/components/plans/create-plan-modal";
 
+import {
+  useDeactivatePlan,
+} from "@/features/admin/hooks/use-deactivate-plan";
+
+import {
+  useActivatePlan,
+} from "@/features/admin/hooks/use-activate-plan";
+
 export default function PlansPage() {
 
   const {
@@ -44,6 +52,12 @@ export default function PlansPage() {
 
  const [showCreatePlan, setShowCreatePlan,
    ] = useState(false);
+
+  const deactivatePlanMutation =
+  useDeactivatePlan();
+
+  const activatePlanMutation =
+  useActivatePlan();
 
  
 
@@ -259,6 +273,74 @@ export default function PlansPage() {
                       Prices
 
                     </button>
+
+                    {plan.is_active ? (
+
+                      <button
+
+                        onClick={() => {
+
+                          if (
+                            confirm(
+                              "Deactivate this plan?"
+                            )
+                          ) {
+
+                          deactivatePlanMutation
+                          .mutate(
+                              plan.id
+                          );
+                        }
+                      }}
+
+                      className="
+                        rounded-lg
+                        bg-red-600
+                        px-3
+                        py-2
+                        text-sm
+                        text-white
+                      "
+                    >
+
+                      Disable
+
+                    </button>
+
+                  ) : (
+
+                    <button
+
+                      onClick={() => {
+
+                        if (
+                          confirm(
+                            "Activate this plan?"
+                          )
+                        ) {
+
+                        activatePlanMutation
+                          .mutate(
+                            plan.id
+                          );
+                        }
+                      }}
+
+                      className="
+                        rounded-lg
+                        bg-green-600
+                         px-3
+                         py-2
+                         text-sm
+                         text-white
+                        "
+                      >
+
+                        Activate
+
+                      </button>
+
+                    )}
 
                   </div>
 
