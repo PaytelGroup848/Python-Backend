@@ -115,6 +115,19 @@ async def process_chat_requests():
                             )
                         )
 
+                        assistant_id = (
+                            data.get(
+                                "assistant_id"
+                            )
+                        )
+
+                        if not assistant_id:
+
+                            raise ValueError(
+                                "assistant_id is required"
+                            )
+
+
                         if not query:
 
                             raise ValueError(
@@ -136,6 +149,8 @@ async def process_chat_requests():
                             user_id=int(
                                 user_id
                             ),
+
+                            assistant_id=int( assistant_id ),
 
                             user_role="employee",
 

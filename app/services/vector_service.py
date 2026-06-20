@@ -31,6 +31,8 @@ async def store_document(
 
     content: str,
 
+    knowledge_base_document_id: int,
+
     original_content: str = None,
 
     language: str = "en",
@@ -51,6 +53,9 @@ async def store_document(
     doc = Document(
 
         content=content,
+
+        knowledge_base_document_id= 
+            knowledge_base_document_id,
 
         original_content=original_content,
 
@@ -81,6 +86,8 @@ async def semantic_search(
     db: AsyncSession,
 
     query: str,
+
+    knowledge_base_ids: list[int],
 
     user_department: str,
 
@@ -117,6 +124,7 @@ async def semantic_search(
 
         f"semantic_search:"
         f"{query}:"
+        f"{sorted(knowledge_base_ids)}:"
         f"{user_department}:"
         f"{user_role}:"
         f"{limit}"
@@ -184,28 +192,37 @@ async def semantic_search(
     vector_sql = text("""
 
         SELECT
-            id,
-            content,
-            source_file,
-            page_number,
+            d.id,
+            d.content,
+            d.source_file,
+            d.page_number,
 
-            embedding <=> CAST(
+            d.embedding <=> CAST(
                 :embedding AS vector
             ) AS distance
 
-        FROM documents
+        FROM documents d
 
-        WHERE (
+        JOIN knowledge_base_documents kbd
+            ON d.knowledge_base_document_id = kbd.id
 
-            department =
-            :user_department
+        WHERE
 
-            OR
+            kbd.knowledge_base_id = ANY(:knowledge_base_ids)
 
-            :user_role = 'admin'
-        )
+            AND
 
-        ORDER BY embedding <=> CAST(
+            (
+
+                d.department =
+                :user_department
+
+                OR
+
+                :user_role = 'admin'
+            )
+
+        ORDER BY d.embedding <=> CAST(
             :embedding AS vector
         )
 
@@ -219,28 +236,42 @@ async def semantic_search(
     keyword_sql = text("""
 
         SELECT
-            id,
-            content,
-            source_file,
-            page_number,
+            d.id,
+            d.content,
+            d.source_file,
+            d.page_number,
 
             0.0 AS distance
 
-        FROM documents
+        FROM documents d
 
-        WHERE (
+        JOIN knowledge_base_documents kbd
+            ON d.knowledge_base_document_id = kbd.id
 
-            content ILIKE :keyword
+        WHERE
+
+            kbd.knowledge_base_id IN (
+                SELECT UNNEST(
+                    CAST(
+                        :knowledge_base_ids
+                        AS int[]
+                    )
+                )
+            )
+
+            AND
+
+            d.content ILIKE :keyword
 
             AND (
 
-                department =
+                d.department =
                 :user_department
 
                 OR
 
                 :user_role = 'admin'
-            )
+            
         )
 
         LIMIT :limit
@@ -265,6 +296,9 @@ async def semantic_search(
 
                     "user_department":
                     user_department,
+
+                    "knowledge_base_ids":
+                      knowledge_base_ids,
 
                     "user_role":
                     user_role
@@ -309,6 +343,9 @@ async def semantic_search(
 
                     "user_department":
                     user_department,
+
+                    "knowledge_base_ids":
+                        knowledge_base_ids,
 
                     "user_role":
                     user_role

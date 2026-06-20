@@ -11,4 +11,6 @@ class ChatEvent(
 
     conversation_id: int
 
+    assistant_id: int
+
     message: str

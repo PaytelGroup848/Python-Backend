@@ -94,23 +94,21 @@ async def process_embedding_jobs():
                     payload = json.loads(
                         data[b"data"]
                     )
-                    if not payload.get("content"):
-
-                        logger.warning(
-                          "Missing content in payload"
+                    if not payload.get(
+                        "knowledge_base_document_id"
+                    ):
+                        raise ValueError(
+                            "Missing knowledge_base_document_id"
                         )
 
-                        await redis_client.xack(
-
-                            EMBEDDING_STREAM,
-
-                            "embedding_group",
-
-                            message_id
+                    if not payload.get(
+                        "content"
+                    ):
+                        raise ValueError(
+                            "Missing content"
                         )
-                        await metrics_service.increment_embedding_jobs()
 
-                        continue
+                        
 
                     embedding = await asyncio.wait_for(
                         
@@ -135,6 +133,11 @@ async def process_embedding_jobs():
                                 "content"
                             ],
                             embedding=embedding,
+
+                            knowledge_base_document_id= 
+                            payload[
+                                "knowledge_base_document_id"
+                            ],
                             source_file=payload.get(
                                 "source_file"
                             ),
@@ -167,18 +170,30 @@ async def process_embedding_jobs():
                         try:
                             await db.rollback()
 
-                        except Exception as e:
-
-                            logger.warning(
-                                f"Consumer group exists "
-                                f"or creation failed: "
-                                f"{str(e)}"
-                            )
+                        except Exception:
+                            pass
 
                     logger.exception(
                         f"Embedding worker failed: "
                         f"{str(e)}"
                     )
+
+                    try:
+
+                        await redis_client.xack(
+
+                            EMBEDDING_STREAM,
+
+                            "embedding_group",
+
+                            message_id
+                        )
+
+                    except Exception:
+
+                        logger.exception(
+                            "Failed to acknowledge message"
+                  )
 
 
 if __name__ == "__main__":

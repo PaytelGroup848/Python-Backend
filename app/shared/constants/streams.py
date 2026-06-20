@@ -13,3 +13,7 @@ RAG_STREAM = (
 EMBEDDING_STREAM = (
     "embedding_requests"
 )
+
+INGESTION_STREAM = (
+    "document_ingestion_requests"
+)

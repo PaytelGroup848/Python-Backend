@@ -57,6 +57,7 @@ from app.modules.billing.models.plan_price import (
 )
 
 from app.modules.providers.models.provider import Provider
+from app.models.model_version import ModelVersion
 
 target_metadata = Base.metadata
 

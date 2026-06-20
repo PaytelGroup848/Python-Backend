@@ -142,6 +142,21 @@ from app.modules.billing.routes.company_settings_routes import (
     router as company_settings_router
 )
 
+from app.modules.knowledge_bases.routes.knowledge_base_document_routes import (
+    router as knowledge_base_document_router
+)
+
+from app.modules.knowledge_bases.routes.knowledge_base_routes import (
+    router as knowledge_base_router
+)
+
+from app.modules.assistants.routes.assistant_routes import (
+    router as assistant_router
+)
+
+from app.modules.assistants.routes.assistant_knowledge_base_routes import (
+    router as assistant_knowledge_base_router
+)
 
 
 logging.basicConfig(
@@ -399,6 +414,23 @@ app.include_router(
 app.include_router(
     company_settings_router
 )
+
+app.include_router(
+    knowledge_base_router
+)
+
+app.include_router(
+    knowledge_base_document_router
+)
+
+app.include_router(
+    assistant_router
+)
+
+app.include_router(
+    assistant_knowledge_base_router
+)
+
 # =========================
 # Health Route
 # =========================

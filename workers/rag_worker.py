@@ -13,7 +13,7 @@ from app.shared.constants.streams import (
     RAG_STREAM
 )
 
-from app.services.rag_service import (
+from app.modules.chat.services.rag_service import (
     retrieve_context
 )
 

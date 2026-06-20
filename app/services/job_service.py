@@ -11,17 +11,20 @@ from app.models.document_job import DocumentJob
 # -----------------------------
 async def create_job(
     db: AsyncSession,
-    filename: str
+    filename: str,
+    knowledge_base_document_id: int
 ):
 
     job = DocumentJob(
         filename=filename,
+        
+        knowledge_base_document_id=knowledge_base_document_id,
         status="processing"
     )
 
     db.add(job)
 
-    await db.commit()
+    await db.flush()
 
     await db.refresh(job)
 

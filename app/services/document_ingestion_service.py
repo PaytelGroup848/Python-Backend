@@ -24,7 +24,8 @@ from app.services.job_service import (
 )
 
 from app.shared.constants.streams import (
-    EMBEDDING_STREAM
+    EMBEDDING_STREAM,
+    INGESTION_STREAM
 )
 
 
@@ -33,7 +34,8 @@ logger = logging.getLogger(__name__)
 
 async def ingest_document_file(
     file_path: str,
-    job_id: int
+    job_id: int,
+    knowledge_base_document_id: int
 ):
 
     logger.info(
@@ -69,20 +71,21 @@ async def ingest_document_file(
                 for chunk in chunks:
 
                     payload = {
+                        "knowledge_base_document_id":
+                            knowledge_base_document_id,
 
-                        "content": chunk,
+                        "content":
+                            chunk,
 
-                        "source_file": (
-                            file_path
-                        ),
+                        "source_file":
+                            file_path,
 
-                        "page_number": (
+                        "page_number":
                             document.get(
                                 "page_number",
                                 1
                             )
-                        ),
-                    }
+                        }
 
                     await redis_client.xadd(
 

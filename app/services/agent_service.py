@@ -20,8 +20,16 @@ from app.modules.chat.services.rag_service import (
     retrieve_context
 )
 
+from app.modules.assistants.services.assistant_runtime_service import (
+    assistant_runtime_service
+)
+
 from app.modules.chat.services.memory_service import (
     memory_service
+)
+
+from app.modules.memory.services.cag_service import (
+    cag_service
 )
 
 from app.services.language_service import (
@@ -105,6 +113,7 @@ class AgentState(TypedDict):
     # user
     session_id: str
     user_id: int
+    assistant_id: int
     user_role: str
     user_department: str
 
@@ -112,6 +121,27 @@ class AgentState(TypedDict):
     request_id: str
     intent: str
     language: str
+
+    system_prompt: str
+    assistant_name: str
+    assistant_code: str
+
+    model_id: int | None
+
+    temperature: float
+    top_p: float
+
+    max_tokens: int
+    context_window: int
+
+    memory_enabled: bool
+    rag_enabled: bool
+    cag_enabled: bool
+    tool_calling_enabled: bool
+
+    # CAG
+    cag_hit: bool
+    cag_response: str
 
     # execution
     memory_context: str
@@ -342,6 +372,7 @@ class ContextBuilderService:
 
     @staticmethod
     def build(
+        system_prompt: str,
         memory: str,
         context: str,
         tool_result: dict,
@@ -353,22 +384,20 @@ class ContextBuilderService:
         )
 
         return f"""
-                    You are an enterprise AI platform assistant.
+            {system_prompt}
 
-                    Execution Plan:
-                    {plan}
+            Execution Plan:
+            {plan}
 
-                    Conversation Memory:
-                    {memory}
+            Conversation Memory:
+            {memory}
 
-                    Retrieved Context:
-                    {context}
+            Retrieved Context:
+            {context}
 
-                    Tool Result:
-                    {tool_result}
-
-                    Generate an accurate response.
-                """
+            Tool Result:
+            {tool_result}
+        """
 
 
 # =========================================================
@@ -429,6 +458,7 @@ class RetrievalService:
     @staticmethod
     async def retrieve(
         query: str,
+        assistant_id: int,
         role: str,
         department: str
     ) -> RetrievalResult:
@@ -438,6 +468,7 @@ class RetrievalService:
             result = await retrieve_context(
                 db=db,
                 query=query,
+                 assistant_id=assistant_id,
                 user_role=role,
                 user_department=department
             )
@@ -453,7 +484,8 @@ class RetrievalService:
                 context=result.get("context", ""),
                 sources=result.get("sources", [])
             )
-
+        
+    
 
 # =========================================================
 # LANGUAGE SERVICE
@@ -494,6 +526,102 @@ class LanguagePipeline:
 # =========================================================
 # GRAPH NODES
 # =========================================================
+async def assistant_runtime_node(
+        state: AgentState
+    ):
+
+        async with AsyncSessionLocal() as db:
+
+            runtime = await (
+                assistant_runtime_service
+                .load_runtime(
+                    db=db,
+                    assistant_id=state["assistant_id"]
+                )
+            )
+
+        return {
+
+    **state,
+
+        "system_prompt":
+            runtime.system_prompt or "",
+
+        "assistant_name":
+            runtime.assistant_name,
+
+        "assistant_code":
+            runtime.assistant_code,
+
+        "model_id":
+            runtime.model_id,
+
+        "temperature":
+            runtime.temperature,
+
+        "top_p":
+            runtime.top_p,
+
+        "max_tokens":
+            runtime.max_tokens,
+
+        "context_window":
+            runtime.context_window,
+
+        "memory_enabled":
+            runtime.memory_enabled,
+
+        "rag_enabled":
+            runtime.rag_enabled,
+
+        "cag_enabled":
+            runtime.cag_enabled,
+
+        "tool_calling_enabled":
+            runtime.tool_calling_enabled
+    }
+
+async def cag_node(
+    state: AgentState
+):
+
+    if not state["cag_enabled"]:
+
+        return state
+
+    cached = await (
+        cag_service.get_response(
+            assistant_id=
+                state["assistant_id"],
+
+            query=
+                state["query"]
+        )
+    )
+
+    if not cached:
+
+        logger.info(
+            f"CAG MISS: {state['query']}"
+        )
+
+        return state
+    logger.info(
+        f"CAG HIT: {state['query']}"
+    )
+
+    return {
+
+        **state,
+
+        "cag_hit": True,
+
+        "cag_response":
+            cached["response"],
+
+        "response":
+            cached["response"]
+    }
 
 async def classify_node(state: AgentState):
 
@@ -513,9 +641,22 @@ async def preprocessing_node(state: AgentState):
         state["query"]
     )
 
-    memory_task = SemanticMemoryService.load_memory(
-        state["session_id"]
-    )
+
+    if state["memory_enabled"]:
+
+        memory_task = (
+            SemanticMemoryService
+            .load_memory(
+                state["session_id"]
+            )
+        )
+
+    else:
+
+        memory_task = asyncio.sleep(
+            0,
+            result=""
+        )
 
     rewrite_task = QueryRewriteService.rewrite(
         query=query,
@@ -558,8 +699,22 @@ async def planner_node(state: AgentState):
 
 async def retrieval_node(state: AgentState):
 
+    if not state["rag_enabled"]:
+
+        return {
+
+            **state,
+
+            "context": "",
+
+            "sources": [],
+
+            "needs_general_knowledge": False
+        }
+
     result = await RetrievalService.retrieve(
         query=state["rewritten_query"],
+        assistant_id=state["assistant_id"],
         role=state["user_role"],
         department=state["user_department"]
     )
@@ -600,15 +755,30 @@ async def search_node(state: AgentState):
 
 async def generation_node(state: AgentState):
 
+    if state["cag_hit"]:
+
+        return state
+
     if state.get("needs_general_knowledge"):
 
         return state
 
     prompt = ContextBuilderService.build(
-        memory=state["memory_context"],
-        context=state["context"],
-        tool_result=state["tool_result"],
-        plan=state["plan"]
+
+        system_prompt=
+            state["system_prompt"],
+
+        memory=
+            state["memory_context"],
+
+        context=
+            state["context"],
+
+        tool_result=
+            state["tool_result"],
+
+        plan=
+            state["plan"]
     )
 
     final_prompt = f"""
@@ -639,28 +809,50 @@ async def generation_node(state: AgentState):
     response = await llm_manager.generate_response(
         prompt=final_prompt,
         user_id=state["user_id"],
-        temperature=0.3,
+        temperature=
+            state["temperature"],
         stream=False
     )
 
     final_response = response["response"]
+
+    if state["cag_enabled"]:
+
+        await (
+            cag_service.save_response(
+                assistant_id=
+                    state["assistant_id"],
+
+                query=
+                    state["query"],
+
+                response=
+                    final_response
+            ) 
+        )
+
+        logger.info(
+            f"CAG SAVE: {state['query']}"
+        )
 
     final_response = await LanguagePipeline.process_output(
         final_response,
         state["language"]
     )
 
-    await memory_service.save_memory(
-        session_id=state["session_id"],
-        role="user",
-        message=state["query"]
-    )
+    if state["memory_enabled"]:
 
-    await memory_service.save_memory(
-        session_id=state["session_id"],
-        role="assistant",
-        message=final_response
-    )
+        await memory_service.save_memory(
+            session_id=state["session_id"],
+            role="user",
+            message=state["query"]
+        )
+
+        await memory_service.save_memory(
+            session_id=state["session_id"],
+            role="assistant",
+            message=final_response
+        )
 
     return {
         **state,
@@ -708,6 +900,15 @@ graph.add_node(
 )
 
 graph.add_node(
+    "assistant_runtime",
+    assistant_runtime_node
+)
+graph.add_node(
+    "cag",
+    cag_node
+)
+
+graph.add_node(
     "planner",
     planner_node
 )
@@ -741,6 +942,16 @@ graph.add_edge(
 
 graph.add_edge(
     "preprocess",
+    "assistant_runtime"
+)
+
+graph.add_edge(
+    "assistant_runtime",
+    "cag"
+)
+
+graph.add_edge(
+    "cag",
     "planner"
 )
 
@@ -788,6 +999,7 @@ class AgentRuntime:
         query: str,
         session_id: str,
         user_id: int,
+        assistant_id: int,
         user_role: str,
         user_department: str
     ) -> AgentResponse:
@@ -810,6 +1022,8 @@ class AgentRuntime:
 
             "user_id": user_id,
 
+            "assistant_id": assistant_id,
+
             "user_role": user_role,
 
             "user_department": user_department,
@@ -819,6 +1033,34 @@ class AgentRuntime:
             "intent": "",
 
             "language": "en",
+
+            "system_prompt": "",
+
+            "assistant_name": "",
+
+            "assistant_code": "",
+
+            "model_id": None,
+
+            "temperature": 0.2,
+
+            "top_p": 0.95,
+
+            "max_tokens": 4000,
+
+            "context_window": 8000,
+
+            "memory_enabled": True,
+
+            "rag_enabled": True,
+
+            "cag_enabled": False,
+
+            "tool_calling_enabled": False,
+
+            "cag_hit": False,
+
+            "cag_response": "",
 
             "memory_context": "",
 
@@ -866,6 +1108,7 @@ async def run_agent(
     query: str,
     session_id: str,
     user_id: int,
+    assistant_id: int,
     user_role: str,
     user_department: str
 ):
@@ -874,6 +1117,7 @@ async def run_agent(
         query=query,
         session_id=session_id,
         user_id=user_id,
+        assistant_id=assistant_id,
         user_role=user_role,
         user_department=user_department
     )

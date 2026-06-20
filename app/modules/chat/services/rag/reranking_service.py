@@ -17,12 +17,39 @@ async def rerank_results(
 
     if not results:
         return []
+    
+    MAX_RERANK_RESULTS = 50
 
-    pairs = [
-        (query, r.content)
-        for r in results
-        if getattr(r, "content", None)
+    results = list(
+        results
+    )[
+        :MAX_RERANK_RESULTS
     ]
+
+    pairs = []
+
+    for r in results:
+
+        if isinstance(r, dict):
+
+            content = r.get("content")
+
+        else:
+
+            content = getattr(
+                r,
+                "content",
+                None
+            )
+
+        if content:
+
+            pairs.append(
+                (
+                    query,
+                    content
+                )
+            )
 
     if not pairs:
         return list(results)
@@ -37,6 +64,19 @@ async def rerank_results(
 
             pairs
         )
+
+        if len(scores) != len(results):
+
+            logger.warning(
+
+                "Reranker score mismatch "
+
+                f"results={len(results)} "
+
+                f"scores={len(scores)}"
+            )
+
+            return list(results)
 
         reranked = sorted(
             zip(results, scores),

@@ -13,6 +13,8 @@ from pgvector.sqlalchemy import Vector
 
 from app.db.database import Base
 
+from sqlalchemy import ForeignKey
+
 
 class Document(Base):
 
@@ -96,4 +98,14 @@ class Document(Base):
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now()
+    )
+
+    knowledge_base_document_id = Column(
+        Integer,
+        ForeignKey(
+            "knowledge_base_documents.id",
+            name="fk_document_kbd_id"
+        ),
+        nullable=False,
+        index=True
     )

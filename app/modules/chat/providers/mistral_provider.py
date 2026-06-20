@@ -8,9 +8,6 @@ from app.modules.chat.providers.base_provider import (
     BaseProvider
 )
 
-MODEL_NAME = (
-    "mistral-small"
-)
 
 class MistralProvider(
     BaseProvider
@@ -20,7 +17,19 @@ class MistralProvider(
 
         self,
 
-        messages,
+        model: str,
+
+        messages: list,
+
+        temperature: float = 0.7,
+
+        max_tokens: int = 4096,
+
+        stream: bool = False,
+
+        tools: list | None = None,
+
+        metadata: dict | None = None
     ):
 
         response = await http_client.post(
@@ -38,23 +47,27 @@ class MistralProvider(
 
             json={
 
-                "model":
-                MODEL_NAME,
+                "model": model,
 
-                "messages":
-                messages,
+                "messages": messages,
 
-                "max_tokens":
-                150,
+                "temperature": temperature,
+
+                "max_tokens": max_tokens,
             },
         )
 
         data = response.json()
 
+        if "choices" not in data:
+
+            raise Exception(
+                f"Mistral API Error: {data}"
+            )
+
         return {
 
-            "model":
-            MODEL_NAME,
+            "model": model,
 
             "response":
             data["choices"][0]["message"]["content"],
@@ -65,3 +78,8 @@ class MistralProvider(
                 {}
             ),
         }
+
+    async def health_check(
+        self
+    ):
+        return True

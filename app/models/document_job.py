@@ -9,6 +9,8 @@ from sqlalchemy.sql import func
 
 from app.db.database import Base
 
+from sqlalchemy import ForeignKey
+
 
 class DocumentJob(Base):
 
@@ -48,4 +50,14 @@ class DocumentJob(Base):
     completed_at = Column(
         DateTime(timezone=True),
         nullable=True
+    )
+
+    knowledge_base_document_id = Column(
+        Integer,
+        ForeignKey(
+            "knowledge_base_documents.id",
+            name="fk_document_jobs_kbd_id"
+        ),
+        nullable=False,
+        index=True
     )

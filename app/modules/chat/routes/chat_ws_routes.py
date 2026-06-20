@@ -255,6 +255,24 @@ async def websocket_chat(
                 )
             )
 
+            assistant_id = (
+                queued_data.get(
+                    "assistant_id"
+                )
+            )
+
+            if not assistant_id:
+
+                await websocket.send_json({
+
+                    "type": "error",
+
+                    "message":
+                    "Missing assistant_id"
+                })
+
+                continue
+
             if not conversation_id:
 
                 await websocket.send_json({
@@ -397,6 +415,8 @@ async def websocket_chat(
                     user_id=user_id,
 
                     conversation_id=conversation_id,
+
+                    assistant_id=assistant_id,
 
                     message=data.get("message"),
                 )
