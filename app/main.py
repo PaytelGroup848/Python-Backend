@@ -158,6 +158,10 @@ from app.modules.assistants.routes.assistant_knowledge_base_routes import (
     router as assistant_knowledge_base_router
 )
 
+from app.modules.training.routes.training_route import (
+    router as training_router
+)
+
 
 logging.basicConfig(
     level=logging.INFO
@@ -289,6 +293,11 @@ async def security_headers(
 async def startup_event():
 
     scheduler.start()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+
+    scheduler.shutdown()
 
 
 # =========================
@@ -429,6 +438,10 @@ app.include_router(
 
 app.include_router(
     assistant_knowledge_base_router
+)
+
+app.include_router(
+    training_router
 )
 
 # =========================

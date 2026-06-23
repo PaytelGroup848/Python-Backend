@@ -31,13 +31,21 @@ class TrainingService:
             **data.model_dump()
         )
 
-        return await (
+        training_job = await (
             training_job_repository
             .create(
                 db,
                 training_job
             )
         )
+
+        await db.commit()
+
+        await db.refresh(
+            training_job
+        )
+
+        return training_job
 
     async def get_training_job(
 

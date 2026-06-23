@@ -31,6 +31,16 @@ class TrainingJob(Base):
         index=True
     )
 
+    training_provider_id = Column(
+        Integer,
+        ForeignKey(
+            "training_providers.id",
+            name="fk_training_job_provider_id"
+        ),
+        nullable=False,
+        index=True
+    )
+
     base_model = Column(
         String(255),
         nullable=False

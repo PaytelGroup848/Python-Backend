@@ -7,6 +7,8 @@ class TrainingJobCreate(
 
     dataset_id: int
 
+    training_provider_id: int
+
     base_model: str
 
     training_type: str

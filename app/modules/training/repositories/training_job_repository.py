@@ -9,6 +9,8 @@ from app.modules.training.models.training_job import (
 )
 
 
+
+
 class TrainingJobRepository:
 
     async def create(
@@ -72,6 +74,22 @@ class TrainingJobRepository:
         )
 
         return result.scalars().all()
+    
+    async def update(
+
+        self,
+
+        db: AsyncSession,
+
+        training_job: TrainingJob
+
+    ):
+
+       
+
+       
+
+        return training_job
 
 
 training_job_repository = (

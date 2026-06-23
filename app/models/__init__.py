@@ -97,3 +97,7 @@ from app.modules.model_promotions.models.model_promotion import (
 from app.modules.model_releases.models.model_release import (
     ModelRelease
 )
+
+from app.modules.training_providers.models.training_provider import (
+    TrainingProvider
+)
