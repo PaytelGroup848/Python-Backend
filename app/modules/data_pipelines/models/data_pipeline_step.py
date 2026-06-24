@@ -1,78 +1,74 @@
 from datetime import datetime
-from sqlalchemy import UniqueConstraint
+
 from sqlalchemy import (
     Column,
     Integer,
     String,
-    Text,
     DateTime,
-    ForeignKey
+    ForeignKey,
+    UniqueConstraint
 )
 
 from app.db.database import Base
 
 
-class Dataset(Base):
+class DataPipelineStep(Base):
 
-    __tablename__ = "datasets"
+    __tablename__ = "data_pipeline_steps"
 
     __table_args__ = (
 
         UniqueConstraint(
 
-            "corpus_id",
+            "pipeline_id",
 
-            "version",
+            "step_order",
 
-            name="uq_dataset_corpus_version"
+            name="uq_pipeline_step_order"
         ),
     )
 
     id = Column(
         Integer,
-        primary_key=True,
-        index=True
+        primary_key=True
     )
 
-    corpus_id = Column(
+    pipeline_id = Column(
         Integer,
         ForeignKey(
-            "corpora.id",
-            name="fk_dataset_corpus_id"
+            "data_pipelines.id",
+            name="fk_pipeline_step_pipeline_id"
         ),
         nullable=False,
         index=True
     )
 
-    name = Column(
-        String(255),
+    step_order = Column(
+        Integer,
         nullable=False
     )
 
-    domain = Column(
+    step_code = Column(
         String(100),
         nullable=False,
         index=True
     )
 
-    version = Column(
-        String(50),
-        nullable=False
+    step_type = Column(
+        String(100),
+        nullable=False,
+        index=True
     )
 
-    description = Column(
-        Text,
+    runtime_code = Column(
+        String(100),
+        nullable=False,
+        index=True
+    )
+
+    configuration_json = Column(
+        String,
         nullable=True
-    )
-
-    source = Column(
-        String(255),
-        nullable=True
-    )
-
-    record_count = Column(
-        Integer,
-        nullable=False
     )
 
     status = Column(

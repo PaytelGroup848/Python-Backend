@@ -1,20 +1,20 @@
 from datetime import datetime
-from sqlalchemy import UniqueConstraint
+
 from sqlalchemy import (
     Column,
     Integer,
     String,
-    Text,
     DateTime,
-    ForeignKey
+    ForeignKey,
+    UniqueConstraint
 )
 
 from app.db.database import Base
 
 
-class Dataset(Base):
+class CorpusSource(Base):
 
-    __tablename__ = "datasets"
+    __tablename__ = "corpus_sources"
 
     __table_args__ = (
 
@@ -22,9 +22,9 @@ class Dataset(Base):
 
             "corpus_id",
 
-            "version",
+            "source_reference",
 
-            name="uq_dataset_corpus_version"
+            name="uq_corpus_source_reference"
         ),
     )
 
@@ -38,40 +38,20 @@ class Dataset(Base):
         Integer,
         ForeignKey(
             "corpora.id",
-            name="fk_dataset_corpus_id"
+            name="fk_corpus_source_corpus_id"
         ),
         nullable=False,
         index=True
     )
 
-    name = Column(
-        String(255),
-        nullable=False
-    )
-
-    domain = Column(
+    source_type = Column(
         String(100),
         nullable=False,
         index=True
     )
 
-    version = Column(
-        String(50),
-        nullable=False
-    )
-
-    description = Column(
-        Text,
-        nullable=True
-    )
-
-    source = Column(
-        String(255),
-        nullable=True
-    )
-
-    record_count = Column(
-        Integer,
+    source_reference = Column(
+        String(1000),
         nullable=False
     )
 

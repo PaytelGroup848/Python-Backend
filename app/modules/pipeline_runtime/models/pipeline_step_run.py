@@ -1,30 +1,30 @@
 from datetime import datetime
-from sqlalchemy import UniqueConstraint
+
 from sqlalchemy import (
     Column,
     Integer,
     String,
-    Text,
     DateTime,
-    ForeignKey
+    ForeignKey,
+    UniqueConstraint
 )
 
 from app.db.database import Base
 
 
-class Dataset(Base):
+class PipelineStepRun(Base):
 
-    __tablename__ = "datasets"
+    __tablename__ = "pipeline_step_runs"
 
     __table_args__ = (
 
         UniqueConstraint(
 
-            "corpus_id",
+            "pipeline_run_id",
 
-            "version",
+            "pipeline_step_id",
 
-            name="uq_dataset_corpus_version"
+            name="uq_pipeline_step_run"
         ),
     )
 
@@ -34,50 +34,45 @@ class Dataset(Base):
         index=True
     )
 
-    corpus_id = Column(
+    pipeline_run_id = Column(
         Integer,
         ForeignKey(
-            "corpora.id",
-            name="fk_dataset_corpus_id"
+            "pipeline_runs.id",
+            name="fk_pipeline_step_run_pipeline_run_id"
         ),
         nullable=False,
         index=True
     )
 
-    name = Column(
-        String(255),
-        nullable=False
-    )
-
-    domain = Column(
-        String(100),
+    pipeline_step_id = Column(
+        Integer,
+        ForeignKey(
+            "data_pipeline_steps.id",
+            name="fk_pipeline_step_run_step_id"
+        ),
         nullable=False,
         index=True
     )
 
-    version = Column(
-        String(50),
-        nullable=False
-    )
-
-    description = Column(
-        Text,
-        nullable=True
-    )
-
-    source = Column(
-        String(255),
-        nullable=True
-    )
-
-    record_count = Column(
-        Integer,
-        nullable=False
-    )
-
     status = Column(
         String(50),
-        nullable=False
+        nullable=False,
+        index=True
+    )
+
+    started_at = Column(
+        DateTime,
+        nullable=True
+    )
+
+    completed_at = Column(
+        DateTime,
+        nullable=True
+    )
+
+    error_message = Column(
+        String,
+        nullable=True
     )
 
     created_at = Column(

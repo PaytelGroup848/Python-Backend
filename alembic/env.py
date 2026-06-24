@@ -59,6 +59,13 @@ from app.modules.billing.models.plan_price import (
 from app.modules.providers.models.provider import Provider
 from app.models.model_version import ModelVersion
 
+from app.modules.corpora.models.corpus import Corpus
+from app.modules.corpora.models.corpus_source import CorpusSource
+
+from app.modules.ingestion.models.ingestion_job import (
+    IngestionJob
+)
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

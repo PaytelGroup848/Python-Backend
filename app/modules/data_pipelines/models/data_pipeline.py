@@ -1,20 +1,20 @@
 from datetime import datetime
-from sqlalchemy import UniqueConstraint
+
 from sqlalchemy import (
     Column,
     Integer,
     String,
-    Text,
     DateTime,
-    ForeignKey
+    ForeignKey,
+    UniqueConstraint
 )
 
 from app.db.database import Base
 
 
-class Dataset(Base):
+class DataPipeline(Base):
 
-    __tablename__ = "datasets"
+    __tablename__ = "data_pipelines"
 
     __table_args__ = (
 
@@ -24,21 +24,20 @@ class Dataset(Base):
 
             "version",
 
-            name="uq_dataset_corpus_version"
+            name="uq_pipeline_corpus_version"
         ),
     )
 
     id = Column(
         Integer,
-        primary_key=True,
-        index=True
+        primary_key=True
     )
 
     corpus_id = Column(
         Integer,
         ForeignKey(
             "corpora.id",
-            name="fk_dataset_corpus_id"
+            name="fk_pipeline_corpus_id"
         ),
         nullable=False,
         index=True
@@ -49,35 +48,34 @@ class Dataset(Base):
         nullable=False
     )
 
-    domain = Column(
+    pipeline_code = Column(
         String(100),
         nullable=False,
+        unique=True,
         index=True
     )
 
-    version = Column(
-        String(50),
-        nullable=False
-    )
-
-    description = Column(
-        Text,
-        nullable=True
-    )
-
-    source = Column(
-        String(255),
-        nullable=True
-    )
-
-    record_count = Column(
+    dataset_id = Column(
         Integer,
+        ForeignKey(
+            "datasets.id",
+            name="fk_pipeline_dataset_id"
+        ),
+        nullable=True,
+        index=True
+    )
+
+
+
+    version = Column(
+        String(100),
         nullable=False
     )
 
     status = Column(
         String(50),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
     created_at = Column(

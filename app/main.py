@@ -162,6 +162,18 @@ from app.modules.training.routes.training_route import (
     router as training_router
 )
 
+from app.modules.corpora.routes.corpus_routes import (
+    router as corpus_router
+)
+
+from app.modules.corpora.routes.corpus_source_routes import (
+    router as corpus_source_router
+)
+
+from app.modules.ingestion.routes.ingestion_job_routes import (
+    router as ingestion_router
+)
+
 
 logging.basicConfig(
     level=logging.INFO
@@ -444,6 +456,17 @@ app.include_router(
     training_router
 )
 
+app.include_router(
+    corpus_router
+)
+
+app.include_router(
+    corpus_source_router
+)
+
+app.include_router(
+    ingestion_router
+)
 # =========================
 # Health Route
 # =========================
