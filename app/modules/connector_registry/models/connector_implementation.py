@@ -6,15 +6,26 @@ from sqlalchemy import (
     String,
     Boolean,
     DateTime,
-    ForeignKey
+    ForeignKey,
+    UniqueConstraint
 )
 
 from app.db.database import Base
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 class ConnectorImplementation(Base):
 
     __tablename__ = "connector_implementations"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "implementation_code",
+            "version",
+            name="uq_connector_impl_version"
+        ),
+    )
+
 
     id = Column(
         Integer,
@@ -49,7 +60,7 @@ class ConnectorImplementation(Base):
     )
 
     configuration_schema = Column(
-        String,
+        JSONB,
         nullable=True
     )
 

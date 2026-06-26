@@ -7,7 +7,7 @@ class CorpusSourceCreate(
 
     corpus_id: int
 
-    source_type: str
+    connector_instance_id: int
 
     source_reference: str
 

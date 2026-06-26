@@ -16,17 +16,7 @@ class DataPipeline(Base):
 
     __tablename__ = "data_pipelines"
 
-    __table_args__ = (
-
-        UniqueConstraint(
-
-            "corpus_id",
-
-            "version",
-
-            name="uq_pipeline_corpus_version"
-        ),
-    )
+    
 
     id = Column(
         Integer,
@@ -63,13 +53,6 @@ class DataPipeline(Base):
         ),
         nullable=True,
         index=True
-    )
-
-
-
-    version = Column(
-        String(100),
-        nullable=False
     )
 
     status = Column(

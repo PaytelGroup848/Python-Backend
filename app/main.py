@@ -174,6 +174,30 @@ from app.modules.ingestion.routes.ingestion_job_routes import (
     router as ingestion_router
 )
 
+from app.modules.connector_registry.routes.connector_type_route import (
+    router as connector_type_router
+)
+
+from app.modules.connector_registry.routes.connector_implementation_route import (
+    router as connector_implementation_router
+)
+
+from app.modules.connector_registry.routes.connector_instance_route import (
+    router as connector_instance_router
+)
+
+from app.modules.dataset_records.routes.dataset_record_route import (
+    router as dataset_record_router
+)
+
+from app.modules.data_pipelines.routes.data_pipeline_route import (
+    router as data_pipeline_router
+)
+
+from app.modules.dataset_builder.routes import (
+    dataset_builder_router
+)
+
 
 logging.basicConfig(
     level=logging.INFO
@@ -467,6 +491,30 @@ app.include_router(
 app.include_router(
     ingestion_router
 )
+
+app.include_router(
+    connector_type_router
+)
+
+app.include_router(
+    connector_implementation_router
+)
+
+app.include_router(
+    connector_instance_router
+)
+
+app.include_router(
+    dataset_record_router
+)
+
+app.include_router(
+    data_pipeline_router
+)
+app.include_router(
+    dataset_builder_router
+)
+
 # =========================
 # Health Route
 # =========================

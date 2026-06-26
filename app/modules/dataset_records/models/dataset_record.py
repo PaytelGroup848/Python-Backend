@@ -11,6 +11,7 @@ from sqlalchemy import (
 )
 
 from app.db.database import Base
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 class DatasetRecord(Base):
@@ -68,12 +69,6 @@ class DatasetRecord(Base):
         index=True
     )
 
-    record_version = Column(
-        String(100),
-        nullable=False,
-        index=True
-    )
-
     record_hash = Column(
         String(255),
         nullable=False,
@@ -96,7 +91,7 @@ class DatasetRecord(Base):
     )
 
     metadata_json = Column(
-        Text,
+        JSONB,
         nullable=True
     )
 

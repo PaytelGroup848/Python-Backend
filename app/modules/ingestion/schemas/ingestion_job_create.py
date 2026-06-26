@@ -11,4 +11,4 @@ class IngestionJobCreate(
 
     status: str
 
-    records_processed: int
+   

@@ -22,6 +22,8 @@ class CorpusSource(Base):
 
             "corpus_id",
 
+            "connector_instance_id",
+
             "source_reference",
 
             name="uq_corpus_source_reference"
@@ -44,15 +46,22 @@ class CorpusSource(Base):
         index=True
     )
 
-    source_type = Column(
-        String(100),
+    connector_instance_id = Column(
+        Integer,
+        ForeignKey(
+            "connector_instances.id",
+            name="fk_corpus_source_connector_instance_id"
+        ),
         nullable=False,
         index=True
     )
 
+    
+
     source_reference = Column(
         String(1000),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
     status = Column(

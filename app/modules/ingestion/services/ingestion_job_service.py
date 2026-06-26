@@ -29,7 +29,8 @@ class IngestionJobService:
 
         ingestion_job = IngestionJob(
 
-            **data.model_dump()
+            **data.model_dump(),
+             records_processed=0
 
         )
 

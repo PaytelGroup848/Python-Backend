@@ -10,6 +10,7 @@ from sqlalchemy import (
 )
 
 from app.db.database import Base
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 class DataPipelineStep(Base):
@@ -25,6 +26,15 @@ class DataPipelineStep(Base):
             "step_order",
 
             name="uq_pipeline_step_order"
+        ),
+
+        UniqueConstraint(
+
+            "pipeline_id",
+
+            "step_code",
+
+            name="uq_pipeline_step_code"
         ),
     )
 
@@ -67,7 +77,7 @@ class DataPipelineStep(Base):
     )
 
     configuration_json = Column(
-        String,
+        JSONB,
         nullable=True
     )
 

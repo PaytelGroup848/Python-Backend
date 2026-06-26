@@ -51,7 +51,8 @@ class IngestionJob(Base):
 
     records_processed = Column(
         Integer,
-        nullable=False
+        nullable=False,
+        default=0
     )
 
     error_message = Column(

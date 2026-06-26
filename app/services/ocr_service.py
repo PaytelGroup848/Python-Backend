@@ -12,10 +12,25 @@ from paddleocr import PaddleOCR
 logger = logging.getLogger(__name__)
 
 
-ocr = PaddleOCR(
-    use_angle_cls=True,
-    lang="en"
-)
+ocr = None
+
+
+def get_ocr():
+
+    global ocr
+
+    if ocr is None:
+
+        logger.info(
+            "Initializing PaddleOCR..."
+        )
+
+        ocr = PaddleOCR(
+            use_angle_cls=True,
+            lang="en"
+        )
+
+    return ocr
 
 
 # -----------------------------
@@ -69,7 +84,7 @@ async def extract_text_from_scanned_pdf(
                     result = await asyncio.wait_for(
 
                         asyncio.to_thread(
-                            ocr.ocr,
+                            get_ocr().ocr,
                             temp_img_path
                         ),
 
@@ -177,7 +192,7 @@ async def extract_text_from_image(
         result = await asyncio.wait_for(
 
             asyncio.to_thread(
-                ocr.ocr,
+                get_ocr().ocr,
                 image_path
             ),
 

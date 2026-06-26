@@ -9,6 +9,7 @@ from sqlalchemy import (
 )
 
 from app.db.database import Base
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 class PipelineRun(Base):
@@ -31,10 +32,29 @@ class PipelineRun(Base):
         index=True
     )
 
+    run_code = Column(
+        String(100),
+        nullable=False,
+        unique=True,
+        index=True
+    )
+
+
+    trigger_type = Column(
+        String(100),
+        nullable=False,
+        index=True
+    )
+
     status = Column(
         String(50),
         nullable=False,
         index=True
+    )
+
+    metrics_json = Column(
+        JSONB,
+        nullable=True
     )
 
     started_at = Column(

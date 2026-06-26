@@ -10,7 +10,7 @@ from sqlalchemy import (
 )
 
 from app.db.database import Base
-
+from sqlalchemy.dialects.postgresql import JSONB
 
 class PipelineStepRun(Base):
 
@@ -54,10 +54,27 @@ class PipelineStepRun(Base):
         index=True
     )
 
+    step_run_code = Column(
+        String(100),
+        nullable=False,
+        unique=True,
+        index=True
+    )
+
+    execution_order = Column(
+        Integer,
+        nullable=False
+    )
+
     status = Column(
         String(50),
         nullable=False,
         index=True
+    )
+
+    metrics_json = Column(
+        JSONB,
+        nullable=True
     )
 
     started_at = Column(

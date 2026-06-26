@@ -65,6 +65,8 @@ class CorpusSourceRepository:
 
         corpus_id: int,
 
+        connector_instance_id: int,
+
         source_reference: str
 
     ):
@@ -78,6 +80,9 @@ class CorpusSourceRepository:
                 CorpusSource.corpus_id
                 ==
                 corpus_id,
+
+                CorpusSource.connector_instance_id
+                == connector_instance_id,
 
                 CorpusSource.source_reference
                 ==
