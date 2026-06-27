@@ -1,6 +1,4 @@
-from sqlalchemy.ext.asyncio import (
-    AsyncSession
-)
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.models.repositories.model_version_repository import (
     model_version_repository
@@ -10,22 +8,20 @@ from app.modules.models.repositories.model_version_repository import (
 class ModelRegistryService:
 
     async def get_active_model_version(
-
         self,
-
         db: AsyncSession,
-
         assistant_id: int
-
     ):
 
-        return await (
+        runtime = await (
             model_version_repository
             .get_runtime_by_assistant(
                 db=db,
                 assistant_id=assistant_id
             )
         )
+
+        return runtime
 
 
 model_registry_service = (

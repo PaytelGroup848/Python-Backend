@@ -31,7 +31,7 @@ class InferenceRuntimeService:
             )
         )
 
-        if not deployment:
+        if deployment is None:
 
             return None
 

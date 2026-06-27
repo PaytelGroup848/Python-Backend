@@ -32,6 +32,26 @@ class PipelineRun(Base):
         index=True
     )
 
+    dataset_id = Column(
+        Integer,
+        ForeignKey(
+            "datasets.id",
+            name="fk_pipeline_run_dataset_id"
+        ),
+        nullable=True,
+        index=True
+    )
+
+    corpus_source_id = Column(
+        Integer,
+        ForeignKey(
+            "corpus_sources.id",
+            name="fk_pipeline_run_corpus_source_id"
+        ),
+        nullable=True,
+        index=True
+    )
+
     run_code = Column(
         String(100),
         nullable=False,

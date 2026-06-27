@@ -1,12 +1,14 @@
+import sqlalchemy as sa
+
 from datetime import datetime
 
 from sqlalchemy import (
-    Column,
-    Integer,
-    String,
     Boolean,
+    Column,
     DateTime,
-    ForeignKey
+    ForeignKey,
+    Integer,
+    String
 )
 
 from app.db.database import Base
@@ -25,7 +27,8 @@ class ModelRegistry(Base):
     provider_id = Column(
         Integer,
         ForeignKey("providers.id"),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
     code = Column(
@@ -44,14 +47,31 @@ class ModelRegistry(Base):
         nullable=True
     )
 
+
+    status = Column(
+        String(50),
+        nullable=False,
+        default="DRAFT",
+        server_default="DRAFT",
+        index=True
+    )
+
     is_active = Column(
         Boolean,
-        default=True,
-        nullable=False
+        nullable=False,
+        default=True
     )
 
     created_at = Column(
         DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+
+    updated_at = Column(
+        DateTime,
+        nullable=False,
         default=datetime.utcnow,
-        nullable=False
+        server_default=sa.func.now(),
+        onupdate=datetime.utcnow
     )

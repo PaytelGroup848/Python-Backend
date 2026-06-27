@@ -1,6 +1,9 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import (
+    BaseModel,
+    ConfigDict
+)
 
 
 class ModelReleaseResponse(
@@ -17,12 +20,18 @@ class ModelReleaseResponse(
 
     release_notes: str | None
 
+    checksum: str | None
+
     release_status: str
+
+    is_default: bool
 
     created_by: str | None
 
     created_at: datetime
 
-    class Config:
+    updated_at: datetime
 
-        from_attributes = True
+    model_config = ConfigDict(
+        from_attributes=True
+    )

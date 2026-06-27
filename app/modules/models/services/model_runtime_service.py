@@ -23,7 +23,7 @@ class ModelRuntimeService:
 
     ) -> ModelRuntime | None:
 
-        result = await (
+        runtime = await (
             model_version_repository
             .get_runtime_by_assistant(
                 db=db,
@@ -31,11 +31,10 @@ class ModelRuntimeService:
             )
         )
 
-        if not result:
-
+        if runtime is None:
             return None
 
-        mapping, version, model = result
+        mapping, version, model = runtime
 
         return ModelRuntime(
 

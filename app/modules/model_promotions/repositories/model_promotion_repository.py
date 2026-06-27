@@ -32,6 +32,38 @@ class ModelPromotionRepository:
         )
 
         return promotion
+    
+    async def update(
+
+        self,
+
+        db: AsyncSession,
+
+        promotion: ModelPromotion
+
+    ):
+
+        await db.flush()
+
+        await db.refresh(
+            promotion
+        )
+
+        return promotion
+    
+    async def delete(
+
+        self,
+
+        db: AsyncSession,
+
+        promotion: ModelPromotion
+
+    ):
+
+        await db.delete(
+            promotion
+        )
 
     async def get_by_id(
 
@@ -56,6 +88,30 @@ class ModelPromotionRepository:
         )
 
         return result.scalar_one_or_none()
+    
+    async def get_latest(
+
+        self,
+
+        db: AsyncSession
+
+    ):
+
+        result = await db.execute(
+
+            select(
+                ModelPromotion
+            )
+
+            .order_by(
+                ModelPromotion.created_at.desc()
+            )
+
+            .limit(1)
+
+        )
+
+        return result.scalar_one_or_none()
 
     async def list_all(
 
@@ -70,6 +126,71 @@ class ModelPromotionRepository:
             select(
                 ModelPromotion
             )
+
+            .order_by(
+                ModelPromotion.created_at.desc()
+            )
+
+        )
+
+        return result.scalars().all()
+    
+    async def list_by_status(
+
+        self,
+
+        db: AsyncSession,
+
+        promotion_status: str
+
+    ):
+
+        result = await db.execute(
+
+            select(
+                ModelPromotion
+            )
+
+            .where(
+                ModelPromotion.promotion_status
+                ==
+                promotion_status
+            )
+
+            .order_by(
+                ModelPromotion.created_at.desc()
+            )
+
+        )
+
+        return result.scalars().all()
+    
+    async def list_by_environment(
+
+        self,
+
+        db: AsyncSession,
+
+        target_environment: str
+
+    ):
+
+        result = await db.execute(
+
+            select(
+                ModelPromotion
+            )
+
+            .where(
+                ModelPromotion.target_environment
+                ==
+                target_environment
+            )
+
+            .order_by(
+                ModelPromotion.created_at.desc()
+            )
+
         )
 
         return result.scalars().all()

@@ -6,7 +6,8 @@ from sqlalchemy import (
     String,
     BigInteger,
     DateTime,
-    ForeignKey
+    ForeignKey,
+    func
 )
 
 from app.db.database import Base
@@ -47,6 +48,34 @@ class ModelArtifact(Base):
         nullable=False
     )
 
+    artifact_version = Column(
+        Integer,
+        nullable=False,
+        default=1
+    )
+
+    storage_provider = Column(
+        String(50),
+        nullable=False,
+        default="LOCAL"
+    )
+
+    mime_type = Column(
+        String(255),
+        nullable=True
+    )
+
+    compression = Column(
+        String(50),
+        nullable=True
+    )
+
+    status = Column(
+        String(50),
+        nullable=False,
+        default="READY"
+    )
+
     size_bytes = Column(
         BigInteger,
         nullable=True
@@ -60,12 +89,14 @@ class ModelArtifact(Base):
     created_at = Column(
         DateTime,
         default=datetime.utcnow,
+        server_default=func.now(),
         nullable=False
     )
 
     updated_at = Column(
         DateTime,
         default=datetime.utcnow,
+        server_default=func.now(),
         onupdate=datetime.utcnow,
         nullable=False
     )

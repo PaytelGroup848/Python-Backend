@@ -1,6 +1,9 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import (
+    BaseModel,
+    ConfigDict
+)
 
 
 class ModelPromotionResponse(
@@ -13,12 +16,20 @@ class ModelPromotionResponse(
 
     promotion_status: str
 
+    target_environment: str
+
+    is_active: bool
+
     approved_by: str | None
+
+    approved_at: datetime | None
 
     approval_reason: str | None
 
     created_at: datetime
 
-    class Config:
+    updated_at: datetime
 
-        from_attributes = True
+    model_config = ConfigDict(
+        from_attributes=True
+    )

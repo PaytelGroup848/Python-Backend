@@ -18,16 +18,19 @@ class ModelService:
     async def create_model(
         self,
         db,
-        model_name: str,
-        provider: str,
+        code: str,
+        display_name: str,
+        provider_id: int,
         description: str | None
     ):
 
         model = ModelRegistry(
 
-            model_name=model_name,
+            code=code,
 
-            provider=provider,
+            display_name=display_name,
+
+            provider_id=provider_id,
 
             description=description
         )
@@ -66,29 +69,27 @@ class ModelService:
     async def get_model(
         self,
         db,
-        model_name: str
+        code: str
     ):
 
         return await (
-            self.repository
-            .get_by_name(
+            self.repository.get_by_code(
                 db,
-                model_name
+                code
             )
         )
 
     async def update_model(
         self,
         db,
-        model_name: str,
+        code: str,
         payload
     ):
 
         model = await (
-            self.repository
-            .get_by_name(
+            self.repository.get_by_code(
                 db,
-                model_name
+                code
             )
         )
 
@@ -96,10 +97,22 @@ class ModelService:
 
             return None
 
-        if payload.provider is not None:
+        if payload.provider_id is not None:
 
-            model.provider = (
-                payload.provider
+            model.provider_id = (
+                payload.provider_id
+            )
+
+        if payload.display_name is not None:
+
+            model.display_name = (
+                payload.display_name
+            )
+
+        if payload.status is not None:
+
+            model.status = (
+                payload.status
             )
 
         if payload.description is not None:
@@ -124,17 +137,16 @@ class ModelService:
     async def delete_model(
         self,
         db,
-        model_name: str
+        code: str
     ):
 
         model = await (
-            self.repository
-            .get_by_name(
+            self.repository.get_by_code(
                 db,
-                model_name
+                code
             )
         )
-
+ 
         if not model:
 
             return False
@@ -147,6 +159,28 @@ class ModelService:
         )
 
         return True
+    
+    async def get_models_by_status(
+        self,
+        db,
+        status: str
+    ):
+
+        return await self.repository.get_by_status(
+            db,
+            status
+        )
+    
+    async def get_models_by_provider(
+        self,
+        db,
+        provider_id: int
+    ):
+
+        return await self.repository.get_by_provider(
+            db,
+            provider_id
+        )
 
 
 model_service = (

@@ -6,7 +6,9 @@ from sqlalchemy import (
     String,
     Text,
     DateTime,
-    ForeignKey
+    ForeignKey,
+    Boolean,
+    func
 )
 
 from app.db.database import Base
@@ -35,11 +37,32 @@ class ModelPromotion(Base):
     promotion_status = Column(
         String(50),
         nullable=False,
-        default="pending"
+        default="PENDING",
+        server_default="PENDING",
+        index=True
+    )
+
+    target_environment = Column(
+        String(50),
+        nullable=False,
+        default="DEVELOPMENT",
+        server_default="DEVELOPMENT"
+    )
+
+    is_active = Column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true"
     )
 
     approved_by = Column(
         String(255),
+        nullable=True
+    )
+
+    approved_at = Column(
+        DateTime,
         nullable=True
     )
 
@@ -51,12 +74,14 @@ class ModelPromotion(Base):
     created_at = Column(
         DateTime,
         default=datetime.utcnow,
+        server_default=func.now(),
         nullable=False
     )
 
     updated_at = Column(
         DateTime,
         default=datetime.utcnow,
+        server_default=func.now(),
         onupdate=datetime.utcnow,
         nullable=False
     )

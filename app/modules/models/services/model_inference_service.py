@@ -29,7 +29,7 @@ class ModelInferenceService:
 
     ) -> ModelGenerationResponse:
 
-        runtime = await (
+        inference_runtime = await (
             inference_runtime_service
             .load_runtime(
                 db=db,
@@ -37,10 +37,10 @@ class ModelInferenceService:
             )
         )
 
-        if not runtime:
+        if inference_runtime is None:
 
-            raise ValueError(
-                "Deployment not found"
+            raise RuntimeError(
+                "Active deployment not found."
             )
 
         #
@@ -50,13 +50,13 @@ class ModelInferenceService:
         return ModelGenerationResponse(
 
             text=
-                "Inference layer placeholder",
+                "Inference runtime not implemented.",
 
             model_version_id=
                 model_version_id,
 
             deployment_name=
-                runtime.deployment_name
+                inference_runtime.deployment_name
         )
 
 

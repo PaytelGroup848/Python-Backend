@@ -13,6 +13,10 @@ class ModelReleaseCreate(
 
     release_notes: str | None = None
 
-    release_status: str = "draft"
+    checksum: str | None = None
+
+    release_status: str = "DRAFT"
+
+    is_default: bool = False
 
     created_by: str | None = None

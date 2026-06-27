@@ -4,9 +4,11 @@ from sqlalchemy import (
     Column,
     Integer,
     String,
+    Boolean,
     Text,
     DateTime,
-    ForeignKey
+    ForeignKey,
+    func
 )
 
 from app.db.database import Base
@@ -47,10 +49,24 @@ class ModelRelease(Base):
         nullable=True
     )
 
+    checksum = Column(
+        String(255),
+        nullable=True
+    )
+
     release_status = Column(
         String(50),
         nullable=False,
-        default="draft"
+        default="DRAFT",
+        server_default="DRAFT",
+        index=True
+    )
+
+    is_default = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false"
     )
 
     created_by = Column(
@@ -61,12 +77,14 @@ class ModelRelease(Base):
     created_at = Column(
         DateTime,
         default=datetime.utcnow,
+        server_default=func.now(),
         nullable=False
     )
 
     updated_at = Column(
         DateTime,
         default=datetime.utcnow,
+        server_default=func.now(),
         onupdate=datetime.utcnow,
         nullable=False
     )

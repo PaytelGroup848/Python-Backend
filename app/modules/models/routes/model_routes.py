@@ -47,14 +47,14 @@ async def create_model(
 
             db=db,
 
-            model_name=
-                payload.model_name,
+            code=payload.code,
 
-            provider=
-                payload.provider,
+            display_name=payload.display_name,
 
-            description=
-                payload.description
+            provider_id=payload.provider_id,
+
+            description=payload.description
+
         )
     )
 
@@ -78,11 +78,11 @@ async def get_models(
 
 
 @router.get(
-    "/{model_name}"
+    "/{code}"
 )
 async def get_model(
 
-    model_name: str,
+    code: str,
 
     db: AsyncSession = Depends(
         get_db
@@ -90,10 +90,9 @@ async def get_model(
 ):
 
     model = await (
-        model_service
-        .get_model(
+        model_service.get_model(
             db,
-            model_name
+            code
         )
     )
 
@@ -111,11 +110,11 @@ async def get_model(
 
 
 @router.patch(
-    "/{model_name}"
+    "/{code}"
 )
 async def update_model(
 
-    model_name: str,
+    code: str,
 
     payload: UpdateModelRequest,
 
@@ -125,10 +124,9 @@ async def update_model(
 ):
 
     model = await (
-        model_service
-        .update_model(
+        model_service.update_model(
             db,
-            model_name,
+            code,
             payload
         )
     )
@@ -147,11 +145,11 @@ async def update_model(
 
 
 @router.delete(
-    "/{model_name}"
+    "/{code}"
 )
 async def delete_model(
 
-    model_name: str,
+    code: str,
 
     db: AsyncSession = Depends(
         get_db
@@ -159,10 +157,9 @@ async def delete_model(
 ):
 
     deleted = await (
-        model_service
-        .delete_model(
+        model_service.delete_model(
             db,
-            model_name
+            code
         )
     )
 
