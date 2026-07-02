@@ -34,6 +34,40 @@ class TrainingJobRepository:
         )
 
         return training_job
+    
+    async def update(
+
+        self,
+
+        db: AsyncSession,
+
+        training_job: TrainingJob
+
+    ):
+
+        await db.flush()
+
+        await db.refresh(
+            training_job
+        )
+
+        return training_job
+    
+    async def delete(
+
+        self,
+
+        db: AsyncSession,
+
+        training_job: TrainingJob
+
+    ):
+
+        await db.delete(
+            training_job
+        )
+    
+
 
     async def get_by_id(
 
@@ -58,6 +92,30 @@ class TrainingJobRepository:
         )
 
         return result.scalar_one_or_none()
+    
+    async def get_latest(
+
+        self,
+
+        db: AsyncSession
+
+    ):
+
+        result = await db.execute(
+
+            select(
+                TrainingJob
+            )
+
+            .order_by(
+                TrainingJob.created_at.desc()
+            )
+
+            .limit(1)
+
+        )
+
+        return result.scalar_one_or_none()
 
     async def list_all(
 
@@ -68,28 +126,109 @@ class TrainingJobRepository:
     ):
 
         result = await db.execute(
+
             select(
                 TrainingJob
             )
+
+            .order_by(
+                TrainingJob.created_at.desc()
+            )
+
         )
 
         return result.scalars().all()
     
-    async def update(
+    async def list_by_status(
 
         self,
 
         db: AsyncSession,
 
-        training_job: TrainingJob
+        status: str
 
     ):
 
-       
+        result = await db.execute(
 
-       
+            select(
+                TrainingJob
+            )
 
-        return training_job
+            .where(
+                TrainingJob.status
+                ==
+                status
+            )
+
+            .order_by(
+                TrainingJob.created_at.desc()
+            )
+
+        )
+
+        return result.scalars().all()
+    
+    async def list_by_dataset(
+
+        self,
+
+        db: AsyncSession,
+
+        dataset_id: int
+
+    ):
+
+        result = await db.execute(
+
+            select(
+                TrainingJob
+            )
+
+            .where(
+                TrainingJob.dataset_id
+                ==
+                dataset_id
+            )
+
+            .order_by(
+                TrainingJob.created_at.desc()
+            )
+
+        )
+
+        return result.scalars().all()
+    
+    async def list_by_base_model(
+
+        self,
+
+        db: AsyncSession,
+
+        base_model_id: int
+
+    ):
+
+        result = await db.execute(
+
+            select(
+                TrainingJob
+            )
+
+            .where(
+                TrainingJob.base_model_id
+                ==
+                base_model_id
+            )
+
+            .order_by(
+                TrainingJob.created_at.desc()
+            )
+
+        )
+
+        return result.scalars().all()
+    
 
 
 training_job_repository = (

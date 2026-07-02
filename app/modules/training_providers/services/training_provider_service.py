@@ -10,6 +10,9 @@ from app.modules.training_providers.repositories.training_provider_repository im
     training_provider_repository
 )
 
+from app.modules.training_providers.schemas.training_provider_create import (
+    TrainingProviderCreate
+)
 
 class TrainingProviderService:
 
@@ -19,21 +22,25 @@ class TrainingProviderService:
 
         db: AsyncSession,
 
-        data: dict
+        data: TrainingProviderCreate
 
     ):
 
         provider = TrainingProvider(
-            **data
+            **data.model_dump()
         )
 
-        return await (
+        provider = await (
             training_provider_repository
             .create(
-                db,
-                provider
+                db=db,
+                provider=provider
             )
         )
+
+        await db.commit()
+
+        return provider
 
     async def get_provider(
 
@@ -48,8 +55,8 @@ class TrainingProviderService:
         return await (
             training_provider_repository
             .get_by_id(
-                db,
-                provider_id
+                db=db,
+                provider_id=provider_id
             )
         )
 
@@ -66,8 +73,23 @@ class TrainingProviderService:
         return await (
             training_provider_repository
             .get_by_code(
-                db,
-                code
+                db=db,
+                code=code
+            )
+        )
+    
+    async def list_all(
+
+        self,
+
+        db: AsyncSession
+
+    ):
+
+        return await (
+            training_provider_repository
+            .list_all(
+                db=db
             )
         )
 
@@ -82,11 +104,84 @@ class TrainingProviderService:
         return await (
             training_provider_repository
             .list_active(
-                db
+                db=db
+            )
+        )
+    
+    async def list_by_runtime_type(
+
+        self,
+
+        db: AsyncSession,
+
+        runtime_type: str
+
+    ):
+
+        return await (
+            training_provider_repository
+            .list_by_runtime_type(
+                db=db,
+                runtime_type=runtime_type
+            )
+        )
+    
+    async def update_provider(
+
+        self,
+
+        db: AsyncSession,
+
+        provider: TrainingProvider
+
+    ):
+
+        provider = await (
+            training_provider_repository
+            .update(
+                db=db,
+                provider=provider
             )
         )
 
+        await db.commit()
 
+        return provider
+    
+    async def delete_provider(
+
+        self,
+
+        db: AsyncSession,
+
+        provider_id: int
+
+    ) -> bool:
+
+        provider = await (
+            training_provider_repository
+            .get_by_id(
+                db=db,
+                provider_id=provider_id
+            )
+        )
+
+        if provider is None:
+
+            return False
+
+        await (
+            training_provider_repository
+            .delete(
+                db=db,
+                provider=provider
+            )
+        )
+
+        await db.commit()
+
+        return True
+  
 training_provider_service = (
     TrainingProviderService()
 )

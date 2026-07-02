@@ -30,6 +30,38 @@ class TrainingProviderRepository:
         )
 
         return provider
+    
+    async def update(
+
+        self,
+
+        db: AsyncSession,
+
+        provider: TrainingProvider
+
+    ):
+
+        await db.flush()
+
+        await db.refresh(
+            provider
+        )
+
+        return provider
+    
+    async def delete(
+
+        self,
+
+        db: AsyncSession,
+
+        provider: TrainingProvider
+
+    ):
+
+        await db.delete(
+            provider
+        )
 
     async def get_by_id(
 
@@ -78,6 +110,28 @@ class TrainingProviderRepository:
         )
 
         return result.scalar_one_or_none()
+    
+    async def list_all(
+
+        self,
+
+        db: AsyncSession
+
+    ):
+
+        result = await db.execute(
+
+            select(
+                TrainingProvider
+            )
+
+            .order_by(
+                TrainingProvider.display_name
+            )
+
+        )
+
+        return result.scalars().all()
 
     async def list_active(
 
@@ -93,31 +147,43 @@ class TrainingProviderRepository:
                 TrainingProvider
             )
             .where(
-                TrainingProvider.is_active
-                ==
-                True
+                TrainingProvider.is_active.is_(True)
             )
         )
 
         return result.scalars().all()
-
-    async def update(
+    
+    async def list_by_runtime_type(
 
         self,
 
         db: AsyncSession,
 
-        provider: TrainingProvider
+        runtime_type: str
 
     ):
 
-        await db.flush()
+        result = await db.execute(
 
-        await db.refresh(
-            provider
+            select(
+                TrainingProvider
+            )
+
+            .where(
+                TrainingProvider.runtime_type
+                ==
+                runtime_type
+            )
+
+            .order_by(
+                TrainingProvider.display_name
+            )
+
         )
 
-        return provider
+        return result.scalars().all()
+
+    
 
 
 training_provider_repository = (

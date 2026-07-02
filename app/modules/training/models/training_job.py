@@ -5,7 +5,9 @@ from sqlalchemy import (
     Integer,
     String,
     DateTime,
-    ForeignKey
+    ForeignKey,
+    Boolean,
+    func
 )
 
 from app.db.database import Base
@@ -41,9 +43,14 @@ class TrainingJob(Base):
         index=True
     )
 
-    base_model = Column(
-        String(255),
-        nullable=False
+    base_model_id = Column(
+        Integer,
+        ForeignKey(
+            "models.id",
+            name="fk_training_job_base_model_id"
+        ),
+        nullable=False,
+        index=True
     )
 
     training_type = Column(
@@ -51,10 +58,31 @@ class TrainingJob(Base):
         nullable=False
     )
 
+    priority = Column(
+        Integer,
+        nullable=False,
+        default=100,
+        server_default="100"
+    )
+
+    created_by = Column(
+        String(255),
+        nullable=True
+    )
+
     status = Column(
         String(50),
         nullable=False,
-        default="pending"
+        default="PENDING",
+        server_default="PENDING",
+        index=True
+    )
+
+    is_active = Column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true"
     )
 
     artifact_path = Column(
@@ -75,12 +103,14 @@ class TrainingJob(Base):
     created_at = Column(
         DateTime,
         default=datetime.utcnow,
+        server_default=func.now(),
         nullable=False
     )
 
     updated_at = Column(
         DateTime,
         default=datetime.utcnow,
+        server_default=func.now(),
         onupdate=datetime.utcnow,
         nullable=False
     )

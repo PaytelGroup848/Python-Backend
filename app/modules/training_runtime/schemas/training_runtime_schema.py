@@ -1,4 +1,7 @@
-from pydantic import BaseModel
+from pydantic import (
+    BaseModel,
+    Field
+)
 
 
 class TrainingRuntime(
@@ -13,12 +16,26 @@ class TrainingRuntime(
 
     provider_code: str
 
-    provider_type: str
+    runtime_type: str
 
-    base_model: str
+    runtime_code: str
+
+    runtime_version: str | None = None
+
+    base_model_id: int
+
+    base_model_code: str
 
     training_type: str
 
+    runtime_configuration: dict = Field(
+        default_factory=dict
+    )
+
+    capabilities: dict = Field(
+        default_factory=dict
+    )
+
     status: str
 
-    artifact_path: str | None = None
+    artifact_directory: str | None = None

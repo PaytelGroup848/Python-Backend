@@ -1,6 +1,13 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fastapi import HTTPException
+from app.shared.exceptions.not_found_exception import (
+    NotFoundException
+)
+
+from app.shared.constants.training_status import (
+    TrainingStatus
+)
 
 from app.modules.training.repositories.training_job_repository import (
     training_job_repository
@@ -30,8 +37,8 @@ class TrainingDispatchService:
         job = await (
             training_job_repository
             .get_by_id(
-                db,
-                training_job_id
+                db=db,
+                training_job_id=training_job_id
             )
         )
 
@@ -45,8 +52,8 @@ class TrainingDispatchService:
         provider = await (
             training_provider_service
             .get_provider(
-                db,
-                job.training_provider_id
+                db=db,
+                provider_id=job.training_provider_id
             )
         )
 
@@ -60,13 +67,19 @@ class TrainingDispatchService:
                 "Training provider is inactive"
             )
 
-        job.status = "queued"
+        job.status = "QUEUED"
+
+        if job.status != "PENDING":
+
+            raise ValueError(
+                f"Training job is in '{job.status}' state and cannot be dispatched."
+            )
 
         await (
             training_job_repository
             .update(
-                db,
-                job
+                db=db,
+                training_job=job
             )
         )
 

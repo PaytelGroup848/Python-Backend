@@ -1,0 +1,32 @@
+from enum import StrEnum
+
+
+class TrainingStatus(StrEnum):
+
+    DRAFT = "DRAFT"
+
+    PENDING = "PENDING"
+
+    QUEUED = "QUEUED"
+
+    STARTING = "STARTING"
+
+    RUNNING = "RUNNING"
+
+    PAUSING = "PAUSING"
+
+    PAUSED = "PAUSED"
+
+    RESUMING = "RESUMING"
+
+    CANCELLING = "CANCELLING"
+
+    CANCELLED = "CANCELLED"
+
+    COMPLETED = "COMPLETED"
+
+    FAILED = "FAILED"
+
+    RETRYING = "RETRYING"
+
+    ARCHIVED = "ARCHIVED"

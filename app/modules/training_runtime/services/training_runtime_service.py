@@ -16,6 +16,10 @@ from app.modules.training_providers.repositories.training_provider_repository im
     training_provider_repository
 )
 
+from app.modules.models.repositories.model_repository import (
+    model_repository
+)
+
 
 class TrainingRuntimeService:
 
@@ -32,8 +36,8 @@ class TrainingRuntimeService:
         job = await (
             training_job_repository
             .get_by_id(
-                db,
-                training_job_id
+                db=db,
+                training_job_id=training_job_id
             )
         )
 
@@ -46,8 +50,8 @@ class TrainingRuntimeService:
         provider = await (
             training_provider_repository
             .get_by_id(
-                db,
-                job.training_provider_id
+                db=db,
+                provider_id=job.training_provider_id
             )
         )
 
@@ -65,8 +69,8 @@ class TrainingRuntimeService:
         dataset = await (
             dataset_repository
             .get_by_id(
-                db,
-                job.dataset_id
+                db=db,
+                dataset_id=job.dataset_id
             )
         )
 
@@ -75,35 +79,53 @@ class TrainingRuntimeService:
             raise ValueError(
                 "Dataset not found"
             )
+        
+        model = await (
+            model_repository
+            .get_by_id(
+                db=db,
+                model_id=job.base_model_id
+            )
+        )
+
+        if not model:
+
+            raise ValueError(
+                "Base model not found"
+            )
 
         return TrainingRuntime(
 
-            training_job_id=
-                job.id,
+            training_job_id=job.id,
 
-            dataset_id=
-                dataset.id,
+            dataset_id=dataset.id,
 
-            provider_id=
-                provider.id,
+            provider_id=provider.id,
 
-            provider_code=
-                provider.code,
+            provider_code=provider.code,
 
-            provider_type=
-                provider.provider_type,
+            runtime_type=provider.runtime_type,
 
-            base_model=
-                job.base_model,
+            runtime_code=
+                provider.runtime_code,
 
-            training_type=
-                job.training_type,
+            runtime_version=provider.runtime_version,
 
-            status=
-                job.status,
+            base_model_id=
+                model.id,
 
-            artifact_path=
-                job.artifact_path
+            base_model_code=
+                model.code,
+
+            training_type=job.training_type,
+
+            runtime_configuration={},
+
+            capabilities=provider.capabilities or {},
+
+            status=job.status,
+
+            artifact_directory=job.artifact_path
         )
 
 

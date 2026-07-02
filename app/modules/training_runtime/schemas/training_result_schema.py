@@ -1,4 +1,7 @@
-from pydantic import BaseModel
+from pydantic import (
+    BaseModel,
+    Field
+)
 
 
 class TrainingResult(
@@ -9,6 +12,18 @@ class TrainingResult(
 
     training_job_id: int
 
-    artifact_path: str | None = None
+    runtime_code: str
+
+    model_version_id: int | None = None
+
+    artifact_directory: str | None = None
+
+    metrics: dict = Field(
+        default_factory=dict
+    )
+
+    runtime_metadata: dict = Field(
+        default_factory=dict
+    )
 
     message: str

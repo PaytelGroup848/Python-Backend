@@ -16,6 +16,13 @@ from app.modules.training.repositories.training_job_repository import (
     training_job_repository
 )
 
+from app.modules.training_runtime.providers.runtime_factory import (
+    training_runtime_factory
+)
+from app.shared.constants.training_status import (
+    TrainingStatus
+)
+
 class TrainingExecutorService:
 
     async def execute(
@@ -31,8 +38,8 @@ class TrainingExecutorService:
         runtime = await (
             training_runtime_service
             .load_runtime(
-                db,
-                training_job_id
+                db=db,
+                training_job_id=training_job_id
             )
         )
 
@@ -45,58 +52,44 @@ class TrainingExecutorService:
         job = await (
             training_job_repository
             .get_by_id(
-                db,
-                training_job_id
+                db=db,
+                training_job_id=training_job_id
             )
         )
 
         await (
             training_status_service
             .update_status(
-                db,
-                job,
-                "running"
+                db=db,
+                training_job=job,
+                status=TrainingStatus.RUNNING
             )
         )
 
-        if runtime.provider_code == "local_gpu":
-
-            artifact_path = (
-                f"/artifacts/local/{training_job_id}"
+        runtime_provider = (
+            training_runtime_factory
+            .get_runtime(
+                runtime.runtime_code
             )
+        )
 
-        elif runtime.provider_code == "runpod":
-
-            artifact_path = (
-                f"/artifacts/runpod/{training_job_id}"
+        result = await (
+            runtime_provider.execute(
+                runtime=runtime
             )
+        )
 
-        elif runtime.provider_code == "aws_sagemaker":
+        job.artifact_path = (
+            result.artifact_directory
+        )
 
-            artifact_path = (
-                f"/artifacts/aws/{training_job_id}"
-            )
-
-        elif runtime.provider_code == "kubernetes_gpu":
-
-            artifact_path = (
-                f"/artifacts/k8s/{training_job_id}"
-            )
-
-        else:
-
-            raise ValueError(
-                f"Unsupported provider: "
-                f"{runtime.provider_code}"
-            )
-
-        job.artifact_path = artifact_path
+        
 
         await (
             training_job_repository
             .update(
-                db,
-                job
+                db=db,
+                training_job=job
             )
         )
 
@@ -105,25 +98,13 @@ class TrainingExecutorService:
             .update_status(
                 db,
                 job,
-                "completed"
+                TrainingStatus.COMPLETED
             )
         )
 
         await db.commit()
 
-        return TrainingResult(
-
-            success=True,
-
-            training_job_id=
-                training_job_id,
-
-            artifact_path=
-                artifact_path,
-
-            message=
-                "Training completed"
-        )
+        return result
 
 
 training_executor_service = (

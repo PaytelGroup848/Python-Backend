@@ -31,9 +31,7 @@ from app.modules.chat.schemas.chat_event import (
     ChatEvent
 )
 
-from app.modules.chat.services.ws_manager import (
-    ws_manager
-)
+from app.shared.websocket.websocket_manager import websocket_manager
 print(
     "CHAT EVENT MODEL:",
     ChatEvent.model_json_schema()
@@ -47,7 +45,7 @@ from app.shared.constants.streams import (
 )
 
 
-from app.modules.chat.services.queue_service import (
+from app.core.queues.queue_service import (
     queue_service
 )
 
@@ -401,7 +399,7 @@ async def websocket_chat(
                 )
 
                 
-                ws_manager.connections[
+                websocket_manager.connections[
                     request_id
                 ] = websocket
 

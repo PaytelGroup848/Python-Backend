@@ -1,0 +1,16 @@
+from pydantic import (
+    BaseModel
+)
+
+
+class WorkspaceModelUpdate(
+    BaseModel
+):
+
+    model_release_id: int | None = None
+
+    is_default: bool | None = None
+
+    is_active: bool | None = None
+
+    priority: int | None = None

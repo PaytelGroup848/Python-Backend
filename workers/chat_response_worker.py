@@ -14,9 +14,7 @@ from app.shared.constants.streams import (
     CHAT_RESPONSE_STREAM
 )
 
-from app.modules.chat.services.ws_manager import (
-    ws_manager
-)
+from app.shared.websocket.websocket_manager import websocket_manager
 
 
 GROUP_NAME = (
@@ -81,7 +79,7 @@ async def process_events():
                 )
 
                 websocket = (
-                    ws_manager
+                    websocket_manager
                     .get_connection(
                         request_id
                     )
