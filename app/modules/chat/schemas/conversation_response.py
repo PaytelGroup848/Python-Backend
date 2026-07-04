@@ -1,7 +1,9 @@
 from datetime import datetime
 
-from pydantic import BaseModel
-from pydantic import ConfigDict
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+)
 
 
 class ConversationResponse(
@@ -26,6 +28,10 @@ class ConversationResponse(
 
     archived: bool
 
+    message_count: int
+
     last_message_at: datetime | None
 
     created_at: datetime
+
+    updated_at: datetime

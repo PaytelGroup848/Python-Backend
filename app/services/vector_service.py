@@ -12,8 +12,8 @@ from app.models.document import (
     Document
 )
 
-from app.modules.chat.services.embedding_service import (
-    generate_embedding
+from app.modules.retrieval_runtime.services.embedding_service import (
+    generate_embedding,
 )
 
 from app.shared.cache.cache_service import (

@@ -19,8 +19,8 @@ from app.core.config import (
     EMBEDDING_WORKER_BATCH_SIZE
 )
 
-from app.modules.chat.services.embedding_service import (
-    generate_embedding
+from app.modules.retrieval_runtime.services.embedding_service import (
+    generate_embedding,
 )
 
 from app.services.vector_service import (

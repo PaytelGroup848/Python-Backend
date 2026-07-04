@@ -38,8 +38,8 @@ from app.modules.billing.services.subscription_service import (
     subscription_service
 )
 
-from app.modules.chat.services.usage_service import (
-    usage_service
+from app.modules.usage.services.usage_limit_service import (
+    usage_limit_service
 )
 from app.modules.billing.schemas.wallet_schema import (
     WalletCreditRequest
@@ -514,7 +514,7 @@ async def get_limits(
 ):
 
     plan = await (
-        usage_service
+        usage_limit_service
         .get_user_plan(
             db,
             user["user_id"]
@@ -522,7 +522,7 @@ async def get_limits(
     )
 
     limits = await (
-        usage_service
+        usage_limit_service
         .get_user_limits(
             db,
             user["user_id"]
@@ -559,7 +559,7 @@ async def get_usage(
 ):
 
     return await (
-        usage_service
+        usage_limit_service
         .get_usage_summary(
             db,
             user["user_id"]

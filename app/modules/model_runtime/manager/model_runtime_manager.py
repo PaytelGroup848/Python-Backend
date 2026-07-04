@@ -23,7 +23,7 @@ from app.modules.model_runtime.schemas.loaded_model import (
 
 class ModelRuntimeManager:
 
-    async def load_model(
+    async def load_runtime(
 
         self,
 
@@ -93,9 +93,7 @@ class ModelRuntimeManager:
 
         )
 
-        #
-        # Temporary placeholders
-        #
+        
         runtime.model = model
 
         runtime.tokenizer = tokenizer
@@ -148,7 +146,7 @@ class ModelRuntimeManager:
             release_id
         )
 
-        return await self.load_model(
+        return await self.load_runtime(
 
             release_id=release_id,
 
@@ -164,7 +162,7 @@ class ModelRuntimeManager:
 
         )
 
-    def get_loaded_model(
+    def get_runtime(
 
         self,
 

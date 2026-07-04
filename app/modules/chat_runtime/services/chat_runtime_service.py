@@ -1,4 +1,10 @@
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+)
+
+from app.shared.context.request_context import (
+    RequestContext,
+)
 
 from app.modules.chat_runtime.manager.chat_pipeline import (
     chat_pipeline,
@@ -21,11 +27,7 @@ class ChatRuntimeService:
 
         db: AsyncSession,
 
-        organization_id: int,
-
-        workspace_id: int,
-
-        user_id: int,
+        context: RequestContext,
 
         request: ChatRequest,
 
@@ -35,11 +37,7 @@ class ChatRuntimeService:
 
             db=db,
 
-            organization_id=organization_id,
-
-            workspace_id=workspace_id,
-
-            user_id=user_id,
+            context=context,
 
             request=request,
 

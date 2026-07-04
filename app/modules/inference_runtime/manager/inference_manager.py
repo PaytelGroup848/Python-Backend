@@ -13,6 +13,10 @@ from app.modules.inference_runtime.schemas.inference_response import (
     InferenceResponse
 )
 
+from app.modules.model_runtime.schemas.loaded_model import (
+    LoadedModel
+)
+
 
 class InferenceManager:
 
@@ -20,7 +24,7 @@ class InferenceManager:
 
         self,
 
-        runtime,
+        runtime: LoadedModel,
 
         request: InferenceRequest
 
@@ -47,19 +51,35 @@ class InferenceManager:
         # vLLM
         # TensorRT
         #
-        result = await runtime.generate(
+        try:
 
-            request=request
+            result = await runtime.generate(
+
+                request=request
+
+            )
+
+        except Exception as exc:
+
+            raise HTTPException(
+
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+
+                detail=f"Inference failed: {str(exc)}"
+
+            )
+
+        latency_ms = int(
+
+            (
+
+                time.perf_counter()
+
+                - start_time
+
+            ) * 1000
 
         )
-
-        latency_ms = (
-
-            time.perf_counter()
-
-            - start_time
-
-        ) * 1000
 
         return InferenceResponse(
 

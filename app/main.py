@@ -28,17 +28,17 @@ from app.modules.auth.routes import (
     router as auth_router
 )
 
-from app.routes.vector_routes import (
-    router as vector_router
-)
+#from app.routes.vector_routes import (
+ #   router as vector_router
+#)
 
-from app.routes.pdf_routes import (
-    router as pdf_router
-)
+#from app.routes.pdf_routes import (
+ #   router as pdf_router
+#)
 
-from app.routes.voice_routes import (
-    router as voice_router
-)
+#from app.routes.voice_routes import (
+ #   router as voice_router
+#)
 
 from app.modules.chat.routes.chat_ws_routes import (
     router as chat_ws_router
@@ -48,21 +48,21 @@ from app.modules.voice.routes.voice_ws_routes import (
     router as voice_ws_router
 )
 
-from app.routes.conversation_routes import (
-    router as conversation_router
-)
+#from app.routes.conversation_routes import (
+ #   router as conversation_router
+#)
 
-from app.routes.chat_routes import (
-    router as chat_router
-)
+#from app.routes.chat_routes import (
+ #   router as chat_router
+#)
 
-from app.routes.translation_routes import (
-    router as translation_router
-)
+#from app.routes.translation_routes import (
+ #   router as translation_router
+#)
 
-from app.routes.admin_routes import (
-    router as admin_router
-)
+#from app.routes.admin_routes import (
+ #   router as admin_router
+#)
 
 from app.api.routes.metrics import (
     router as metrics_router
@@ -340,21 +340,21 @@ async def shutdown_event():
 # Router Registration
 # =========================
 
-app.include_router(
-    auth_router
-)
+#app.include_router(
+ #   auth_router
+#)
 
-app.include_router(
-    vector_router
-)
+#app.include_router(
+ #   vector_router
+#)
 
-app.include_router(
-    pdf_router
-)
+#app.include_router(
+ #   pdf_router
+#)
 
-app.include_router(
-    voice_router
-)
+#app.include_router(
+ #   voice_router
+#)
 
 app.include_router(
     chat_ws_router
@@ -364,21 +364,21 @@ app.include_router(
     voice_ws_router
 )
 
-app.include_router(
-    conversation_router
-)
+#app.include_router(
+ #   conversation_router
+#)
 
-app.include_router(
-    chat_router
-)
+#app.include_router(
+ #   chat_router
+#)
 
-app.include_router(
-    translation_router
-)
+#app.include_router(
+ #   translation_router
+#)
 
-app.include_router(
-    admin_router
-)
+#app.include_router(
+ #   admin_router
+#)
 
 app.include_router(
     metrics_router

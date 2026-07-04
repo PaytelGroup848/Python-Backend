@@ -16,22 +16,28 @@ from app.modules.chat.services.chat_message_service import (
     chat_message_service,
 )
 
-from app.modules.conversation_runtime.manager.conversation_runtime_manager import (
-    conversation_runtime_manager,
+from app.modules.conversation_runtime.services.conversation_runtime_service import (
+    conversation_runtime_service,
 )
 
-from app.modules.workspace_runtime.manager.workspace_runtime_manager import (
-    workspace_runtime_manager,
+from app.modules.workspace_runtime.services.workspace_runtime_service import (
+    workspace_runtime_service,
 )
 
-from app.modules.model_runtime.manager.model_runtime_manager import (
-    model_runtime_manager,
+from app.modules.model_runtime.services.model_runtime_service import (
+    model_runtime_service,
 )
 
-from app.modules.inference_runtime.manager.inference_manager import (
-    inference_manager,
+from app.modules.inference_runtime.services.inference_service import (
+    inference_service,
+)
+from app.shared.context.request_context import (
+    RequestContext
 )
 
+from app.modules.inference_runtime.schemas.inference_request import (
+    InferenceRequest
+)
 
 class ChatPipeline:
 
@@ -41,11 +47,7 @@ class ChatPipeline:
 
         db: AsyncSession,
 
-        organization_id: int,
-
-        workspace_id: int,
-
-        user_id: int,
+        context: RequestContext,
 
         request: ChatRequest,
 
@@ -60,9 +62,9 @@ class ChatPipeline:
 
             db=db,
 
-            organization_id=organization_id,
+            organization_id=context.organization.id,
 
-            workspace_id=workspace_id,
+            workspace_id=context.workspace.id,
 
             data=ChatMessageCreate(
 
@@ -85,9 +87,9 @@ class ChatPipeline:
         # Build Conversation Context
         #
 
-        conversation_context = (
+        conversation_context = await (
 
-            await conversation_runtime_manager.prepare_context(
+            conversation_runtime_service.prepare_context(
 
                 db=db,
 
@@ -102,13 +104,13 @@ class ChatPipeline:
         # Resolve Workspace Runtime
         #
 
-        workspace_runtime = (
+        workspace_runtime = await (
 
-            await workspace_runtime_manager.resolve_runtime(
+            workspace_runtime_service.load_runtime(
 
                 db=db,
 
-                workspace_id=workspace_id,
+                workspace_id=context.workspace.id,
 
             )
 
@@ -119,9 +121,9 @@ class ChatPipeline:
         # Resolve Model Runtime
         #
 
-        model_runtime = (
+        model_runtime = await (
 
-            await model_runtime_manager.load_runtime(
+            model_runtime_service.load_runtime(
 
                 db=db,
 
@@ -136,13 +138,17 @@ class ChatPipeline:
         # Execute Inference
         #
 
-        inference_result = (
+        inference_result = await (
 
-            await inference_manager.generate(
+            inference_service.generate(
 
                 runtime=model_runtime,
 
-                context=conversation_context,
+                request=InferenceRequest(
+
+                    context=conversation_context,
+
+                ),
 
             )
 
@@ -157,19 +163,19 @@ class ChatPipeline:
 
             db=db,
 
-            organization_id=organization_id,
+            organization_id=context.organization.id,
 
-            workspace_id=workspace_id,
+            workspace_id=context.workspace.id,
 
             conversation_id=request.conversation_id,
 
-            content=inference_result.response,
+            content=inference_result.text,
 
-            model_release_id=inference_result.model_release_id,
+            model_release_id=model_runtime.release_id,
 
-            input_tokens=inference_result.input_tokens,
+            input_tokens=inference_result.prompt_tokens,
 
-            output_tokens=inference_result.output_tokens,
+            output_tokens=inference_result.generated_tokens,
 
             latency_ms=inference_result.latency_ms,
 
@@ -188,7 +194,7 @@ class ChatPipeline:
 
             conversation_id=request.conversation_id,
 
-            response=inference_result.response,
+            response=inference_result.text,
 
         )
 

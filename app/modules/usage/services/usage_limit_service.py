@@ -21,7 +21,7 @@ from app.db.redis_client import (
 from datetime import datetime
 
 
-class UsageService:
+class UsageLimitService:
 
     async def track_usage(
         self,
@@ -306,6 +306,6 @@ class UsageService:
                 limits.monthly_cost_limit
         }
     
-usage_service = (
-    UsageService()
+usage_limit_service = (
+    UsageLimitService()
 )

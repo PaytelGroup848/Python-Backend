@@ -14,8 +14,8 @@ from app.shared.constants.streams import (
     CHAT_RESPONSE_STREAM,
 )
 
-from app.modules.chat.services.llm_manager import (
-    llm_manager
+from app.modules.provider_runtime.manager.provider_runtime_manager import (
+    provider_runtime_manager,
 )
 
 
@@ -82,7 +82,7 @@ async def process_events():
                 )
 
                 async for chunk in (
-                    llm_manager
+                    provider_runtime_manager
                     .stream_response(
                         user_message
                     )

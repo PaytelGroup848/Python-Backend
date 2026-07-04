@@ -4,7 +4,7 @@ from app.shared.http.http_client import (
     http_client
 )
 
-from app.modules.chat.providers.base_provider import (
+from app.modules.providers.base_provider import (
     BaseProvider
 )
 

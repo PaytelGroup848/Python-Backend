@@ -1,6 +1,6 @@
 from pydantic import (
     BaseModel,
-    Field
+    Field,
 )
 
 
@@ -8,11 +8,9 @@ class ConversationCreate(
     BaseModel
 ):
 
-    workspace_id: int
-
     assistant_id: int | None = None
 
     title: str = Field(
         min_length=1,
-        max_length=255
+        max_length=255,
     )

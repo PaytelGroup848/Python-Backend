@@ -1,24 +1,30 @@
 from fastapi import (
     HTTPException,
-    status
+    status,
 )
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+)
+
+from app.shared.context.request_context import (
+    RequestContext,
+)
 
 from app.modules.chat.models.conversation import (
-    Conversation
+    Conversation,
 )
 
 from app.modules.chat.repositories.conversation_repository import (
-    conversation_repository
+    conversation_repository,
 )
 
 from app.modules.chat.schemas.conversation_create import (
-    ConversationCreate
+    ConversationCreate,
 )
 
 from app.modules.chat.schemas.conversation_update import (
-    ConversationUpdate
+    ConversationUpdate,
 )
 
 
@@ -30,45 +36,47 @@ class ConversationService:
 
         db: AsyncSession,
 
-        organization_id: int,
+        context: RequestContext,
 
-        created_by: int,
-
-        data: ConversationCreate
+        data: ConversationCreate,
 
     ) -> Conversation:
 
+        if context.workspace is None:
+
+            raise HTTPException(
+
+                status_code=status.HTTP_400_BAD_REQUEST,
+
+                detail="No active workspace selected",
+
+            )
+
         conversation = Conversation(
 
-            organization_id=organization_id,
+            organization_id=context.organization.id,
 
-            workspace_id=data.workspace_id,
+            workspace_id=context.workspace.id,
 
             assistant_id=data.assistant_id,
 
-            created_by=created_by,
+            created_by=context.user.id,
 
-            title=data.title
+            title=data.title,
 
         )
 
-        conversation = await (
+        conversation = await conversation_repository.create(
 
-            conversation_repository.create(
+            db=db,
 
-                db=db,
-
-                conversation=conversation
-
-            )
+            conversation=conversation,
 
         )
 
         await db.commit()
 
-        await db.refresh(
-            conversation
-        )
+        await db.refresh(conversation)
 
         return conversation
 
@@ -78,19 +86,15 @@ class ConversationService:
 
         db: AsyncSession,
 
-        conversation_id: int
+        conversation_id: int,
 
-    ):
+    ) -> Conversation | None:
 
-        return await (
+        return await conversation_repository.get_by_id(
 
-            conversation_repository.get_by_id(
+            db=db,
 
-                db=db,
-
-                conversation_id=conversation_id
-
-            )
+            conversation_id=conversation_id,
 
         )
 
@@ -106,25 +110,21 @@ class ConversationService:
 
         limit: int = 20,
 
-        offset: int = 0
+        cursor: int | None = None,
 
     ):
 
-        return await (
+        return await conversation_repository.list_by_workspace(
 
-            conversation_repository.list_by_workspace(
+            db=db,
 
-                db=db,
+            organization_id=organization_id,
 
-                organization_id=organization_id,
+            workspace_id=workspace_id,
 
-                workspace_id=workspace_id,
+            limit=limit,
 
-                limit=limit,
-
-                offset=offset
-
-            )
+            cursor=cursor,
 
         )
 
@@ -136,27 +136,39 @@ class ConversationService:
 
         conversation: Conversation,
 
-        data: ConversationUpdate
+        data: ConversationUpdate,
 
-    ):
+    ) -> Conversation:
 
         update_data = data.model_dump(
+
             exclude_unset=True
+
         )
 
         for key, value in update_data.items():
 
             setattr(
+
                 conversation,
+
                 key,
-                value
+
+                value,
+
             )
+
+        await conversation_repository.save(
+
+            db=db,
+
+            conversation=conversation,
+
+        )
 
         await db.commit()
 
-        await db.refresh(
-            conversation
-        )
+        await db.refresh(conversation)
 
         return conversation
 
@@ -166,23 +178,23 @@ class ConversationService:
 
         db: AsyncSession,
 
-        conversation_id: int
+        conversation: Conversation,
 
-    ):
+    ) -> Conversation:
 
-        await (
+        await conversation_repository.archive(
 
-            conversation_repository.archive(
+            db=db,
 
-                db=db,
-
-                conversation_id=conversation_id
-
-            )
+            conversation_id=conversation.id,
 
         )
 
         await db.commit()
+
+        await db.refresh(conversation)
+
+        return conversation
 
     async def delete(
 
@@ -190,25 +202,19 @@ class ConversationService:
 
         db: AsyncSession,
 
-        conversation_id: int
+        conversation: Conversation,
 
     ):
 
-        await (
+        await conversation_repository.soft_delete(
 
-            conversation_repository.soft_delete(
+            db=db,
 
-                db=db,
-
-                conversation_id=conversation_id
-
-            )
+            conversation_id=conversation.id,
 
         )
 
         await db.commit()
 
 
-conversation_service = (
-    ConversationService()
-)
+conversation_service = ConversationService()

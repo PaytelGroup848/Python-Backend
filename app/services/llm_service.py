@@ -6,7 +6,7 @@ import time
 
 import uuid
 
-from app.modules.chat.services.rag_service import (
+from app.modules.retrieval_runtime.services.rag_service import (
     retrieve_context
 )
 
@@ -16,12 +16,12 @@ from app.db.database import AsyncSessionLocal
 from app.shared.cache.cache_service import (
     cache_service
 )
-from app.modules.chat.services.memory_service import (
+from app.modules.memory.services.memory_service import (
     memory_service
 )
 
 
-from app.modules.chat.providers.provider_registry import (
+from app.modules.providers.provider_registry import (
     provider_registry
 )
 
@@ -49,8 +49,8 @@ def route_query(query):
 
 
 
-from app.modules.chat.services.usage_service import (
-    usage_service
+from app.modules.usage.services.usage_limit_service import (
+    usage_limit_service
 )
 
 # =========================
@@ -87,12 +87,12 @@ async def get_fastest_response(
     # HARD LIMIT CHECK (ADD HERE)
     async with AsyncSessionLocal() as db:
 
-        if not await usage_service.check_usage_limit(
+        if not await usage_limit_service.check_usage_limit(
             db,
             user_id
         ):
 
-            plan = await usage_service.get_user_plan(
+            plan = await usage_limit_service.get_user_plan(
                 db,
                 user_id
             )
@@ -345,7 +345,7 @@ async def get_fastest_response(
             # )
 
 
-    await usage_service.track_usage(
+    await usage_limit_service.track_usage(
 
         user_id,
 

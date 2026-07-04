@@ -1,8 +1,9 @@
-import time
+from app.modules.model_runtime.schemas.loaded_model import (
+    LoadedModel,
+)
 
-from fastapi import (
-    HTTPException,
-    status,
+from app.modules.inference_runtime.manager.inference_manager import (
+    inference_manager,
 )
 
 from app.modules.inference_runtime.schemas.inference_request import (
@@ -20,51 +21,21 @@ class InferenceService:
 
         self,
 
-        runtime,
+        runtime: LoadedModel,
 
         request: InferenceRequest,
 
     ) -> InferenceResponse:
 
-        if runtime is None:
+        return await (
 
-            raise HTTPException(
+            inference_manager.generate(
 
-                status_code=status.HTTP_404_NOT_FOUND,
+                runtime=runtime,
 
-                detail="Model runtime is not available",
+                request=request,
 
             )
-
-        start_time = time.perf_counter()
-
-        result = await runtime.generate(
-
-            request=request,
-
-        )
-
-        latency_ms = (
-
-            time.perf_counter()
-
-            - start_time
-
-        ) * 1000
-
-        return InferenceResponse(
-
-            text=result.text,
-
-            finish_reason=result.finish_reason,
-
-            prompt_tokens=result.prompt_tokens,
-
-            generated_tokens=result.generated_tokens,
-
-            total_tokens=result.total_tokens,
-
-            latency_ms=latency_ms,
 
         )
 

@@ -7,6 +7,8 @@ from app.modules.conversation_runtime.schemas.conversation_context import (
     ConversationMessage,
 )
 
+from app.modules.chat.models.conversation import Conversation
+
 
 class ConversationManager:
 
@@ -14,7 +16,7 @@ class ConversationManager:
 
         self,
 
-        conversation,
+        conversation: Conversation,
 
         messages: list[ChatMessage],
 

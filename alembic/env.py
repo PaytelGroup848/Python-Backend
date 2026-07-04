@@ -56,7 +56,7 @@ from app.modules.billing.models.plan_price import (
     PlanPrice
 )
 
-from app.modules.providers.models.provider import Provider
+from app.models.provider import Provider
 from app.models.model_version import ModelVersion
 
 from app.modules.corpora.models.corpus import Corpus

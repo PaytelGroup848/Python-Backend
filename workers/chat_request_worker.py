@@ -22,9 +22,7 @@ from app.services.agent_service import (
     run_agent
 )
 
-from app.modules.chat.services.queue_service import (
-    queue_service
-)
+
 
 
 logger = logging.getLogger(__name__)
@@ -238,18 +236,6 @@ async def process_chat_requests():
                             )
 
                     finally:
-
-                        try:
-
-                            await queue_service.decrement(
-                                user_id
-                            )
-
-                        except Exception:
-
-                            logger.exception(
-                                "Queue decrement failed"
-                            )
 
                         try:
 

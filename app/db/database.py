@@ -4,9 +4,13 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker
 )
 
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import (
+    declarative_base
+)
 
-from app.core.config import settings
+from app.core.config import (
+    settings
+)
 
 
 DATABASE_URL = settings.DATABASE_URL.replace(
@@ -14,11 +18,13 @@ DATABASE_URL = settings.DATABASE_URL.replace(
     "postgresql+asyncpg://"
 )
 
+
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
     future=True
 )
+
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
@@ -26,9 +32,10 @@ AsyncSessionLocal = async_sessionmaker(
     expire_on_commit=False
 )
 
+
 Base = declarative_base()
 
-import app.models
+
 async def get_db():
 
     async with AsyncSessionLocal() as db:

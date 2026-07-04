@@ -56,6 +56,6 @@ class WSConnectionManager:
         )
 
 
-ws_manager = (
+websocket_manager = (
     WSConnectionManager()
 )

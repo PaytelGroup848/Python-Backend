@@ -13,11 +13,11 @@ from app.services.vector_service import (
     semantic_search
 )
 
-from app.modules.chat.services.rag.reranking_service import (
+from app.modules.retrieval_runtime.services.reranking_service import (
     rerank_results
 )
 
-from app.modules.chat.services.rag.context_builder import (
+from app.modules.retrieval_runtime.services.context_builder import (
     build_context
 )
 

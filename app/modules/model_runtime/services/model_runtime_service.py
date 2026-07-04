@@ -2,6 +2,10 @@ from fastapi import (
     HTTPException,
     status
 )
+from app.core.config import (
+    settings
+)
+device = settings.MODEL_DEFAULT_DEVICE
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,16 +21,20 @@ from app.modules.model_runtime.manager.model_runtime_manager import (
     model_runtime_manager
 )
 
+from app.modules.workspace_runtime.schemas.workspace_runtime_schema import (
+    WorkspaceRuntime
+)
+
 
 class ModelRuntimeService:
 
-    async def load_model(
+    async def load_runtime(
 
         self,
 
         db: AsyncSession,
 
-        release_id: int
+        workspace_runtime: WorkspaceRuntime
 
     ):
 
@@ -37,7 +45,7 @@ class ModelRuntimeService:
 
                 db=db,
 
-                release_id=release_id
+                release_id=workspace_runtime.model_release_id
 
             )
 
@@ -89,7 +97,7 @@ class ModelRuntimeService:
         return await (
 
             model_runtime_manager
-            .load_model(
+            .load_runtime(
 
                 release_id=release.id,
 
@@ -101,7 +109,7 @@ class ModelRuntimeService:
 
                 tokenizer_path=artifact.tokenizer_path,
 
-                device="cuda"
+                device=device
 
             )
 
@@ -126,7 +134,7 @@ class ModelRuntimeService:
 
         )
 
-    async def reload_model(
+    async def reload_runtime(
 
         self,
 
@@ -148,7 +156,7 @@ class ModelRuntimeService:
 
         return await (
 
-            self.load_model(
+            self.load_runtime(
 
                 db=db,
 
@@ -158,7 +166,7 @@ class ModelRuntimeService:
 
         )
 
-    def get_loaded_model(
+    def get_runtime(
 
         self,
 
@@ -169,7 +177,8 @@ class ModelRuntimeService:
         return (
 
             model_runtime_manager
-            .get_loaded_model(
+
+            .get_runtime(
 
                 release_id
 

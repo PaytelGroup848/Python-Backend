@@ -34,7 +34,7 @@ from app.modules.models.repositories.model_repository import (
     ModelRepository
 )
 
-from app.modules.chat.providers.provider_registry import (
+from app.modules.providers.provider_registry import (
     provider_registry
 )
 

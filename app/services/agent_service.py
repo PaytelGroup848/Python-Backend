@@ -12,11 +12,11 @@ from langgraph.graph import StateGraph, END
 
 from app.db.database import AsyncSessionLocal
 
-from app.modules.chat.services.llm_manager import (
-    llm_manager
+from app.modules.provider_runtime.manager.provider_runtime_manager import (
+    provider_runtime_manager,
 )
 
-from app.modules.chat.services.rag_service import (
+from app.modules.retrieval_runtime.services.rag_service import (
     retrieve_context
 )
 
@@ -24,7 +24,7 @@ from app.modules.assistants.services.assistant_runtime_service import (
     assistant_runtime_service
 )
 
-from app.modules.chat.services.memory_service import (
+from app.modules.memory.services.memory_service import (
     memory_service
 )
 
@@ -43,7 +43,7 @@ from app.services.tool_service import (
     search_documents_tool
 )
 
-from app.modules.chat.services.usage_service import (
+from app.modules.usage.services.usage_service import (
     usage_service
 )
 
@@ -309,7 +309,7 @@ class QueryRewriteService:
                     OPTIMIZED QUERY:
                 """
 
-        response = await llm_manager.generate_response(
+        response = await provider_runtime_manager.generate_response(
             prompt=prompt,
             user_id=user_id,
             temperature=0.1
@@ -338,7 +338,7 @@ class PlanningService:
                     STEPS:
                 """
 
-        response = await llm_manager.generate_response(
+        response = await provider_runtime_manager.generate_response(
             prompt=prompt,
             user_id=user_id,
             temperature=0.2
@@ -806,7 +806,7 @@ async def generation_node(state: AgentState):
                 "Plan limit exceeded"
             )
 
-    response = await llm_manager.generate_response(
+    response = await provider_runtime_manager.generate_response(
         prompt=final_prompt,
         user_id=state["user_id"],
         temperature=

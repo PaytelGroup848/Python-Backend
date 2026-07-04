@@ -3,22 +3,21 @@ from fastapi import (
     status
 )
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import (
+    AsyncSession
+)
+
+from app.core.config import (
+    settings
+)
 
 from app.modules.chat.repositories.conversation_repository import (
     conversation_repository
 )
 
-from app.modules.chat.repositories.chat_message_repository import (
-    chat_message_repository
-)
-
-from app.modules.conversation_runtime.manager.conversation_manager import (
-    conversation_manager
-)
-
 from app.modules.conversation_runtime.schemas.conversation_context import (
-    ConversationContext
+    ConversationContext,
+    ConversationMessage,
 )
 
 
@@ -36,7 +35,7 @@ class ConversationRuntimeService:
 
         conversation = await (
 
-            conversation_repository.get_by_id(
+            conversation_repository.get_with_messages(
 
                 db=db,
 
@@ -56,29 +55,37 @@ class ConversationRuntimeService:
 
             )
 
-        messages = await (
+        messages = sorted(
 
-            chat_message_repository.list_messages(
+            conversation.messages,
 
-                db=db,
+            key=lambda message: message.sequence_number
 
-                conversation_id=conversation_id,
+        )[-settings.CONVERSATION_CONTEXT_LIMIT:]
 
-                limit=200
+        context_messages = [
 
-            )
+            ConversationMessage(
 
-        )
+                role=message.role.value,
 
-        return await (
-
-            conversation_manager.build_context(
-
-                conversation=conversation,
-
-                messages=messages
+                content=message.content,
 
             )
+
+            for message in messages
+
+        ]
+
+        return ConversationContext(
+
+            conversation_id=conversation.id,
+
+            workspace_id=conversation.workspace_id,
+
+            organization_id=conversation.organization_id,
+
+            messages=context_messages,
 
         )
 

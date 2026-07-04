@@ -1,12 +1,11 @@
-from datetime import datetime
-
 from sqlalchemy import (
     Column,
     Integer,
     Boolean,
     Float,
     DateTime,
-    ForeignKey
+    ForeignKey,
+    func,
 )
 
 from app.db.database import Base
@@ -92,14 +91,14 @@ class AssistantConfig(Base):
     )
 
     created_at = Column(
-        DateTime,
-        default=datetime.utcnow,
-        nullable=False
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now()
     )
 
     updated_at = Column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
-        nullable=False
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now()
     )

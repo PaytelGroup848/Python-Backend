@@ -27,7 +27,7 @@ from app.modules.providers.gemini_provider import (
 logger = logging.getLogger(__name__)
 
 
-class LLMManager:
+class ProviderRuntimeManager:
 
     def __init__(self):
 
@@ -421,6 +421,4 @@ class LLMManager:
 
 
 
-llm_manager = (
-    LLMManager()
-)
+provider_runtime_manager = ProviderRuntimeManager()

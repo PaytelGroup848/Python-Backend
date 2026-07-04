@@ -110,7 +110,7 @@ class WorkspaceRuntimeService:
             )
         )
 
-        assistant_id = None
+        assistant_id: int | None = None
 
         if workspace_assistant:
 
@@ -144,6 +144,18 @@ class WorkspaceRuntimeService:
 
         ]
 
+        #
+        # TODO:
+        # Load workspace tools
+        #
+        tool_ids: list[int] = []
+
+        #
+        # TODO:
+        # Resolve workspace system prompt
+        #
+        system_prompt: str | None = None
+
         return WorkspaceRuntime(
 
             workspace_id=workspace.id,
@@ -158,9 +170,9 @@ class WorkspaceRuntimeService:
 
             knowledge_base_ids=knowledge_base_ids,
 
-            tool_ids=[],
+            tool_ids=tool_ids,
 
-            system_prompt=None
+            system_prompt=system_prompt
 
         )
 
