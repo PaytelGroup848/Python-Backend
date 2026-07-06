@@ -153,12 +153,12 @@ class PipelineRuntimeService:
                     step.step_type
                 )
 
-                step_metrics = await (
+                executor_result = await (
                     executor.execute(
                         db=db,
                         pipeline_run=pipeline_run,
                         pipeline_step_run=step_run,
-                        pipeline_step=step
+                        pipeline_step=step,
                     )
                 )
 
@@ -167,12 +167,12 @@ class PipelineRuntimeService:
                     .complete(
                         db,
                         step_run,
-                        step_metrics
+                        executor_result.metrics,
                     )
                 )
 
                 metrics.append(
-                    step_metrics
+                    executor_result.metrics
                 )
 
             await (

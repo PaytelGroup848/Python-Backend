@@ -102,6 +102,14 @@ from app.modules.pipeline_runtime.models.pipeline_step_run import (
     PipelineStepRun
 )
 
+from app.modules.pipeline_runtime.models.pipeline_execution_artifact import (
+    PipelineExecutionArtifact
+)
+
+from app.modules.pipeline_runtime.models.pipeline_execution_artifact_edge import (
+    PipelineExecutionArtifactEdge
+)
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

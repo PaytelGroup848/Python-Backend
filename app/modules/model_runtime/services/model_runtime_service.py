@@ -25,6 +25,10 @@ from app.modules.workspace_runtime.schemas.workspace_runtime_schema import (
     WorkspaceRuntime
 )
 
+from app.modules.model_releases.services.release_artifact_resolver_service import (
+    release_artifact_resolver_service
+)
+
 
 class ModelRuntimeService:
 
@@ -72,16 +76,11 @@ class ModelRuntimeService:
             )
 
         artifact = await (
-
-            model_artifact_repository
-            .get_by_id(
-
+            release_artifact_resolver_service
+            .resolve(
                 db=db,
-
-                artifact_id=release.artifact_id
-
+                release=release
             )
-
         )
 
         if artifact is None:
@@ -105,7 +104,7 @@ class ModelRuntimeService:
 
                 artifact_path=artifact.artifact_path,
 
-                model_name=release.name,
+                model_name=release.release_name,
 
                 tokenizer_path=artifact.tokenizer_path,
 

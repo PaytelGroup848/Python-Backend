@@ -62,7 +62,6 @@ class Workspace(Base):
     code = Column(
         String(100),
         nullable=False,
-        unique=True,
         index=True
     )
 
@@ -74,7 +73,6 @@ class Workspace(Base):
     slug = Column(
         String(255),
         nullable=False,
-        unique=True,
         index=True
     )
 

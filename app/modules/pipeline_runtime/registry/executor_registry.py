@@ -1,50 +1,84 @@
-from typing import Dict
-
 from app.modules.pipeline_runtime.executors.base_executor import (
-    BaseExecutor
-)
-
-from app.modules.pipeline_runtime.executors.connector_executor import (
-    connector_executor
-)
-
-from app.shared.enums.pipeline_step_type import (
-    PipelineStepType
+    BaseExecutor,
 )
 
 
 class ExecutorRegistry:
 
-    def __init__(self):
+    def __init__(
+        self,
+    ) -> None:
 
-        self._executors: Dict[str, BaseExecutor] = {}
+        self._executors: dict[
+            str,
+            BaseExecutor,
+        ] = {}
 
-        self.register(
-            PipelineStepType.CONNECTOR.value,
-            connector_executor
+    @staticmethod
+    def _normalize(
+        step_type: str,
+    ) -> str:
+
+        normalized = (
+            step_type
+            .strip()
+            .upper()
         )
+
+        if not normalized:
+
+            raise ValueError(
+                "Pipeline step type is required"
+            )
+
+        return normalized
 
     def register(
         self,
         step_type: str,
-        executor: BaseExecutor
-    ):
+        executor: BaseExecutor,
+    ) -> None:
 
-        self._executors[step_type] = executor
+        normalized = self._normalize(
+            step_type
+        )
+
+        existing = self._executors.get(
+            normalized
+        )
+
+        if existing is not None:
+
+            if existing is executor:
+                return
+
+            raise ValueError(
+                "Pipeline executor already registered: "
+                f"{normalized}"
+            )
+
+        self._executors[
+            normalized
+        ] = executor
 
     def get_executor(
         self,
-        step_type: str
+        step_type: str,
     ) -> BaseExecutor:
 
-        executor = self._executors.get(
+        normalized = self._normalize(
             step_type
+        )
+
+        executor = self._executors.get(
+            normalized
         )
 
         if executor is None:
 
             raise ValueError(
-                f"No executor registered for '{step_type}'"
+                "No pipeline executor registered for: "
+                f"{normalized}"
             )
 
         return executor

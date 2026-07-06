@@ -25,6 +25,8 @@ class Settings(BaseSettings):
 
     RAZORPAY_WEBHOOK_SECRET: str = ""
 
+    PIPELINE_STORAGE_LOCAL_ROOT: str
+
 
 
     SECRET_KEY: str

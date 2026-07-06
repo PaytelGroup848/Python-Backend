@@ -146,3 +146,28 @@ from app.modules.connector_registry.models.connector_instance import (
     ConnectorInstance
 )
 
+from app.modules.workspaces.models.workspace import (
+    Workspace
+)
+from app.modules.pipeline_runtime.models.pipeline_execution_artifact import (
+    PipelineExecutionArtifact
+)
+
+from app.modules.organizations.models.organization import (
+    Organization
+)
+from app.models.provider import (
+    Provider
+)
+
+from app.modules.pipeline_runtime.models.pipeline_execution_artifact_edge import (
+    PipelineExecutionArtifactEdge
+)
+
+from app.modules.storage_registry.models.storage_implementation import (
+    StorageImplementation,
+)
+
+from app.modules.storage_registry.models.storage_instance import (
+    StorageInstance,
+)
