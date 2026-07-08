@@ -42,6 +42,18 @@ from app.shared.exceptions.business_exception import (
     BusinessException
 )
 
+from app.modules.pipeline_runtime.schemas.pipeline_execution_context import (
+    PipelineExecutionContext,
+)
+
+from app.modules.datasets.repositories.dataset_repository import (
+    dataset_repository,
+)
+
+from app.modules.corpora.repositories.corpus_source_repository import (
+    corpus_source_repository,
+)
+
 from app.shared.utils.code_generator import (
     generate_pipeline_run_code,
     generate_pipeline_step_run_code
@@ -86,6 +98,45 @@ class PipelineRuntimeService:
             raise BusinessException(
                 "Pipeline contains no steps."
             )
+        
+        dataset = None
+
+        if dataset_id is not None:
+
+            dataset = await (
+                dataset_repository
+                .get_by_id(
+                    db,
+                    dataset_id,
+                )
+            )
+
+            if dataset is None:
+
+                raise BusinessException(
+                    "Dataset not found: "
+                    f"{dataset_id}"
+                )
+
+
+        corpus_source = None
+
+        if corpus_source_id is not None:
+
+            corpus_source = await (
+                corpus_source_repository
+                .get_by_id(
+                    db,
+                    corpus_source_id,
+                )
+            )
+
+            if corpus_source is None:
+
+                raise BusinessException(
+                    "Corpus source not found: "
+                    f"{corpus_source_id}"
+                )
 
         pipeline_run = await (
             pipeline_run_service
@@ -118,6 +169,8 @@ class PipelineRuntimeService:
 
         metrics = []
 
+        current_outputs: list[dict] = []
+
         try:
 
             for step in steps:
@@ -136,6 +189,8 @@ class PipelineRuntimeService:
 
                             execution_order=step.step_order,
 
+                            
+
                             status=ExecutionStatus.PENDING.value
                         )
                     )
@@ -153,13 +208,25 @@ class PipelineRuntimeService:
                     step.step_type
                 )
 
+                execution_context = PipelineExecutionContext(
+                    pipeline=pipeline,
+                    pipeline_step=step,
+                    pipeline_run=pipeline_run,
+                    pipeline_step_run=step_run,
+                    dataset=dataset,
+                    corpus_source=corpus_source,
+                    inputs=current_outputs,
+                )
+
                 executor_result = await (
                     executor.execute(
                         db=db,
-                        pipeline_run=pipeline_run,
-                        pipeline_step_run=step_run,
-                        pipeline_step=step,
+                        context=execution_context,
                     )
+                )
+
+                current_outputs = (
+                    executor_result.outputs
                 )
 
                 await (

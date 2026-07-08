@@ -1,3 +1,6 @@
+from copy import deepcopy
+from typing import Any
+
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
 )
@@ -6,20 +9,12 @@ from app.modules.pipeline_runtime.executors.base_executor import (
     BaseExecutor,
 )
 
-from app.modules.pipeline_runtime.models.pipeline_run import (
-    PipelineRun,
-)
-
-from app.modules.pipeline_runtime.models.pipeline_step_run import (
-    PipelineStepRun,
-)
-
-from app.modules.data_pipelines.models.data_pipeline_step import (
-    DataPipelineStep,
-)
-
 from app.modules.pipeline_runtime.schemas.executor_result import (
     ExecutorResult,
+)
+
+from app.modules.pipeline_runtime.schemas.pipeline_execution_context import (
+    PipelineExecutionContext,
 )
 
 from app.modules.connector_registry.services.connector_execution_service import (
@@ -31,23 +26,109 @@ class ConnectorExecutor(
     BaseExecutor,
 ):
 
+    @staticmethod
+    def _normalize_outputs(
+        runtime_result: Any,
+    ) -> list[dict[str, Any]]:
+
+        if runtime_result is None:
+            return []
+
+        if isinstance(
+            runtime_result,
+            list,
+        ):
+
+            outputs: list[
+                dict[str, Any]
+            ] = []
+
+            for item in runtime_result:
+
+                if not isinstance(
+                    item,
+                    dict,
+                ):
+                    raise ValueError(
+                        "Connector runtime output list "
+                        "must contain dictionaries."
+                    )
+
+                outputs.append(
+                    deepcopy(item)
+                )
+
+            return outputs
+
+        if isinstance(
+            runtime_result,
+            dict,
+        ):
+
+            files = runtime_result.get(
+                "files"
+            )
+
+            if files is not None:
+
+                if not isinstance(
+                    files,
+                    list,
+                ):
+                    raise ValueError(
+                        "Connector runtime 'files' output "
+                        "must be a list."
+                    )
+
+                outputs: list[
+                    dict[str, Any]
+                ] = []
+
+                for item in files:
+
+                    if not isinstance(
+                        item,
+                        dict,
+                    ):
+                        raise ValueError(
+                            "Connector runtime file output "
+                            "must contain dictionaries."
+                        )
+
+                    outputs.append(
+                        deepcopy(item)
+                    )
+
+                return outputs
+
+            return [
+                deepcopy(
+                    runtime_result
+                )
+            ]
+
+        raise ValueError(
+            "Connector runtime result must be "
+            "a dictionary, list of dictionaries, "
+            "or None."
+        )
+
     async def execute(
         self,
         db: AsyncSession,
-        pipeline_run: PipelineRun,
-        pipeline_step_run: PipelineStepRun,
-        pipeline_step: DataPipelineStep,
+        context: PipelineExecutionContext,
     ) -> ExecutorResult:
 
-        configuration = (
-            pipeline_step.configuration_json
+        configuration = deepcopy(
+            context.pipeline_step.configuration_json
             or
             {}
         )
 
         connector_instance_id = (
-            configuration.get(
-                "connector_instance_id"
+            configuration.pop(
+                "connector_instance_id",
+                None,
             )
         )
 
@@ -68,6 +149,16 @@ class ConnectorExecutor(
             )
         )
 
+        runtime_result = (
+            execution_result.get(
+                "runtime_result"
+            )
+        )
+
+        outputs = self._normalize_outputs(
+            runtime_result
+        )
+
         return ExecutorResult(
             metrics={
                 "connector_instance_id": (
@@ -85,8 +176,11 @@ class ConnectorExecutor(
                         "implementation_code"
                     ]
                 ),
+                "output_count": len(
+                    outputs
+                ),
             },
-            outputs=[],
+            outputs=outputs,
         )
 
 

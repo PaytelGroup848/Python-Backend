@@ -7,7 +7,7 @@ import {
 } from "react";
 
 import {
-  Send,
+  ArrowUp,
   Upload,
   X,
 } from "lucide-react";
@@ -152,7 +152,7 @@ export function MessageInput({
 
   return (
 
-  <div className="flex flex-col gap-3">
+  <div className="flex flex-col gap-3 w-2xl">
 
     {/* DOCUMENTS */}
 
@@ -169,17 +169,16 @@ export function MessageInput({
               flex
               items-center
               gap-2
-              rounded-xl
+              rounded-full
               border
-              border-zinc-200
-              bg-white
+              border-white/70
+              bg-white/90
               px-3
               py-2
               text-sm
               text-zinc-800
-              dark:border-white/10
-              dark:bg-zinc-800
-              dark:text-white
+              shadow-sm
+              backdrop-blur-md
             "
           >
             <span>
@@ -208,24 +207,13 @@ export function MessageInput({
 
     {/* INPUT */}
 
-    <div className="relative">
-
-      
-
-      <div
-        className="
-          flex
-          items-center
-          gap-3
-          rounded-2xl
-          border
-          border-zinc-200
-          bg-white
-          p-3
-          dark:border-white/10
-          dark:bg-zinc-900
-        "
-      > 
+    <div
+      className="
+        w-full max-w-2xl rounded-3xl border border-white/70
+        bg-white/90 p-3 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.25)]
+        backdrop-blur-md
+      "
+    >
       <textarea
         value={message}
         onChange={(e) =>
@@ -238,117 +226,92 @@ export function MessageInput({
           e.currentTarget.style.height =
             `${e.currentTarget.scrollHeight}px`;
         }}
-        placeholder="
-          Ask your AI assistant...
-        "
+        placeholder="Ask your AI assistant…"
         rows={1}
         className="
-          flex-1
-          resize-none
-          bg-transparent
-          text-base
-          text-zinc-900
-          outline-none
-          placeholder:text-zinc-500
-          dark:text-white
-          dark:placeholder:text-zinc-400
+          w-full resize-none border-none bg-transparent px-3 py-2
+          text-[15px] text-zinc-800 placeholder:text-zinc-400
+          focus:outline-none
         "
       />
 
-      <button
-        type="button"
+      <div className="flex items-center justify-between px-2 pt-1">
 
-        onClick={() =>
-          inputRef.current?.click()
-        }
+        <button
+          type="button"
 
-        disabled={uploading}
-
-        className="
-          shrink-0
-          flex
-          h-10
-          w-10
-          items-center
-          justify-center
-          rounded-xl
-          border
-          border-zinc-200
-          bg-white
-          text-zinc-800
-          transition-all
-          hover:bg-zinc-100
-          disabled:opacity-50
-          dark:border-white/10
-          dark:bg-zinc-800
-          dark:text-white
-          dark:hover:bg-zinc-700
-        "
-      >
-        <Upload className="h-4 w-4" />
-      </button>
-
-      <input
-        ref={inputRef}
-
-        type="file"
-
-        accept="
-          .pdf,
-          .docx,
-          .txt,
-          .csv,
-          .xlsx,
-          .pptx,
-          .png,
-          .jpg,
-          .jpeg
-        "
-
-        className="hidden"
-
-        onChange={(e) => {
-
-          const file =
-            e.target.files?.[0];
-
-          if (file) {
-
-            handleUpload(file);
+          onClick={() =>
+            inputRef.current?.click()
           }
-        }}
-      />
 
-      <VoiceButton
-        isRecording={isRecording}
-        startRecording={startRecording}
-        stopRecording={stopRecording}
-      />
+          disabled={uploading}
 
-      <button
-        onClick={handleSend}
-        aria-label="Send message"
-        className="
-          shrink-0
-          flex
-          h-10
-          w-10
-          items-center
-          justify-center
-          rounded-xl
-          bg-black
-          text-white
-          transition-all
-          hover:scale-105
-          dark:bg-white
-          dark:text-black
-        "
-      >
-        
-        <Send className="h-4 w-4" />
-      </button>
+          aria-label="Upload document"
+
+          className="
+            flex h-8 w-8 items-center justify-center rounded-full
+            text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700
+            disabled:opacity-50
+          "
+        >
+          <Upload className="h-4.5 w-4.5" />
+        </button>
+
+        <input
+          ref={inputRef}
+
+          type="file"
+
+          accept="
+            .pdf,
+            .docx,
+            .txt,
+            .csv,
+            .xlsx,
+            .pptx,
+            .png,
+            .jpg,
+            .jpeg
+          "
+
+          className="hidden"
+
+          onChange={(e) => {
+
+            const file =
+              e.target.files?.[0];
+
+            if (file) {
+
+              handleUpload(file);
+            }
+          }}
+        />
+
+        <div className="flex items-center gap-1">
+
+          <div className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700">
+            <VoiceButton
+              isRecording={isRecording}
+              startRecording={startRecording}
+              stopRecording={stopRecording}
+            />
+          </div>
+
+          <button
+            onClick={handleSend}
+            aria-label="Send message"
+            className="
+              ml-1 flex h-9 w-9 items-center justify-center rounded-full
+              bg-gradient-to-br from-zinc-700 to-zinc-500 text-white
+              shadow-sm transition enabled:hover:opacity-90
+              disabled:cursor-not-allowed disabled:opacity-40
+            "
+          >
+            <ArrowUp className="h-4.5 w-4.5" />
+          </button>
+        </div>
       </div>
-
     </div>
 
   </div>

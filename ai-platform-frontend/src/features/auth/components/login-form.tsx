@@ -54,7 +54,7 @@ export function LoginForm() {
         response.refresh_token
       );
 
-      router.push("/");
+      router.push("/chat");
 
     } catch (err: unknown) {
 

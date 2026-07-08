@@ -41,7 +41,9 @@ from app.modules.corpora.repositories.corpus_repository import (
 from app.modules.datasets.repositories.dataset_repository import (
     dataset_repository
 )
-
+from app.modules.storage_registry.repositories.storage_instance_repository import (
+    storage_instance_repository
+)
 
 class DataPipelineService:
 
@@ -360,6 +362,24 @@ class DataPipelineService:
             raise ValueError(
                 "Step code already exists"
             )
+        
+        if payload.output_storage_instance_id is not None:
+
+            storage_instance = await (
+                storage_instance_repository
+                .get_active_by_id(
+                    db=db,
+                    storage_instance_id=(
+                        payload.output_storage_instance_id
+                    ),
+                )
+            )
+
+            if storage_instance is None:
+
+                raise ValueError(
+                    "Active output storage instance not found"
+                )
 
         step = DataPipelineStep(
 
@@ -372,6 +392,10 @@ class DataPipelineService:
             step_type=payload.step_type,
 
             runtime_code=payload.runtime_code,
+
+            output_storage_instance_id=(
+                payload.output_storage_instance_id
+            ),
 
             configuration_json=payload.configuration_json,
 
@@ -467,6 +491,30 @@ class DataPipelineService:
             raise ValueError(
                 "Step code already exists"
             )
+        
+        if (
+            "output_storage_instance_id"
+            in payload.model_fields_set
+            and
+            payload.output_storage_instance_id
+            is not None
+        ):
+
+            storage_instance = await (
+                storage_instance_repository
+                .get_active_by_id(
+                    db=db,
+                    storage_instance_id=(
+                        payload.output_storage_instance_id
+                    ),
+                )
+            )
+
+            if storage_instance is None:
+
+                raise ValueError(
+                    "Active output storage instance not found"
+                )
 
         update_data = (
             payload.model_dump(

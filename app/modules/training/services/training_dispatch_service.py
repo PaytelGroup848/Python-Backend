@@ -67,13 +67,14 @@ class TrainingDispatchService:
                 "Training provider is inactive"
             )
 
-        job.status = "QUEUED"
-
-        if job.status != "PENDING":
+        if job.status != TrainingStatus.PENDING:
 
             raise ValueError(
-                f"Training job is in '{job.status}' state and cannot be dispatched."
+                f"Training job is in '{job.status}' state "
+                "and cannot be dispatched."
             )
+
+        job.status = TrainingStatus.QUEUED
 
         await (
             training_job_repository

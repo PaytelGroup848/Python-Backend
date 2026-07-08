@@ -1,22 +1,33 @@
-from abc import ABC, abstractmethod
+from abc import (
+    ABC,
+    abstractmethod,
+)
+
+from app.modules.training_runtime.contracts.training_data_stream import (
+    TrainingDataStream,
+)
 
 from app.modules.training_runtime.schemas.training_runtime_schema import (
-    TrainingRuntime
+    TrainingRuntime,
 )
 
 from app.modules.training_runtime.schemas.training_result_schema import (
-    TrainingResult
+    TrainingResult,
 )
 
 
-class BaseTrainingRuntime(ABC):
+class BaseTrainingRuntime(
+    ABC
+):
 
     @abstractmethod
     async def execute(
         self,
-        runtime: TrainingRuntime
+        runtime: TrainingRuntime,
+        training_data: TrainingDataStream,
     ) -> TrainingResult:
         """
-        Execute a training job.
+        Execute a training job using a bounded
+        asynchronous training-data stream.
         """
         raise NotImplementedError

@@ -24,8 +24,8 @@ from app.modules.pipeline_runtime.services.pipeline_step_runtime_service import 
     pipeline_step_runtime_service
 )
 
-from app.modules.pipeline_runtime.schemas.pipeline_run_create import (
-    PipelineRunCreate
+from app.modules.pipeline_runtime.schemas.pipeline_execution_request import (
+    PipelineExecutionRequest
 )
 
 
@@ -37,7 +37,7 @@ router = APIRouter(
 
 @router.post("/execute")
 async def execute_pipeline(
-    payload: PipelineRunCreate,
+    payload: PipelineExecutionRequest,
     db: AsyncSession = Depends(get_db)
 ):
 

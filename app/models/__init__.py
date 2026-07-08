@@ -82,8 +82,16 @@ from app.modules.training.models.training_job import (
     TrainingJob
 )
 
+from app.modules.training.models.training_configuration import (
+    TrainingConfiguration
+)
+
 from app.modules.model_artifacts.models.model_artifact import (
     ModelArtifact
+)
+
+from app.modules.datasets.models.dataset_snapshot import (
+    DatasetSnapshot
 )
 
 from app.modules.evaluations.models.evaluation_job import (

@@ -64,6 +64,22 @@ class ModelVersion(Base):
         nullable=False
     )
 
+    source_type = Column(
+        String(50),
+        nullable=True,
+        index=True
+    )
+
+    source_uri = Column(
+        String(1000),
+        nullable=True
+    )
+
+    source_revision = Column(
+        String(255),
+        nullable=True
+    )
+
     created_at = Column(
         DateTime,
         default=datetime.utcnow,

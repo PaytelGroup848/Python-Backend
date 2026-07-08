@@ -17,6 +17,8 @@ class DataPipelineStepCreate(
 
     runtime_code: str
 
+    output_storage_instance_id: int | None = None
+
     configuration_json: dict[str, Any] | None = None
 
     status: str

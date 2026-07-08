@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -7,12 +7,18 @@ class DataPipelineStepUpdate(
     BaseModel
 ):
 
-    step_order: Optional[int] = None
+    step_order: int | None = None
 
-    step_type: Optional[str] = None
+    step_code: str | None = None
 
-    runtime_code: Optional[str] = None
+    step_type: str | None = None
 
-    configuration_json: Optional[str] = None
+    runtime_code: str | None = None
 
-    status: Optional[str] = None
+    output_storage_instance_id: int | None = None
+
+    configuration_json: (
+        dict[str, Any] | None
+    ) = None
+
+    status: str | None = None

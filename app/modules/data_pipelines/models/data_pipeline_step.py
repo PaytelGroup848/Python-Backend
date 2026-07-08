@@ -76,6 +76,20 @@ class DataPipelineStep(Base):
         index=True
     )
 
+    output_storage_instance_id = Column(
+        Integer,
+        ForeignKey(
+            "storage_instances.id",
+            name=(
+                "fk_data_pipeline_step_"
+                "output_storage_instance_id"
+            ),
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+        index=True,
+    )
+
     configuration_json = Column(
         JSONB,
         nullable=True

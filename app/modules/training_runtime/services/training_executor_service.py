@@ -1,110 +1,89 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.modules.training_runtime.services.training_runtime_service import (
-    training_runtime_service
-)
-
-from app.modules.training_runtime.services.training_status_service import (
-    training_status_service
-)
-
-from app.modules.training_runtime.schemas.training_result_schema import (
-    TrainingResult
-)
-
-from app.modules.training.repositories.training_job_repository import (
-    training_job_repository
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
 )
 
 from app.modules.training_runtime.providers.runtime_factory import (
-    training_runtime_factory
+    training_runtime_factory,
 )
-from app.shared.constants.training_status import (
-    TrainingStatus
+
+from app.modules.training_runtime.services.training_data_runtime_service import (
+    training_data_runtime_service,
 )
+
+from app.modules.training_runtime.services.training_runtime_service import (
+    training_runtime_service,
+)
+
+from app.modules.training_runtime.schemas.training_result_schema import (
+    TrainingResult,
+)
+
 
 class TrainingExecutorService:
 
     async def execute(
-
         self,
-
         db: AsyncSession,
-
-        training_job_id: int
-
+        training_job_id: int,
     ) -> TrainingResult:
 
         runtime = await (
             training_runtime_service
             .load_runtime(
                 db=db,
-                training_job_id=training_job_id
+                training_job_id=training_job_id,
             )
         )
 
-        if not runtime.provider_code:
+        batch_size = (
+            runtime.runtime_configuration
+            .get(
+                "data_batch_size"
+            )
+        )
 
+        if batch_size is None:
             raise ValueError(
-                "Training provider missing"
+                "Training configuration must define "
+                "'data_batch_size'."
             )
 
-        job = await (
-            training_job_repository
-            .get_by_id(
+        if (
+            isinstance(batch_size, bool)
+            or
+            not isinstance(batch_size, int)
+            or
+            batch_size <= 0
+        ):
+            raise ValueError(
+                "'data_batch_size' must be a positive integer."
+            )
+
+        training_data = await (
+            training_data_runtime_service
+            .open_snapshot_stream(
                 db=db,
-                training_job_id=training_job_id
+                dataset_snapshot_id=(
+                    runtime.dataset_snapshot_id
+                ),
+                batch_size=batch_size,
             )
         )
 
-        await (
-            training_status_service
-            .update_status(
-                db=db,
-                training_job=job,
-                status=TrainingStatus.RUNNING
-            )
-        )
-
-        runtime_provider = (
+        training_runtime = (
             training_runtime_factory
             .get_runtime(
-                runtime.runtime_code
+                runtime.runtime_class
             )
         )
 
-        result = await (
-            runtime_provider.execute(
-                runtime=runtime
+        return await (
+            training_runtime
+            .execute(
+                runtime=runtime,
+                training_data=training_data,
             )
         )
-
-        job.artifact_path = (
-            result.artifact_directory
-        )
-
-        
-
-        await (
-            training_job_repository
-            .update(
-                db=db,
-                training_job=job
-            )
-        )
-
-        await (
-            training_status_service
-            .update_status(
-                db,
-                job,
-                TrainingStatus.COMPLETED
-            )
-        )
-
-        await db.commit()
-
-        return result
 
 
 training_executor_service = (

@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic import BaseModel
 
 
@@ -13,6 +11,6 @@ class DataPipelineCreate(
 
     pipeline_code: str
 
-    dataset_id: Optional[int] = None
+    dataset_id: int | None = None
 
     status: str

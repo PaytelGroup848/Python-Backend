@@ -33,6 +33,20 @@ class TrainingJob(Base):
         index=True
     )
 
+    dataset_snapshot_id = Column(
+        Integer,
+        ForeignKey(
+            "dataset_snapshots.id",
+            name=(
+                "fk_training_job_"
+                "dataset_snapshot_id"
+            ),
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+        index=True,
+    )
+
     training_provider_id = Column(
         Integer,
         ForeignKey(
@@ -43,6 +57,20 @@ class TrainingJob(Base):
         index=True
     )
 
+    training_configuration_id = Column(
+        Integer,
+        ForeignKey(
+            "training_configurations.id",
+            name=(
+                "fk_training_job_"
+                "training_configuration_id"
+            ),
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+        index=True,
+    )
+
     base_model_id = Column(
         Integer,
         ForeignKey(
@@ -50,6 +78,17 @@ class TrainingJob(Base):
             name="fk_training_job_base_model_id"
         ),
         nullable=False,
+        index=True
+    )
+
+    base_model_version_id = Column(
+        Integer,
+        ForeignKey(
+            "model_versions.id",
+            name="fk_training_job_base_model_version_id",
+            ondelete="RESTRICT"
+        ),
+        nullable=True,
         index=True
     )
 

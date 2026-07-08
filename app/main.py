@@ -194,6 +194,12 @@ from app.modules.data_pipelines.routes.data_pipeline_route import (
     router as data_pipeline_router
 )
 
+from app.modules.pipeline_runtime.routes.pipeline_runtime_route import (
+    router as pipeline_runtime_router
+)
+from app.modules.pipeline_runtime.bootstrap.executor_bootstrap import (
+    register_pipeline_executors,
+)
 from app.modules.dataset_builder.routes import (
     dataset_builder_router
 )
@@ -207,7 +213,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-
+register_pipeline_executors()
 # =========================
 # CORS
 # =========================
@@ -340,9 +346,9 @@ async def shutdown_event():
 # Router Registration
 # =========================
 
-#app.include_router(
- #   auth_router
-#)
+app.include_router(
+    auth_router
+)
 
 #app.include_router(
  #   vector_router
@@ -511,6 +517,10 @@ app.include_router(
 app.include_router(
     data_pipeline_router
 )
+
+app.include_router(
+    pipeline_runtime_router
+)   
 app.include_router(
     dataset_builder_router
 )

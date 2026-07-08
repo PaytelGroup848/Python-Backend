@@ -12,6 +12,9 @@ import {
   Bell,
   Search,
   LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+
   } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -20,6 +23,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import {
   ThemeToggle,
 } from "@/components/theme/theme-toggle";
+import { useState } from "react";
 
 
 interface DashboardLayoutProps {
@@ -31,14 +35,14 @@ const sidebarItems = [
     title: "Chat",
     icon: MessageSquare,
   },
-  {
-    title: "Voice",
-    icon: Mic,
-  },
-  {
-    title: "Documents",
-    icon: FileText,
-  },
+  // {
+  //   title: "Voice",
+  //   icon: Mic,
+  // },
+  // {
+  //   title: "Documents",
+  //   icon: FileText,
+  // },
   {
     title: "OCR",
     icon: ScanText,
@@ -47,10 +51,10 @@ const sidebarItems = [
     title: "Analytics",
     icon: BarChart3,
   },
-  {
-    title: "API Keys",
-    icon: KeyRound,
-  },
+  // {
+  //   title: "API Keys",
+  //   icon: KeyRound,
+  // },
   {
     title: "Settings",
     icon: Settings,
@@ -62,6 +66,7 @@ export function DashboardLayout({
 }: DashboardLayoutProps) {
 
     const router = useRouter();
+    const [isCollapsed, setIsCollapsed] = useState(false);
 
   const logout =
     useAuthStore(
@@ -92,184 +97,213 @@ export function DashboardLayout({
 
       {/* Sidebar */}
 
-      <aside
-        className="
-          hidden
-          w-72
-          border-r
-          border-zinc-200 dark:border-white/10
-          bg-white dark:bg-zinc-950
-          lg:flex
-          lg:flex-col
-        "
-      >
-        {/* Logo */}
+     <aside
+  className={`
+    hidden
+    border-r
+    border-zinc-200 dark:border-white/10
+    bg-white dark:bg-zinc-950
+    lg:flex
+    lg:flex-col
+    transition-all duration-300 ease-in-out
+    ${isCollapsed ? "w-16" : "w-72"}
+  `}
+>
+  {/* Logo */}
 
-        <div
-          className="
+  <div
+    className="
+      flex
+      items-center
+      gap-3
+      border-b
+      border-zinc-200 dark:border-white/10
+      px-4
+      py-6
+      justify-between
+    "
+  >
+    <div className="flex items-center gap-3 overflow-hidden">
+      <img
+        className="
+          flex
+          h-11
+          w-11
+          shrink-0
+          items-center
+          justify-center
+          rounded-2xl
+          bg-white
+          text-black
+        "
+        src="./Cloudedatalogo.svg"
+      />
+
+      {!isCollapsed && (
+        <div className="whitespace-nowrap">
+          <h1 className="text-lg font-semibold">
+            AI Platform
+          </h1>
+
+          <p className="text-xs text-zinc-400">
+            By CloudeData
+          </p>
+        </div>
+      )}
+    </div>
+
+    <button
+      type="button"
+      aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+      onClick={() => setIsCollapsed((prev) => !prev)}
+      className="
+        shrink-0
+        flex h-8 w-8 items-center justify-center rounded-lg
+        text-zinc-500
+        transition hover:bg-zinc-100 hover:text-zinc-800
+        dark:hover:bg-white/10 dark:hover:text-white
+      "
+    >
+      {isCollapsed ? (
+        <PanelLeftOpen className="h-5 w-5 mr-3" />
+      ) : (
+        <PanelLeftClose className="h-5 w-5" />
+      )}
+    </button>
+  </div>
+
+  {/* Navigation */}
+
+  <nav className="flex-1 space-y-1 p-4">
+
+    {sidebarItems.map((item) => {
+      const Icon = item.icon;
+
+      return (
+        <button
+          key={item.title}
+
+          onClick={() =>
+            router.push(
+              item.title === "Chat"
+                ? "/chat"
+                : item.title === "OCR"
+                ? "/ocr"
+                : item.title === "Analytics"
+                ? "/analytics"
+                : "/settings"
+            )
+          }
+
+          title={isCollapsed ? item.title : undefined}
+
+          className={`
+            group
             flex
+            w-full
             items-center
             gap-3
-            border-b
-            border-zinc-200 dark:border-white/10
-            px-6
-            py-6
-          "
+            rounded-2xl
+            px-4
+            py-3
+            text-sm
+            text-zinc-600
+            transition-all
+            hover:bg-zinc-200
+            hover:text-black
+            dark:text-zinc-400
+            dark:hover:bg-white/5
+            dark:hover:text-white
+            ${isCollapsed ? "justify-center px-0" : ""}
+          `}
         >
-          <div
+          <Icon
             className="
-              flex
-              h-11
-              w-11
-              items-center
-              justify-center
-              rounded-2xl
-              bg-white
-              text-black
-            "
-          >
-            <Sparkles className="h-5 w-5" />
-          </div>
-
-          <div>
-            <h1 className="text-lg font-semibold">
-              AI Platform
-            </h1>
-
-            <p className="text-xs text-zinc-400">
-              Enterprise Infrastructure
-            </p>
-          </div>
-        </div>
-
-        {/* Navigation */}
-
-        <nav className="flex-1 space-y-1 p-4">
-
-          {sidebarItems.map((item) => {
-            const Icon = item.icon;
-
-            return (
-              <button
-                key={item.title}
-
-               onClick={() =>
-                 router.push(
-                   item.title === "Chat"
-                     ? "/chat"
-                     : item.title === "Voice"
-                     ? "/voice"
-                     : item.title === "Documents"
-                     ? "/documents"
-                     : item.title === "OCR"
-                     ? "/ocr"
-                     : item.title === "Analytics"
-                     ? "/analytics"
-                     : item.title === "API Keys"
-                     ? "/api-keys"
-                     : "/settings"
-                )
-            }
-
-            className="
-              group
-              flex
-              w-full
-              items-center
-              gap-3
-              rounded-2xl
-              px-4
-              py-3
-              text-sm
-              text-zinc-600
-              transition-all
-              hover:bg-zinc-200
-              hover:text-black
-              dark:text-zinc-400
-              dark:hover:bg-white/5
-              dark:hover:text-white
-            "
-          >
-           <Icon
-             className="
-               h-5
-               w-5
-               transition-transform
-               group-hover:scale-110
+              h-5
+              w-5
+              shrink-0
+              transition-transform
+              group-hover:scale-110
             "
           />
 
-        {item.title}
-      </button>
-    );
-          })}
-        </nav>
+          {!isCollapsed && item.title}
+        </button>
+      );
+    })}
+  </nav>
 
-        {/* Bottom Section */}
+  {/* Bottom Section */}
 
-        <div
-          className="
-            border-t
-            border-zinc-200 dark:border-white/10
-            p-4
-          "
-        >
-          <div
+  <div
+    className="
+      border-t
+      border-zinc-200 dark:border-white/10
+      p-4
+    "
+  >
+    <div
+      className={`
+        rounded-2xl
+        border
+        border-zinc-200 dark:border-white/10
+        bg-white dark:bg-zinc-900
+        ${isCollapsed ? "p-2" : "p-4"}
+      `}
+    >
+      {!isCollapsed && (
+        <>
+          <p className="text-sm font-medium">
+            Enterprise Plan
+          </p>
+
+          <p
             className="
-              rounded-2xl
-              border
-              border-zinc-200 dark:border-white/10
-              bg-white dark:bg-zinc-900
-              p-4
+              mt-1
+              text-xs
+              text-zinc-600
+              dark:text-zinc-400
             "
           >
-            <p className="text-sm font-medium">
-              Enterprise Plan
-            </p>
+            AI Infrastructure By CloudeData
+          </p>
+        </>
+      )}
 
-            <p
-              className="
-                mt-1
-                text-xs
-                text-zinc-600
-                dark:text-zinc-400
-              "
-            >
-              AI Infrastructure Workspace
-            </p>
+      <button
+        onClick={handleLogout}
+        title={isCollapsed ? "Logout" : undefined}
+        className={`
+          ${isCollapsed ? "" : "mt-4"}
+          flex
+          w-full
+          items-center
+          cursor-pointer
+          justify-center
+          gap-2
+          rounded-xl
+          border
+          border-zinc-200
+          bg-red-100
+          px-4
+          py-2
+          text-sm
+          text-red-700
+          transition-all
+          hover:bg-red-500/10
+          hover:text-red-400
+          dark:border-white/10
+          dark:bg-zinc-950
+          dark:text-zinc-300
+        `}
+      >
+        <LogOut className="h-4 w-4 shrink-0" />
 
-            <button
-              onClick={handleLogout}
-              className="
-                mt-4
-                flex
-                w-full
-                items-center
-                justify-center
-                gap-2
-                rounded-xl
-                border
-                border-zinc-200
-                bg-zinc-100
-                px-4
-                py-2
-                text-sm
-                text-zinc-700
-                transition-all
-                hover:bg-red-500/10
-                hover:text-red-400
-                dark:border-white/10
-                dark:bg-zinc-950
-                dark:text-zinc-300
-              "
-            >
-               <LogOut className="h-4 w-4" />
-
-                Logout
-              </button>
-          </div>
-        </div>
-      </aside>
+        {!isCollapsed && "Logout"}
+      </button>
+    </div>
+  </div>
+</aside>
 
       {/* Main Section */}
 
@@ -277,7 +311,7 @@ export function DashboardLayout({
 
         {/* Topbar */}
 
-        <header
+        {/* <header
           className="
             sticky
             top-0
@@ -293,8 +327,7 @@ export function DashboardLayout({
             backdrop-blur-xl
           "
         >
-          {/* Search */}
-
+\
           <div
             className="
               hidden
@@ -323,7 +356,6 @@ export function DashboardLayout({
             />
           </div>
 
-          {/* Right Side */}
 
           <div className="flex items-center gap-4">
 
@@ -365,7 +397,7 @@ export function DashboardLayout({
               "
             />
           </div>
-        </header>
+        </header> */}
 
         {/* Workspace */}
 

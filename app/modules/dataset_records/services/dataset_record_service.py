@@ -39,9 +39,9 @@ class DatasetRecordService:
 
         dataset = await (
             dataset_repository
-            .get_by_id(
+            .get_by_id_for_update(
                 db,
-                data.dataset_id
+                data.dataset_id,
             )
         )
 

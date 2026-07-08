@@ -1,6 +1,5 @@
 from pydantic import (
     BaseModel,
-    ConfigDict,
     Field
 )
 
@@ -13,10 +12,7 @@ class PipelineExecutionRequest(
     BaseModel
 ):
 
-    model_config = ConfigDict(
-        use_enum_values=True
-    )
-
+  
     pipeline_id: int
 
     dataset_id: int | None = None

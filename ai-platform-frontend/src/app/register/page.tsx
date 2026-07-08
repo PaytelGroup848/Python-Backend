@@ -52,7 +52,7 @@ export default function RegisterPage() {
 
       if (error instanceof Error) {
 
-        console.error(error.message);
+        console.error(error);
 
       } else {
 

@@ -1,18 +1,26 @@
+
+
 "use client";
 
 import {
   useEffect,
   useRef,
+  useState,
 } from "react";
 
 import { v4 as uuid }
   from "uuid";
 
+import {
+  ArrowUp,
+  ChevronDown,
+  Mic,
+  Plus,
+  Sparkles,
+} from "lucide-react";
+
 import { MessageList }
   from "./message-list";
-
-import { MessageInput }
-  from "./message-input";
 
 import {
   useChatStore,
@@ -31,6 +39,7 @@ import {
 import {
   updateConversationTitle,
 } from "../services/conversation-service";
+import { MessageInput } from "./message-input";
 
 export function ChatWindow() {
 
@@ -54,6 +63,12 @@ export function ChatWindow() {
   useChatStore(
     (state) =>
       state.setStreaming
+  );
+
+  const isStreaming =
+  useChatStore(
+    (state) =>
+      state.isStreaming
   );
 
   const accessToken =
@@ -82,6 +97,9 @@ const setConversations =
 
   const bottomRef =
   useRef<HTMLDivElement>(null);
+
+  const [draft, setDraft] =
+    useState("");
 
   useEffect(() => {
 
@@ -152,6 +170,10 @@ const setConversations =
     content: string
   ) {
 
+    if (!content.trim()) {
+      return;
+    }
+
     const shouldGenerateTitle =
       messages.length === 0;
 
@@ -161,7 +183,7 @@ const setConversations =
       content,
     });
 
-    
+    setDraft("");
 
     if (
       shouldGenerateTitle &&
@@ -212,7 +234,7 @@ const setConversations =
       return;
     }
 
-    
+
     const currentConversationId =
 
       useConversationStore
@@ -241,54 +263,85 @@ const setConversations =
         currentConversationId,
     });
 
-
   }
 
-  return (
-    <div
-      className="
-        flex
-        h-[80vh]
-        flex-col
-        rounded-3xl
-        border
-        border-zinc-200
-        bg-white
-        dark:border-white/20
-        dark:bg-zinc-900
-      "
-    >
-      <div
-        className="
-          flex-1
-          overflow-y-auto
-          bg-zinc-50
-          p-6
-          dark:bg-zinc-900
-        "
-      >
+  function handleKeyDown(
+    event: React.KeyboardEvent<HTMLTextAreaElement>
+  ) {
 
-        <MessageList
-          messages={messages}
-        />
-        <div ref={bottomRef} />
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      handleSend(draft);
+    }
+  }
+
+  const isEmpty = messages.length === 0;
+
+  const user = useAuthStore(
+    (state) => state.user
+  );
+
+  {console.log(
+    "USER:",
+    user
+  )}
+
+  function getGreeting() {
+  const istHour = Number(
+    new Date().toLocaleString("en-US", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      hour12: false,
+    })
+  );
+
+  if (istHour < 12) return "Good morning";
+  if (istHour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+  const displayName = getGreeting();
+
+  return (
+<div className="relative flex h-[100vh] flex-col overflow-hidden bg-[radial-gradient(120%_60%_at_50%_0%,#93c5fd_0%,#f5f3ff_20%,transparent_45%),radial-gradient(120%_70%_at_10%_100%,#c026d3_0%,transparent_60%),radial-gradient(120%_70%_at_90%_100%,#db2777_0%,transparent_60%)] bg-white shadow-[0_8px_40px_-12px_rgba(147,51,234,0.2)]">
+      {/* animated gradient background */}
+      <div className="absolute inset-0 -z-10 overflow-hidden bg-white">
+        <div className="absolute -top-32 left-1/2 h-[520px] w-[1100px] -translate-x-1/2 rounded-full bg-sky-200/70 blur-[110px]" />
+        <div className="absolute top-1/4 -left-40 h-[420px] w-[720px] rounded-full bg-indigo-300/50 blur-[120px]" />
+        <div className="absolute bottom-[-160px] left-[-80px] h-[520px] w-[820px] rounded-full bg-fuchsia-400/70 blur-[110px]" />
+        <div className="absolute bottom-[-220px] right-[-100px] h-[560px] w-[860px] rounded-full bg-pink-500/80 blur-[110px]" />
+        <div className="absolute bottom-[-260px] left-1/2 h-[440px] w-[1000px] -translate-x-1/2 rounded-full bg-rose-500/60 blur-[100px]" />
       </div>
 
-      <div
-        className="
-          border-t
-          border-zinc-200
-          bg-white
-          p-4
-          dark:border-white/10
-          dark:bg-zinc-900
-        "
-      >
+      {isEmpty ? (
+        // ---------- Landing / hero state ----------
+        <div className="relative z-10 flex h-full flex-col items-center justify-center gap-7 px-6">
 
-        <MessageInput
+        
+
+          <h1 className="max-w-xl text-center text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">
+             {displayName}, What&apos;s the vision?
+          </h1>
+
+          <MessageInput
           onSend={handleSend}
         />
-      </div>
+        </div>
+      ) : (
+        // ---------- Active conversation state ----------
+        <>
+          <div className="relative z-10 flex-1 overflow-y-auto px-6 py-6">
+            <MessageList messages={messages} />
+            <div ref={bottomRef} />
+          </div>
+
+          <div className="relative z-10 flex justify-center px-6 pb-6">
+            <MessageInput
+          onSend={handleSend}
+        />
+          </div>
+        </>
+      )}
     </div>
   );
 }

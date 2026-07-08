@@ -1,58 +1,88 @@
-from app.modules.training_runtime.providers.base_training_runtime import (
-    BaseTrainingRuntime
+from threading import (
+    Lock,
 )
 
-from app.modules.training_runtime.providers.native_training_runtime import (
-    NativeTrainingRuntime
+from app.modules.training_runtime.providers.base_training_runtime import (
+    BaseTrainingRuntime,
+)
+
+from app.shared.runtime.dynamic_class_resolver import (
+    dynamic_class_resolver,
 )
 
 
 class TrainingRuntimeFactory:
 
-    def __init__(self):
-
-        self._registry = {}
-
-        self.register(
-            runtime_code="NATIVE",
-            runtime=NativeTrainingRuntime()
-        )
-
-    def register(
-
+    def __init__(
         self,
-
-        runtime_code: str,
-
-        runtime: BaseTrainingRuntime
-
     ):
 
-        self._registry[
-            runtime_code.upper()
-        ] = runtime
+        self._runtime_cache: dict[
+            str,
+            BaseTrainingRuntime
+        ] = {}
+
+        self._lock = Lock()
+
 
     def get_runtime(
-
         self,
-
-        runtime_code: str
-
+        runtime_class: str,
     ) -> BaseTrainingRuntime:
 
-        runtime = self._registry.get(
-            runtime_code.upper()
+        normalized_runtime_class = (
+            runtime_class.strip()
         )
 
-        if runtime is None:
+        if not normalized_runtime_class:
 
             raise ValueError(
-
-                f"Training runtime '{runtime_code}' is not registered."
-
+                "Training runtime class is required."
             )
 
-        return runtime
+        cached_runtime = (
+            self._runtime_cache.get(
+                normalized_runtime_class
+            )
+        )
+
+        if cached_runtime is not None:
+
+            return cached_runtime
+
+        with self._lock:
+
+            cached_runtime = (
+                self._runtime_cache.get(
+                    normalized_runtime_class
+                )
+            )
+
+            if cached_runtime is not None:
+
+                return cached_runtime
+
+            runtime_class_type = (
+                dynamic_class_resolver
+                .resolve_class(
+                    class_path=(
+                        normalized_runtime_class
+                    ),
+                    expected_base_class=(
+                        BaseTrainingRuntime
+                    ),
+                )
+            )
+
+            runtime = (
+                runtime_class_type()
+            )
+
+            self._runtime_cache[
+                normalized_runtime_class
+            ] = runtime
+
+            return runtime
 
 
 training_runtime_factory = (

@@ -1,40 +1,42 @@
+from typing import Any
+
 from pydantic import (
     BaseModel,
-    ConfigDict
+    ConfigDict,
+    Field,
 )
-from pydantic import Field
 
 from app.modules.pipeline_runtime.models.pipeline_run import (
-    PipelineRun
+    PipelineRun,
 )
 
 from app.modules.pipeline_runtime.models.pipeline_step_run import (
-    PipelineStepRun
+    PipelineStepRun,
 )
 
 from app.modules.data_pipelines.models.data_pipeline import (
-    DataPipeline
+    DataPipeline,
 )
 
 from app.modules.data_pipelines.models.data_pipeline_step import (
-    DataPipelineStep
+    DataPipelineStep,
 )
 
 from app.modules.datasets.models.dataset import (
-    Dataset
+    Dataset,
 )
 
 from app.modules.corpora.models.corpus_source import (
-    CorpusSource
+    CorpusSource,
 )
 
 
 class PipelineExecutionContext(
-    BaseModel
+    BaseModel,
 ):
 
     model_config = ConfigDict(
-        arbitrary_types_allowed=True
+        arbitrary_types_allowed=True,
     )
 
     pipeline: DataPipeline
@@ -49,6 +51,18 @@ class PipelineExecutionContext(
 
     corpus_source: CorpusSource | None = None
 
-    execution_metadata: dict = Field(
-        default_factory=dict
+    inputs: list[
+        dict[
+            str,
+            Any,
+        ]
+    ] = Field(
+        default_factory=list,
+    )
+
+    execution_metadata: dict[
+        str,
+        Any,
+    ] = Field(
+        default_factory=dict,
     )

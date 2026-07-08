@@ -21,34 +21,17 @@ export default function ChatPage() {
       <DashboardLayout>
 
         <div
-          className="
-            flex
-            h-[calc(100vh-80px)]
-            overflow-hidden
-            rounded-3xl
-            border
-            border-white/10
-            bg-zinc-950
-          "
+        
         >
 
-          <ConversationSidebar />
+          {/* <ConversationSidebar /> */}
 
-          <div
-            className="
-              flex
-              flex-1
-              flex-col
-              gap-4
-              p-6
-            "
-          >
+          
 
             
 
             <ChatWindow />
 
-          </div>
 
         </div>
 
