@@ -11,22 +11,32 @@ from sqlalchemy import (
     func,
 )
 
+from sqlalchemy.dialects.postgresql import (
+    JSONB,
+)
+
 from app.db.database import (
     Base,
 )
 
 
-class Tokenizer(
+class TokenizerImplementation(
     Base
 ):
 
-    __tablename__ = "tokenizers"
+    __tablename__ = (
+        "tokenizer_implementations"
+    )
 
     __table_args__ = (
 
         UniqueConstraint(
-            "code",
-            name="uq_tokenizers_code",
+            "implementation_code",
+            "implementation_version",
+            name=(
+                "uq_tokenizer_implementation_"
+                "code_version"
+            ),
         ),
 
     )
@@ -37,10 +47,15 @@ class Tokenizer(
         index=True,
     )
 
-    code = Column(
+    implementation_code = Column(
         String(150),
         nullable=False,
         index=True,
+    )
+
+    implementation_version = Column(
+        String(100),
+        nullable=False,
     )
 
     display_name = Column(
@@ -53,12 +68,41 @@ class Tokenizer(
         nullable=True,
     )
 
-    status = Column(
-        String(50),
+    algorithm_type = Column(
+        String(100),
         nullable=False,
-        default="DRAFT",
-        server_default="DRAFT",
         index=True,
+    )
+
+    trainer_class = Column(
+        String(500),
+        nullable=False,
+    )
+
+    tokenizer_class = Column(
+        String(500),
+        nullable=False,
+    )
+
+    training_configuration_schema_json = Column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default="{}",
+    )
+
+    runtime_configuration_schema_json = Column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default="{}",
+    )
+
+    capabilities_json = Column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default="{}",
     )
 
     is_active = Column(

@@ -374,10 +374,10 @@ class NativeTrainingRuntime(
                     last_record_id
                 ),
 
-                "sample_formatter_code": (
+                "sample_formatter_class": (
                     formatter_configuration
                     .get(
-                        "formatter_code"
+                        "formatter_class"
                     )
                 ),
                 "tokenizer_code": (

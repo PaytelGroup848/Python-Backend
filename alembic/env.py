@@ -110,6 +110,30 @@ from app.modules.pipeline_runtime.models.pipeline_execution_artifact_edge import
     PipelineExecutionArtifactEdge
 )
 
+from app.modules.tokenizers.models.tokenizer import (
+    Tokenizer,
+)
+
+from app.modules.tokenizers.models.tokenizer_implementation import (
+    TokenizerImplementation,
+)
+
+from app.modules.tokenizers.models.tokenizer_training_configuration import (
+    TokenizerTrainingConfiguration,
+)
+
+from app.modules.tokenizers.models.tokenizer_training_job import (
+    TokenizerTrainingJob,
+)
+
+from app.modules.tokenizers.models.tokenizer_version import (
+    TokenizerVersion,
+)
+
+from app.modules.tokenizers.models.tokenizer_version_artifact import (
+    TokenizerVersionArtifact,
+)
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

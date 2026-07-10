@@ -111,6 +111,14 @@ class NativeTrainingTokenizer(
             )
         )
 
+        pad_to_max_sequence_length = (
+            configuration
+            .get(
+                "pad_to_max_sequence_length",
+                False,
+            )
+        )
+
         if not isinstance(
             add_bos_token,
             bool,
@@ -125,6 +133,15 @@ class NativeTrainingTokenizer(
         ):
             raise ValueError(
                 "'add_eos_token' must be boolean."
+            )
+
+        if not isinstance(
+            pad_to_max_sequence_length,
+            bool,
+        ):
+            raise ValueError(
+                "'pad_to_max_sequence_length' "
+                "must be boolean."
             )
 
         algorithm_class_type = (
@@ -181,6 +198,26 @@ class NativeTrainingTokenizer(
                 raise ValueError(
                     "Configured tokenization algorithm "
                     "does not provide an EOS token."
+                )
+
+        pad_token_id = None
+
+        if pad_to_max_sequence_length:
+
+            pad_token_id = (
+                algorithm
+                .get_special_token_id(
+                    token_name="pad",
+                    configuration=(
+                        algorithm_configuration
+                    ),
+                )
+            )
+
+            if pad_token_id is None:
+                raise ValueError(
+                    "Configured tokenization algorithm "
+                    "does not provide a PAD token."
                 )
 
         tokenized_samples = []
@@ -279,8 +316,6 @@ class NativeTrainingTokenizer(
 
                 labels.append(
                     eos_token_id
-                    if sample.target_text is not None
-                    else eos_token_id
                 )
 
             sequence = (
@@ -343,20 +378,85 @@ class NativeTrainingTokenizer(
                     "an invalid token ID."
                 )
 
+            unpadded_sequence_length = (
+                len(
+                    sequence
+                )
+            )
+
+            attention_mask = (
+                [1]
+                *
+                unpadded_sequence_length
+            )
+
+            if (
+                pad_to_max_sequence_length
+                and
+                unpadded_sequence_length
+                <
+                max_sequence_length
+            ):
+
+                padding_length = (
+                    max_sequence_length
+                    -
+                    unpadded_sequence_length
+                )
+
+                sequence.extend(
+                    [pad_token_id]
+                    *
+                    padding_length
+                )
+
+                labels.extend(
+                    [-100]
+                    *
+                    padding_length
+                )
+
+                attention_mask.extend(
+                    [0]
+                    *
+                    padding_length
+                )
+
+            if (
+                len(sequence)
+                !=
+                len(labels)
+            ):
+                raise ValueError(
+                    "Tokenized input and labels "
+                    "must have equal length after "
+                    "padding."
+                )
+
+            if (
+                len(sequence)
+                !=
+                len(attention_mask)
+            ):
+                raise ValueError(
+                    "Tokenized input and attention mask "
+                    "must have equal length."
+                )
+
             tokenized_samples.append(
                 TokenizedTrainingSample(
                     source_record_id=(
                         sample.source_record_id
                     ),
-                    input_ids=sequence,
-                    attention_mask=(
-                        [1]
-                        *
-                        len(
-                            sequence
-                        )
+                    input_ids=(
+                        sequence
                     ),
-                    labels=labels,
+                    attention_mask=(
+                        attention_mask
+                    ),
+                    labels=(
+                        labels
+                    ),
                     metadata={
                         **sample.metadata,
                         "tokenization_algorithm_class": (
@@ -366,6 +466,14 @@ class NativeTrainingTokenizer(
                             len(
                                 sequence
                             )
+                        ),
+                        "unpadded_sequence_length": (
+                            unpadded_sequence_length
+                        ),
+                        "padding_applied": (
+                            len(sequence)
+                            >
+                            unpadded_sequence_length
                         ),
                     },
                 )

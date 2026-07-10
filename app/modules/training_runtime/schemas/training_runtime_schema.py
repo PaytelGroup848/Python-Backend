@@ -46,6 +46,14 @@ class TrainingRuntime(
 
     base_model_source_revision: str | None = None
 
+    tokenizer_version_id: int
+
+    tokenizer_id: int
+
+    tokenizer_version: str
+
+    tokenizer_content_hash: str
+
     training_configuration_id: int
 
     training_type: str

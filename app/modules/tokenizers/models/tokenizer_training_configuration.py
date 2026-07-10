@@ -4,11 +4,15 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    ForeignKey,
     Integer,
     String,
-    Text,
     UniqueConstraint,
     func,
+)
+
+from sqlalchemy.dialects.postgresql import (
+    JSONB,
 )
 
 from app.db.database import (
@@ -16,17 +20,23 @@ from app.db.database import (
 )
 
 
-class Tokenizer(
+class TokenizerTrainingConfiguration(
     Base
 ):
 
-    __tablename__ = "tokenizers"
+    __tablename__ = (
+        "tokenizer_training_configurations"
+    )
 
     __table_args__ = (
 
         UniqueConstraint(
-            "code",
-            name="uq_tokenizers_code",
+            "configuration_code",
+            "version",
+            name=(
+                "uq_tokenizer_training_"
+                "configuration_code_version"
+            ),
         ),
 
     )
@@ -37,28 +47,36 @@ class Tokenizer(
         index=True,
     )
 
-    code = Column(
+    tokenizer_implementation_id = Column(
+        Integer,
+        ForeignKey(
+            "tokenizer_implementations.id",
+            name=(
+                "fk_tokenizer_training_configuration_"
+                "implementation_id"
+            ),
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    configuration_code = Column(
         String(150),
         nullable=False,
         index=True,
     )
 
-    display_name = Column(
-        String(255),
+    version = Column(
+        Integer,
         nullable=False,
     )
 
-    description = Column(
-        Text,
-        nullable=True,
-    )
-
-    status = Column(
-        String(50),
+    configuration_json = Column(
+        JSONB,
         nullable=False,
-        default="DRAFT",
-        server_default="DRAFT",
-        index=True,
+        default=dict,
+        server_default="{}",
     )
 
     is_active = Column(

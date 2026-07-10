@@ -92,6 +92,20 @@ class TrainingJob(Base):
         index=True
     )
 
+    tokenizer_version_id = Column(
+        Integer,
+        ForeignKey(
+            "tokenizer_versions.id",
+            name=(
+                "fk_training_job_"
+                "tokenizer_version_id"
+            ),
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+        index=True,
+    )
+
     training_type = Column(
         String(100),
         nullable=False
