@@ -1,13 +1,17 @@
 from datetime import datetime
 
 from sqlalchemy import (
-    Column,
-    Integer,
-    String,
     BigInteger,
+    Column,
     DateTime,
     ForeignKey,
-    func
+    Integer,
+    String,
+    func,
+)
+
+from sqlalchemy.dialects.postgresql import (
+    JSONB,
 )
 
 from app.db.database import Base
@@ -20,77 +24,101 @@ class ModelArtifact(Base):
     id = Column(
         Integer,
         primary_key=True,
-        index=True
+        index=True,
     )
 
     training_job_id = Column(
         Integer,
         ForeignKey(
             "training_jobs.id",
-            name="fk_model_artifact_training_job_id"
+            name="fk_model_artifact_training_job_id",
         ),
         nullable=False,
-        index=True
+        index=True,
     )
 
     artifact_name = Column(
         String(255),
-        nullable=False
+        nullable=False,
     )
 
     artifact_path = Column(
         String(1000),
-        nullable=False
+        nullable=True,
     )
 
     artifact_type = Column(
         String(100),
-        nullable=False
+        nullable=False,
+        index=True,
     )
 
     artifact_version = Column(
         Integer,
         nullable=False,
-        default=1
+        default=1,
     )
 
     storage_provider = Column(
         String(50),
+        nullable=True,
+    )
+
+    storage_instance_id = Column(
+        Integer,
+        ForeignKey(
+            "storage_instances.id",
+            name="fk_model_artifacts_storage_instance_id",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    storage_reference = Column(
+        String(2000),
+        nullable=True,
+        index=True,
+    )
+
+    metadata_json = Column(
+        JSONB,
         nullable=False,
-        default="LOCAL"
+        default=dict,
+        server_default="{}",
     )
 
     mime_type = Column(
         String(255),
-        nullable=True
+        nullable=True,
     )
 
     compression = Column(
         String(50),
-        nullable=True
+        nullable=True,
     )
 
     status = Column(
         String(50),
         nullable=False,
-        default="READY"
+        default="READY",
     )
 
     size_bytes = Column(
         BigInteger,
-        nullable=True
+        nullable=True,
     )
 
     checksum = Column(
         String(255),
-        nullable=True
+        nullable=True,
     )
 
     created_at = Column(
         DateTime,
         default=datetime.utcnow,
         server_default=func.now(),
-        nullable=False
+        nullable=False,
     )
 
     updated_at = Column(
@@ -98,5 +126,5 @@ class ModelArtifact(Base):
         default=datetime.utcnow,
         server_default=func.now(),
         onupdate=datetime.utcnow,
-        nullable=False
+        nullable=False,
     )

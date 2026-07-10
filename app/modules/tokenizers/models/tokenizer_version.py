@@ -2,6 +2,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -48,6 +49,27 @@ class TokenizerVersion(
             ),
         ),
 
+        CheckConstraint(
+            """
+            (
+                tokenizer_training_job_id IS NOT NULL
+            )
+            OR
+            (
+                source_type IS NOT NULL
+                AND btrim(source_type) <> ''
+                AND source_uri IS NOT NULL
+                AND btrim(source_uri) <> ''
+                AND source_revision IS NOT NULL
+                AND btrim(source_revision) <> ''
+            )
+            """,
+            name=(
+                "ck_tokenizer_versions_"
+                "valid_lineage"
+            ),
+        ),
+
     )
 
     id = Column(
@@ -80,8 +102,25 @@ class TokenizerVersion(
             ),
             ondelete="RESTRICT",
         ),
-        nullable=False,
+        nullable=True,
         unique=True,
+        index=True,
+    )
+
+    source_type = Column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
+
+    source_uri = Column(
+        String(1000),
+        nullable=True,
+    )
+
+    source_revision = Column(
+        String(255),
+        nullable=True,
         index=True,
     )
 

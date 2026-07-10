@@ -9,6 +9,8 @@ services:
 
     restart: always
 
+    gpus: all
+
     depends_on:
       - postgres
       - redis

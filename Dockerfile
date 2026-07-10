@@ -34,19 +34,13 @@ ARG TORCH_VERSION=2.5.1
 ARG TORCHVISION_VERSION=0.20.1
 ARG TORCHAUDIO_VERSION=2.5.1
 
-RUN pip install \
-    --upgrade \
-    pip \
-    setuptools \
-    wheel && \
-    pip install \
-    --no-cache-dir \
-    --index-url "${TORCH_INDEX_URL}" \
-    "torch==${TORCH_VERSION}" \
-    "torchvision==${TORCHVISION_VERSION}" \
-    "torchaudio==${TORCHAUDIO_VERSION}" && \
-    pip install \
-    --prefer-binary \
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir \
+    --index-url https://download.pytorch.org/whl/cu124 \
+    torch==2.5.1 \
+    torchvision==0.20.1 \
+    torchaudio==2.5.1 && \
+    pip install --prefer-binary \
     --retries 30 \
     --timeout 300 \
     --no-cache-dir \

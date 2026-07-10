@@ -156,6 +156,41 @@ class ModelArtifactRepository:
 
         return result.scalar_one_or_none()
     
+    async def get_latest_by_type(
+        self,
+        db: AsyncSession,
+        training_job_id: int,
+        artifact_type: str,
+    ):
+
+        result = await db.execute(
+            select(
+                ModelArtifact
+            )
+            .where(
+                ModelArtifact.training_job_id
+                ==
+                training_job_id
+            )
+            .where(
+                ModelArtifact.artifact_type
+                ==
+                artifact_type
+            )
+            .where(
+                ModelArtifact.status
+                ==
+                "READY"
+            )
+            .order_by(
+                ModelArtifact.created_at.desc(),
+                ModelArtifact.id.desc(),
+            )
+            .limit(1)
+        )
+
+        return result.scalar_one_or_none()
+    
     async def delete(
 
         self,
