@@ -77,6 +77,190 @@ class ModelVersionRepository:
         )
 
         return result.first()
+    async def create(
+        self,
+        db: AsyncSession,
+        model_version: ModelVersion,
+    ):
+
+        db.add(model_version)
+
+        await db.flush()
+
+        await db.refresh(
+            model_version
+        )
+
+        return model_version
+    
+    async def update(
+        self,
+        db: AsyncSession,
+        model_version: ModelVersion,
+    ):
+
+        await db.flush()
+
+        await db.refresh(
+            model_version
+        )
+
+        return model_version
+    
+    async def get_by_id(
+        self,
+        db: AsyncSession,
+        model_version_id: int,
+    ):
+
+        result = await db.execute(
+ 
+            select(
+                ModelVersion
+            ).where(
+                ModelVersion.id
+                ==
+                model_version_id
+            )
+        )
+
+        return result.scalar_one_or_none()
+    
+    async def list_by_model(
+        self,
+        db: AsyncSession,
+        model_id: int,
+    ):
+
+        result = await db.execute(
+ 
+            select(
+                ModelVersion
+            )
+
+            .where(
+                ModelVersion.model_id
+                ==
+                model_id
+            )
+
+            .order_by(
+                ModelVersion.created_at.desc()
+            )
+        )
+
+        return result.scalars().all()
+    
+    async def get_latest_version(
+        self,
+        db: AsyncSession,
+        model_id: int,
+    ):
+
+        result = await db.execute(
+
+            select(
+                ModelVersion
+            )
+
+            .where(
+                ModelVersion.model_id
+                ==
+                model_id
+            )
+
+            .order_by(
+                ModelVersion.created_at.desc()
+            )
+
+            .limit(1)
+        )
+
+        return result.scalar_one_or_none()
+    
+    async def get_by_training_job(
+        self,
+        db: AsyncSession,
+        training_job_id: int,
+    ):
+
+        result = await db.execute(
+
+            select(
+                ModelVersion
+            )
+
+            .where(
+                ModelVersion.training_job_id
+                ==
+                training_job_id
+            )
+        )
+
+        return result.scalar_one_or_none()
+    
+    async def get_by_artifact(
+        self,
+        db: AsyncSession,
+        artifact_id: int,
+    ):
+
+        result = await db.execute(
+ 
+            select(
+                ModelVersion
+            )
+
+            .where(
+                ModelVersion.artifact_id
+                ==
+                artifact_id
+            )
+        )
+
+        return result.scalar_one_or_none()
+    
+    async def get_inference_runtime(
+        self,
+        db: AsyncSession,
+        model_version_id: int,
+    ):
+       ...
+    
+    async def list_by_status(
+        self,
+        db: AsyncSession,
+        status: str,
+    ):
+
+        result = await db.execute(
+
+            select(
+                ModelVersion
+            )
+
+            .where(
+                ModelVersion.status
+                ==
+                status
+            )
+
+            .order_by(
+                ModelVersion.created_at.desc()
+            )
+        )
+
+        return result.scalars().all()
+    
+    async def delete(
+        self,
+        db: AsyncSession,
+        model_version: ModelVersion,
+    ):
+
+        await db.delete(
+            model_version
+        )
 
 
 model_version_repository = (

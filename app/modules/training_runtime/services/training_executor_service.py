@@ -83,6 +83,7 @@ class TrainingExecutorService:
             "tokenizer"
         ] = prepared_tokenizer_configuration
 
+
         runtime = runtime.model_copy(
             update={
                 "runtime_configuration": (
@@ -229,8 +230,8 @@ class TrainingExecutorService:
                             "is invalid."
                         )
 
-                training_data = await (
-        training_data_runtime_service
+        training_data = await (
+            training_data_runtime_service
             .open_snapshot_stream(
                 db=db,
                 dataset_snapshot_id=(
@@ -249,6 +250,13 @@ class TrainingExecutorService:
                 runtime.runtime_class
             )
         )
+
+        if training_runtime is None:
+
+            raise ValueError(
+                f"No runtime registered for "
+                f"{runtime.runtime_class}."
+            )
         execution_context = (
             TrainingExecutionContext(
                 db=db,

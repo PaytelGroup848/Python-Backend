@@ -7,6 +7,14 @@ from app.modules.conversation_runtime.schemas.conversation_context import (
     ConversationMessage,
 )
 
+from app.modules.workspace_runtime.manager.workspace_runtime_manager import (
+    workspace_runtime_manager,
+)
+
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+)
+
 from app.modules.chat.models.conversation import Conversation
 
 
@@ -45,6 +53,31 @@ class ConversationManager:
             organization_id=conversation.organization_id,
 
             messages=context_messages,
+
+        )
+    
+    async def build_workspace_runtime(
+
+        self,
+
+        db: AsyncSession,
+
+        conversation_context: ConversationContext,
+
+    ):
+
+        return await (
+
+            workspace_runtime_manager
+
+            .resolve_runtime(
+
+                db=db,
+
+                workspace_id=
+                    conversation_context.workspace_id,
+
+            )
 
         )
 

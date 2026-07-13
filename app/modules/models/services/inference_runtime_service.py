@@ -6,8 +6,8 @@ from app.modules.models.schemas.inference_runtime_schema import (
     InferenceRuntime
 )
 
-from app.modules.models.repositories.model_deployment_repository import (
-    model_deployment_repository
+from app.modules.models.repositories.model_version_repository import (
+    model_version_repository,
 )
 
 
@@ -23,19 +23,36 @@ class InferenceRuntimeService:
 
     ) -> InferenceRuntime | None:
 
-        deployment = await (
-            model_deployment_repository
-            .get_by_model_version(
+        runtime = await (
+            model_version_repository
+            .get_inference_runtime(
                 db=db,
-                model_version_id=model_version_id
+                model_version_id=model_version_id,
             )
         )
 
-        if deployment is None:
+        if runtime is None:
 
             return None
+        
+        version, model, deployment = runtime
 
         return InferenceRuntime(
+
+            model_id=
+                model.id,
+
+            provider_id=
+                model.provider_id,
+
+            model_code=
+                model.code,
+
+            model_display_name=
+                model.display_name,
+
+            model_version=
+                version.version,
 
             deployment_id=
                 deployment.id,
@@ -59,7 +76,7 @@ class InferenceRuntimeService:
                 deployment.gpu_type,
 
             gpu_count=
-                deployment.gpu_count
+                deployment.gpu_count,
         )
 
 

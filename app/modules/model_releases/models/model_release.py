@@ -34,6 +34,17 @@ class ModelRelease(Base):
         index=True
     )
 
+    model_version_id = Column(
+        Integer,
+        ForeignKey(
+            "model_versions.id",
+            name="fk_model_release_model_version_id",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+        index=True,
+    )
+
     release_version = Column(
         String(100),
         nullable=False

@@ -4,6 +4,8 @@ from pydantic import BaseModel
 class ModelReleaseCreate(
     BaseModel
 ):
+    
+    model_version_id: int
 
     promotion_id: int
 

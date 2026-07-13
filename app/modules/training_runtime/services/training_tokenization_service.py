@@ -102,6 +102,31 @@ class TrainingTokenizationService:
             configuration
         )
 
+        algorithm_configuration = (
+            resolved_configuration.get(
+                "algorithm_configuration"
+            )
+        )
+
+        if algorithm_configuration is None:
+            artifact_runtime_configuration = (
+                resolved_configuration
+            )
+
+        else:
+            if not isinstance(
+                algorithm_configuration,
+                dict,
+            ):
+                raise ValueError(
+                    "'algorithm_configuration' "
+                    "must be an object."
+                )
+
+            artifact_runtime_configuration = (
+                algorithm_configuration
+            )
+
         resolved_artifacts = {}
 
         for artifact in artifacts:
@@ -178,29 +203,52 @@ class TrainingTokenizationService:
                 artifact.mime_type
                 == "application/json"
             ):
-                decoded = json.loads(
-                    payload.decode("utf-8")
-                )
+                try:
+                    decoded_text = (
+                        payload.decode(
+                            "utf-8"
+                        )
+                    )
 
-                if not isinstance(decoded, dict):
+                except UnicodeDecodeError as exc:
+                    raise ValueError(
+                        "Tokenizer JSON artifact "
+                        "must be valid UTF-8."
+                    ) from exc
+
+                try:
+                    decoded = json.loads(
+                        decoded_text
+                    )
+
+                except json.JSONDecodeError as exc:
+                    raise ValueError(
+                        "Tokenizer JSON artifact "
+                        "must contain valid JSON."
+                    ) from exc
+
+                if not isinstance(
+                    decoded,
+                    dict,
+                ):
                     raise ValueError(
                         "Tokenizer JSON artifact "
                         "must contain an object."
                     )
 
-                artifact_runtime_configuration = (
+                decoded_runtime_configuration = (
                     decoded.get(
                         "runtime_configuration"
                     )
                 )
 
                 if isinstance(
-                    artifact_runtime_configuration,
+                    decoded_runtime_configuration,
                     dict,
                 ):
-                    resolved_configuration.update(
+                    artifact_runtime_configuration.update(
                         deepcopy(
-                            artifact_runtime_configuration
+                            decoded_runtime_configuration
                         )
                     )
 
@@ -211,11 +259,38 @@ class TrainingTokenizationService:
                     "normalization",
                 ):
                     if key in decoded:
-                        resolved_configuration[
+                        artifact_runtime_configuration[
                             key
                         ] = deepcopy(
                             decoded[key]
                         )
+
+                tokenizer_format = (
+                    artifact_runtime_configuration.get(
+                        "tokenizer_format"
+                    )
+                )
+
+                configured_artifact_code = (
+                    artifact_runtime_configuration.get(
+                        "artifact_code"
+                    )
+                )
+
+                if (
+                    tokenizer_format
+                    == "TOKENIZERS_JSON"
+                    and
+                    configured_artifact_code
+                    == artifact.artifact_code
+                ):
+                    artifact_runtime_configuration[
+                        "tokenizer_json"
+                    ] = decoded_text
+
+                    artifact_runtime_configuration[
+                        "tokenizer_checksum"
+                    ] = actual_checksum
 
         resolved_configuration[
             "version_lineage"

@@ -7,6 +7,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    func,
     UniqueConstraint
 )
 
@@ -42,6 +43,28 @@ class ModelVersion(Base):
         index=True
     )
 
+    training_job_id = Column(
+        Integer,
+        ForeignKey(
+            "training_jobs.id",
+            name="fk_model_version_training_job_id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    artifact_id = Column(
+        Integer,
+        ForeignKey(
+            "model_artifacts.id",
+            name="fk_model_version_training_job_id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
     version = Column(
         String(100),
         nullable=False,
@@ -58,10 +81,33 @@ class ModelVersion(Base):
         nullable=True
     )
 
+    status = Column(
+        String(50),
+        nullable=False,
+        default="CREATED",
+        server_default="CREATED",
+        index=True,
+    )
+
     is_active = Column(
         Boolean,
+        nullable=False,
         default=True,
-        nullable=False
+        server_default="true",
+    )
+
+    is_release_ready = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+
+    is_deployment_ready = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
     )
 
     source_type = Column(
@@ -80,15 +126,28 @@ class ModelVersion(Base):
         nullable=True
     )
 
+    parent_model_version_id = Column(
+        Integer,
+        ForeignKey(
+            "model_versions.id",
+            name="fk_model_version_training_job_id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
     created_at = Column(
         DateTime,
         default=datetime.utcnow,
-        nullable=False
+        server_default=func.now(),
+        nullable=False,
     )
 
     updated_at = Column(
         DateTime,
         default=datetime.utcnow,
+        server_default=func.now(),
         onupdate=datetime.utcnow,
-        nullable=False
+        nullable=False,
     )

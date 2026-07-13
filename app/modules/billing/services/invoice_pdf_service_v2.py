@@ -16,7 +16,7 @@ from reportlab.platypus import (
 )
 
 
-class InvoicePdfServiceV2:
+class InvoicePdfServiceV2: 
 
     async def generate(
         self,

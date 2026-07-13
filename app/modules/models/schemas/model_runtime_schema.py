@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 
-
 class ModelRuntime(
     BaseModel
 ):
@@ -20,3 +19,19 @@ class ModelRuntime(
     version_display_name: str
 
     is_default: bool
+
+    deployment_id: int
+
+    deployment_name: str
+
+    deployment_type: str
+
+    endpoint_url: str
+
+    max_context_window: int
+
+    gpu_type: str | None
+
+    gpu_count: int | None
+
+    deployment_active: bool

@@ -9,6 +9,8 @@ class ModelPromotionCreate(
 
     evaluation_job_id: int
 
+    release_id: int
+
     promotion_status: str = "PENDING"
 
     target_environment: str = "DEVELOPMENT"

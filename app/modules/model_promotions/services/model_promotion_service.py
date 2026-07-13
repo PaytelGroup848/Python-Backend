@@ -2,6 +2,8 @@ from sqlalchemy.ext.asyncio import (
     AsyncSession
 )
 
+from datetime import datetime
+
 from app.modules.model_promotions.models.model_promotion import (
     ModelPromotion
 )
@@ -26,9 +28,55 @@ class ModelPromotionService:
         data: ModelPromotionCreate
 
     ):
+        existing_promotion = await (
+
+            model_promotion_repository
+
+            .get_by_release(
+
+                db=db,
+
+                release_id=data.release_id,
+
+            )
+
+        )
+
+        if existing_promotion is not None:
+
+            raise ValueError(
+
+                "Promotion already exists "
+
+                "for this release."
+
+            )
 
         promotion = ModelPromotion(
-            **data.model_dump()
+
+            evaluation_job_id=
+                data.evaluation_job_id,
+
+            release_id=
+                data.release_id,
+
+            promotion_status=
+                data.promotion_status,
+
+            target_environment=
+                data.target_environment,
+
+            is_active=
+                data.is_active,
+
+            approved_by=
+                data.approved_by,
+
+            approved_at=
+                data.approved_at,
+
+            approval_reason=
+                data.approval_reason,
         )
 
         promotion = await (
@@ -142,6 +190,207 @@ class ModelPromotionService:
                 promotion=promotion
             )
         )
+    
+    async def approve_promotion(
+
+        self,
+
+        db: AsyncSession,
+
+        promotion_id: int,
+
+        approved_by: str,
+
+        approval_reason: str | None = None,
+
+    ):
+
+        promotion = await (
+
+            model_promotion_repository
+
+            .get_by_id(
+
+                db=db,
+
+                promotion_id=promotion_id,
+
+            )
+
+        )
+
+        if promotion is None:
+
+            raise ValueError(
+
+                "Promotion not found."
+
+            )
+
+        promotion.promotion_status = (
+
+            "APPROVED"
+
+        )
+
+        promotion.approved_by = (
+
+            approved_by
+
+        )
+
+        promotion.approved_at = (
+
+            datetime.utcnow()
+
+        )
+
+        promotion.approval_reason = (
+
+            approval_reason
+
+        )
+
+        return await (
+
+            model_promotion_repository
+
+            .update(
+
+                db=db,
+
+                promotion=promotion,
+
+            )
+
+        )
+    
+    async def reject_promotion(
+
+        self,
+
+        db: AsyncSession,
+
+        promotion_id: int,
+
+        approved_by: str,
+
+        approval_reason: str,
+
+    ):
+
+        promotion = await (
+
+            model_promotion_repository
+
+            .get_by_id(
+
+                db=db,
+
+                promotion_id=promotion_id,
+
+            )
+
+        )
+
+        if promotion is None:
+
+            raise ValueError(
+
+                "Promotion not found."
+
+            )
+
+        promotion.promotion_status = (
+
+            "REJECTED"
+
+        )
+
+        promotion.approved_by = (
+
+            approved_by
+
+        )
+
+        promotion.approved_at = (
+
+            datetime.utcnow()
+
+        )
+
+        promotion.approval_reason = (
+
+            approval_reason
+
+        )
+
+        return await (
+
+            model_promotion_repository
+
+            .update(
+
+                db=db,
+
+                promotion=promotion,
+
+            )
+
+        )
+    
+    async def archive_promotion(
+
+        self,
+
+        db: AsyncSession,
+
+        promotion_id: int,
+
+    ):
+
+        promotion = await (
+
+            model_promotion_repository
+
+            .get_by_id(
+
+                db=db,
+
+                promotion_id=promotion_id,
+
+            )
+
+        )
+
+        if promotion is None:
+
+            raise ValueError(
+
+                "Promotion not found."
+
+            )
+
+        promotion.promotion_status = (
+
+            "ARCHIVED"
+
+        )
+
+        return await (
+
+            model_promotion_repository
+
+            .update(
+
+                db=db,
+
+                promotion=promotion,
+
+            )
+
+        )
+
     
     async def delete_promotion(
 

@@ -53,6 +53,43 @@ class TrainingConfiguration(
         index=True,
     )
 
+    description = Column(
+        String(500),
+        nullable=True,
+    )
+
+    display_name = Column(
+        String(200),
+        nullable=False,
+    )
+
+    created_by = Column(
+        String(150),
+        nullable=False,
+    )
+
+    updated_by = Column(
+        String(150),
+        nullable=True,
+    )
+
+    published_at = Column(
+        DateTime,
+        nullable=True,
+    )
+
+    published_by = Column(
+        String(150),
+        nullable=True,
+    )
+
+    is_system = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+
     version = Column(
         Integer,
         nullable=False,

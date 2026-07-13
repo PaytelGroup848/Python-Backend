@@ -34,6 +34,26 @@ class ModelPromotion(Base):
         index=True
     )
 
+    release_id = Column(
+
+        Integer,
+
+        ForeignKey(
+
+            "model_releases.id",
+
+            name="fk_model_promotion_release_id",
+
+            ondelete="RESTRICT",
+
+        ),
+
+        nullable=False,
+
+        index=True,
+
+    )
+
     promotion_status = Column(
         String(50),
         nullable=False,

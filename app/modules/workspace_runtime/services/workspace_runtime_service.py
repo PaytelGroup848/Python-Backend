@@ -35,6 +35,13 @@ from app.modules.workspace_runtime.schemas.workspace_runtime_schema import (
     WorkspaceRuntime
 )
 
+from app.modules.models.repositories.model_deployment_repository import (
+    model_deployment_repository,
+)
+
+from app.modules.models.repositories.model_version_repository import (
+    model_version_repository,
+)
 
 class WorkspaceRuntimeService:
 
@@ -101,6 +108,54 @@ class WorkspaceRuntimeService:
                 detail="Model release not found"
 
             )
+        
+        model_version = await (
+
+            model_version_repository
+
+            .get_by_id(
+
+                db=db,
+
+                model_version_id=model_release.model_version_id,
+
+            )
+
+        )
+
+        if model_version is None:
+
+            raise HTTPException(
+
+                status_code=status.HTTP_404_NOT_FOUND,
+
+                detail="Model version not found",
+
+            )
+        
+        deployment = await (
+
+            model_deployment_repository
+
+            .get_by_model_version(
+
+                db=db,
+
+                model_version_id=model_version.id,
+
+            )
+
+        )
+
+        if deployment is None:
+
+            raise HTTPException(
+
+                status_code=status.HTTP_404_NOT_FOUND,
+
+                detail="Model deployment not found",
+
+            )
 
         workspace_assistant = await (
             workspace_assistant_repository
@@ -158,21 +213,41 @@ class WorkspaceRuntimeService:
 
         return WorkspaceRuntime(
 
-            workspace_id=workspace.id,
+            workspace_id=
+                workspace.id,
 
-            workspace_name=workspace.name,
+            workspace_name=
+                workspace.name,
 
-            workspace_slug=workspace.slug,
+            workspace_slug=
+                workspace.slug,
 
-            model_release_id=model_release.id,
+            model_release_id=
+                model_release.id,
 
-            assistant_id=assistant_id,
+            model_version_id=
+                model_version.id,
 
-            knowledge_base_ids=knowledge_base_ids,
+            deployment_id=
+                deployment.id,
 
-            tool_ids=tool_ids,
+            deployment_name=
+                deployment.deployment_name,
 
-            system_prompt=system_prompt
+            deployment_type=
+                deployment.deployment_type,
+
+            assistant_id=
+                assistant_id,
+
+            knowledge_base_ids=
+                knowledge_base_ids,
+
+            tool_ids=
+                tool_ids,
+
+            system_prompt=
+                system_prompt,
 
         )
 

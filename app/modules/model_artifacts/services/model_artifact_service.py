@@ -14,6 +14,14 @@ from app.modules.model_artifacts.schemas.model_artifact_create import (
     ModelArtifactCreate
 )
 
+from app.modules.training.repositories.training_job_repository import (
+    training_job_repository,
+)
+
+from app.shared.exceptions.business_exception import (
+    BusinessException,
+)
+
 
 class ModelArtifactService:
 
@@ -26,6 +34,41 @@ class ModelArtifactService:
         data: ModelArtifactCreate
 
     ):
+        
+        training_job = await (
+            training_job_repository
+            .get_by_id(
+                db=db,
+                training_job_id=data.training_job_id,
+            )
+        )
+
+        if training_job is None:
+
+            raise BusinessException(
+                "Training job not found."
+            )
+        
+        if (
+            data.artifact_type
+            ==
+            "FINAL_MODEL"
+        ):
+
+            existing_artifact = await (
+                model_artifact_repository
+                .get_latest_by_type(
+                    db=db,
+                    training_job_id=data.training_job_id,
+                    artifact_type="FINAL_MODEL",
+                )
+            )
+
+            if existing_artifact is not None:
+
+                raise BusinessException(
+                    "Final model artifact already exists."
+                )
 
         artifact = ModelArtifact(
             **data.model_dump()
@@ -38,6 +81,7 @@ class ModelArtifactService:
                 artifact=artifact
             )
         )
+        await db.commit()
 
         return artifact
 
@@ -146,6 +190,8 @@ class ModelArtifactService:
             )
         )
 
+        await db.commit()
+
         return True
     
     async def update_artifact(
@@ -158,13 +204,43 @@ class ModelArtifactService:
 
     ):
 
-        return await (
+        artifact = await (
             model_artifact_repository
             .update(
                 db=db,
                 artifact=artifact
             )
         )
+
+        await db.commit()
+
+        return artifact
+    
+    async def register_training_output(
+
+        self,
+
+        db: AsyncSession,
+
+        artifact: ModelArtifact,
+
+    ):
+
+        artifact.is_active = True
+
+        artifact.is_verified = True
+
+        artifact = await (
+            model_artifact_repository
+            .update(
+                db=db,
+                artifact=artifact,
+            )
+        )
+
+        await db.commit()
+
+        return artifact
 
 
 model_artifact_service = (

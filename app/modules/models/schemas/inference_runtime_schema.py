@@ -4,6 +4,16 @@ from pydantic import BaseModel
 class InferenceRuntime(
     BaseModel
 ):
+    
+    model_id: int
+
+    provider_id: int
+
+    model_code: str
+
+    model_display_name: str
+
+    model_version: str
 
     deployment_id: int
 

@@ -46,6 +46,10 @@ from app.modules.training_runtime.services.training_checkpoint_service import (
     training_checkpoint_service,
 )
 
+from app.modules.training.services.training_progress_service import (
+    training_progress_service,
+)
+
 
 class NativeTrainingRuntime(
     BaseTrainingRuntime
@@ -191,6 +195,16 @@ class NativeTrainingRuntime(
                 model=model,
             )
         )
+
+        await (
+            training_progress_service
+            .on_training_started(
+                runtime=runtime,
+                context=context,
+            )
+        )
+
+        await context.db.commit()
 
         processed_record_count = 0
         processed_batch_count = 0
@@ -365,6 +379,23 @@ class NativeTrainingRuntime(
                     ),
                 )
             )
+
+            await (
+                training_progress_service
+                .on_batch_completed(
+                    runtime=runtime,
+                    context=context,
+                    epoch=0,
+                    step=optimizer_step_count,
+                    global_step=optimizer_step_count,
+                    current_loss=None,
+                    learning_rate=None,
+                    processed_samples=processed_record_count,
+                    processed_tokens=processed_token_count,
+                )
+            )
+
+            await context.db.commit()
 
         last_published_checkpoint_step = None
 
@@ -584,6 +615,23 @@ class NativeTrainingRuntime(
                 formatted_samples
             )
 
+            await (
+                training_progress_service
+                .on_batch_completed(
+                    runtime=runtime,
+                    context=context,
+                    epoch=0,
+                    step=optimizer_step_count,
+                    global_step=optimizer_step_count,
+                    current_loss=float(batch_loss),
+                    learning_rate=None,
+                    processed_samples=processed_record_count,
+                    processed_tokens=processed_token_count,
+                )
+            )
+
+            await context.db.commit()
+
             if (
                 checkpoint_enabled
                 and
@@ -644,6 +692,19 @@ class NativeTrainingRuntime(
                     )
 
                     await context.db.commit()
+
+                    await (
+                        training_progress_service
+                        .on_checkpoint_saved(
+                            runtime=runtime,
+                            context=context,
+                            checkpoint_path=runtime.artifact_directory,
+                        )
+                    )
+
+                    await context.db.commit()
+
+
 
                     last_published_checkpoint_step = (
                         current_step_count
@@ -787,6 +848,16 @@ class NativeTrainingRuntime(
                 "does not match formatted "
                 "training sample count."
             )
+        
+        await (
+            training_progress_service
+            .on_training_completed(
+                runtime=runtime,
+                context=context,
+            )
+        )
+
+        await context.db.commit()
 
         return TrainingResult(
             success=True,

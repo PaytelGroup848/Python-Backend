@@ -28,7 +28,33 @@ class ModelReleaseService:
     ):
 
         release = ModelRelease(
-            **data.model_dump()
+
+            promotion_id=
+                data.promotion_id,
+
+            model_version_id=
+                data.model_version_id,
+
+            release_version=
+                data.release_version,
+
+            release_name=
+                data.release_name,
+
+            release_notes=
+                data.release_notes,
+
+            checksum=
+                data.checksum,
+
+            release_status=
+                data.release_status,
+
+            is_default=
+                data.is_default,
+
+            created_by=
+                data.created_by,
         )
 
         release = await (
@@ -141,6 +167,102 @@ class ModelReleaseService:
                 db=db,
                 release=release
             )
+        )
+    
+    async def publish_release(
+
+        self,
+
+        db: AsyncSession,
+
+        release_id: int,
+
+    ):
+
+        release = await (
+
+            model_release_repository
+
+            .get_by_id(
+
+                db=db,
+
+                release_id=release_id,
+
+            )
+
+        )
+
+        if release is None:
+
+            raise ValueError(
+                "Release not found."
+            )
+
+        release.release_status = (
+            "PUBLISHED"
+        )
+
+        return await (
+
+            model_release_repository
+
+            .update(
+
+                db=db,
+
+                release=release,
+
+            )
+
+        )
+    
+    async def archive_release(
+
+        self,
+
+        db: AsyncSession,
+
+        release_id: int,
+
+    ):
+
+        release = await (
+
+            model_release_repository
+
+            .get_by_id(
+
+                db=db,
+
+                release_id=release_id,
+
+            )
+
+        )
+
+        if release is None:
+
+            raise ValueError(
+                "Release not found."
+            )
+
+        release.release_status = (
+            "ARCHIVED"
+        )
+
+        return await (
+
+            model_release_repository
+
+            .update(
+
+                db=db,
+
+                release=release,
+
+            )
+
         )
     
     async def delete_release(

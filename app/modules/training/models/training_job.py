@@ -1,13 +1,14 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     Column,
-    Integer,
-    String,
     DateTime,
     ForeignKey,
-    Boolean,
-    func
+    Integer,
+    Numeric,
+    String,
+    func,
 )
 
 from app.db.database import Base
@@ -152,6 +153,78 @@ class TrainingJob(Base):
         DateTime,
         nullable=True
     )
+
+    queued_at = Column(
+        DateTime,
+        nullable=True,
+    )
+
+    failed_at = Column(
+        DateTime,
+        nullable=True,
+    )
+
+    failure_reason = Column(
+        String(4000),
+        nullable=True,
+    )
+
+    current_epoch = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    current_step = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    global_step = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    processed_samples = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    processed_tokens = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    current_loss = Column(
+        Numeric(18, 8),
+        nullable=True,
+    )
+
+    learning_rate = Column(
+        Numeric(18, 12),
+        nullable=True,
+    )
+
+    last_checkpoint_path = Column(
+        String(1000),
+        nullable=True,
+    )
+
+    last_checkpoint_at = Column(
+        DateTime,
+        nullable=True,
+    )
+
+
 
     created_at = Column(
         DateTime,

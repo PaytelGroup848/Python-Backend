@@ -111,6 +111,34 @@ class ModelReleaseRepository:
 
         return result.scalar_one_or_none()
     
+    async def get_by_model_version(
+
+        self,
+
+        db: AsyncSession,
+
+        model_version_id: int
+
+    ):
+
+        result = await db.execute(
+
+            select(
+                ModelRelease
+            )
+
+            .where(
+                ModelRelease.model_version_id
+                ==
+                model_version_id
+            )
+
+        )
+
+        return result.scalar_one_or_none()
+    
+    
+    
     async def get_default_release(
 
         self,

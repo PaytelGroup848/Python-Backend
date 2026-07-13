@@ -20,6 +20,10 @@ from app.modules.models.services.model_runtime_service import (
     model_runtime_service
 )
 
+from app.modules.models.services.inference_runtime_service import (
+    inference_runtime_service,
+)
+
 
 class AssistantRuntimeService:
 
@@ -73,11 +77,38 @@ class AssistantRuntimeService:
         model_runtime = await (
             model_runtime_service
             .load_runtime(
-            db=db,
-            assistant_id=assistant_id
-        )
+                db=db,
+                assistant_id=assistant_id
+            )
         
-    )
+        )
+
+        inference_runtime = None
+
+        if (
+
+            model_runtime is not None
+
+            and
+
+            model_runtime.model_version_id is not None
+
+        ):
+
+            inference_runtime = await (
+
+                inference_runtime_service
+
+                .load_runtime(
+
+                    db=db,
+
+                    model_version_id=
+                        model_runtime.model_version_id,
+
+                )
+
+            )
 
         return AssistantRuntime(
 
@@ -131,46 +162,61 @@ class AssistantRuntimeService:
                 if model_runtime
                 else None,
 
+            deployment_id=
+                inference_runtime.deployment_id
+                if inference_runtime
+                else None,
+
+            deployment_name=
+                inference_runtime.deployment_name
+                if inference_runtime
+                else None,
+
+            deployment_type=
+                inference_runtime.deployment_type
+                if inference_runtime
+                else None,
+
             temperature=
                 config.temperature
                 if config
-                else 0.2,
+                else None,
 
             top_p=
                 config.top_p
                 if config
-                else 0.95,
+                else None,
 
             max_tokens=
                 config.max_tokens
                 if config
-                else 4000,
+                else None,
 
             context_window=
                 config.context_window
                 if config
-                else 8000,
+                else None,
 
             memory_enabled=
                 config.memory_enabled
                 if config
-                else True,
+                else None,
 
             rag_enabled=
                 config.rag_enabled
                 if config
-                else True,
+                else None,
 
             cag_enabled=
                 config.cag_enabled
                 if config
-                else False,
+                else None,
 
             tool_calling_enabled=
                 config.tool_calling_enabled
                 if config
-                else False
-       )
+                else None
+            )
 
 
 assistant_runtime_service = (

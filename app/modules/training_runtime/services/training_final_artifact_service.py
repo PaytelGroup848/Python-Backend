@@ -29,7 +29,7 @@ from app.modules.training_runtime.schemas.training_runtime_schema import (
 
 class TrainingFinalArtifactService:
 
-    FORMAT_VERSION = 1
+    
 
     async def publish(
         self,
@@ -155,6 +155,31 @@ class TrainingFinalArtifactService:
                 "Final artifact configuration must "
                 "define 'artifact_name_template'."
             )
+        
+        format_version = (
+            configuration.get(
+                "format_version"
+            )
+        )
+
+        if (
+            isinstance(
+                format_version,
+                bool,
+            )
+            or
+            not isinstance(
+                format_version,
+                int,
+            )
+            or
+            format_version <= 0
+        ):
+            raise ValueError(
+                "Final artifact configuration must "
+                "define a positive integer "
+                "'format_version'."
+            )
 
         object_key = (
             object_key_template.format(
@@ -226,7 +251,7 @@ class TrainingFinalArtifactService:
 
         payload = {
             "format_version": (
-                self.FORMAT_VERSION
+                format_version
             ),
             "lineage": {
                 "training_job_id": (
@@ -281,6 +306,11 @@ class TrainingFinalArtifactService:
             "strategy_metadata": dict(
                 strategy_metadata
             ),
+
+            "artifact_metadata": {
+                "artifact_type": artifact_type.strip(),
+                "format_version": format_version,
+            },
         }
 
         buffer = io.BytesIO()
@@ -312,7 +342,7 @@ class TrainingFinalArtifactService:
                 ),
                 metadata={
                     "format_version": (
-                        self.FORMAT_VERSION
+                        format_version
                     ),
                     "artifact_type": (
                         artifact_type.strip()
@@ -358,7 +388,7 @@ class TrainingFinalArtifactService:
                 artifact_type.strip()
             ),
             artifact_version=(
-                self.FORMAT_VERSION
+                format_version
             ),
             storage_provider=(
                 storage_object.storage_provider
@@ -373,11 +403,16 @@ class TrainingFinalArtifactService:
             ),
             metadata_json={
                 "format_version": (
-                    self.FORMAT_VERSION
+                    format_version
                 ),
                 "lineage": (
                     payload["lineage"]
                 ),
+
+                "model_version_reference": {
+                    "id": None,
+                    "version": None,
+                },
                 "strategy_metadata": dict(
                     strategy_metadata
                 ),
@@ -398,13 +433,17 @@ class TrainingFinalArtifactService:
             ),
         )
 
-        return await (
+        artifact = await (
             model_artifact_repository
             .create(
                 db=db,
                 artifact=artifact,
             )
         )
+
+        
+
+        return artifact
 
 
 training_final_artifact_service = (

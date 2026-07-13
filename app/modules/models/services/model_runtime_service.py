@@ -10,6 +10,10 @@ from app.modules.models.repositories.model_version_repository import (
     model_version_repository
 )
 
+from app.modules.models.repositories.model_deployment_repository import (
+    model_deployment_repository,
+)
+
 
 class ModelRuntimeService:
 
@@ -36,6 +40,21 @@ class ModelRuntimeService:
 
         mapping, version, model = runtime
 
+        deployment = await (
+            model_deployment_repository
+            .get_by_model_version(
+                db=db,
+                model_version_id=version.id,
+            )
+        )
+
+        if deployment is None:
+
+            raise ValueError(
+                "No active deployment found "
+                "for model version."
+            )
+
         return ModelRuntime(
 
             model_id=
@@ -59,8 +78,32 @@ class ModelRuntimeService:
             version_display_name=
                 version.display_name,
 
+            deployment_id=
+                deployment.id,
+
+            deployment_name=
+                deployment.deployment_name,
+
+            deployment_type=
+                deployment.deployment_type,
+
+            endpoint_url=
+                deployment.endpoint_url,
+
+            max_context_window=
+                deployment.max_context_window,
+
+            gpu_type=
+                deployment.gpu_type,
+
+            gpu_count=
+                deployment.gpu_count,
+
+            deployment_active=
+                deployment.is_active,
+
             is_default=
-                mapping.is_default
+                mapping.is_default,
         )
 
 

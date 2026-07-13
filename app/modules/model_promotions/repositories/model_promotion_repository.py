@@ -89,6 +89,32 @@ class ModelPromotionRepository:
 
         return result.scalar_one_or_none()
     
+    async def get_by_release(
+
+        self,
+
+        db: AsyncSession,
+
+        release_id: int,
+
+    ):
+
+        result = await db.execute(
+
+            select(
+                ModelPromotion
+            )
+
+            .where(
+                ModelPromotion.release_id
+                ==
+                release_id
+            )
+
+        )
+
+        return result.scalar_one_or_none()
+    
     async def get_latest(
 
         self,

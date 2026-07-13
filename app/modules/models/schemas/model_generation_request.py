@@ -7,6 +7,6 @@ class ModelGenerationRequest(
 
     prompt: str
 
-    temperature: float = 0.2
+    temperature: float | None = None
 
-    max_tokens: int = 4000
+    max_tokens: int | None = None

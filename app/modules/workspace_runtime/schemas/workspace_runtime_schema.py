@@ -13,6 +13,14 @@ class WorkspaceRuntime(
 
     model_release_id: int
 
+    model_version_id: int
+
+    deployment_id: int
+
+    deployment_name: str
+
+    deployment_type: str
+
     knowledge_base_ids: list[int]
 
     assistant_id: int | None = None
