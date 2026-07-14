@@ -39,6 +39,14 @@ from app.modules.inference_runtime.schemas.inference_request import (
     InferenceRequest
 )
 
+from app.modules.assistants.services.assistant_runtime_service import (
+    assistant_runtime_service,
+)
+
+from app.modules.conversation_execution_runtime.manager.conversation_execution_runtime_manager import (
+    conversation_execution_runtime_manager,
+)
+
 class ChatPipeline:
 
     async def execute(
@@ -116,6 +124,33 @@ class ChatPipeline:
 
         )
 
+
+        assistant_runtime = await (
+
+            assistant_runtime_service.load_runtime(
+
+                db=db,
+
+                assistant_id=workspace_runtime.assistant_id,
+
+            )
+
+        )
+
+        execution_runtime = await (
+
+            conversation_execution_runtime_manager.resolve(
+
+                db=db,
+
+                conversation=conversation_context,
+
+                workspace=workspace_runtime,
+
+            )
+
+        )
+
         #
         # STEP 4
         # Resolve Model Runtime
@@ -132,6 +167,18 @@ class ChatPipeline:
             )
 
         )
+
+        if assistant_runtime.model_version_id is None:
+
+            raise ValueError(
+                "Assistant model version is not configured."
+            )
+
+        if execution_runtime.inference is None:
+
+            raise ValueError(
+                "Inference runtime not found."
+            )
 
         #
         # STEP 5

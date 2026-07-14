@@ -1,15 +1,31 @@
-from pydantic import BaseModel
+from pydantic import (
+    BaseModel,
+    Field,
+)
 
 
 class DatasetCreate(
     BaseModel
 ):
 
-    name: str
+    corpus_id: int = Field(
+        gt=0,
+    )
 
-    domain: str
+    name: str = Field(
+        min_length=1,
+        max_length=255,
+    )
 
-    version: str
+    domain: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+
+    version: str = Field(
+        min_length=1,
+        max_length=50,
+    )
 
     description: str | None = None
 

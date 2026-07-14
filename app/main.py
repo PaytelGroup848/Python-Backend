@@ -204,6 +204,10 @@ from app.modules.dataset_builder.routes import (
     dataset_builder_router
 )
 
+from app.modules.datasets.routes.dataset_route import (
+    router as dataset_router,
+)
+
 
 logging.basicConfig(
     level=logging.INFO
@@ -523,6 +527,10 @@ app.include_router(
 )   
 app.include_router(
     dataset_builder_router
+)
+
+app.include_router(
+    dataset_router
 )
 
 # =========================

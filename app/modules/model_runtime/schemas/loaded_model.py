@@ -29,3 +29,18 @@ class LoadedModel:
     model: Any = field(default=None, repr=False)
 
     tokenizer: Any = field(default=None, repr=False)
+
+    artifact_metadata: dict = field(
+        default_factory=dict,
+        repr=False,
+    )
+
+    strategy_metadata: dict = field(
+        default_factory=dict,
+        repr=False,
+    )
+ 
+    lineage: dict = field(
+        default_factory=dict,
+        repr=False,
+    )
