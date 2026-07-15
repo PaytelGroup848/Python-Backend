@@ -14,8 +14,100 @@ from app.modules.data_pipelines.repositories.data_pipeline_repository import (
     data_pipeline_repository
 )
 
+from app.modules.dataset_builder.schemas.dataset_builder_response import (
+    DatasetBuilderResponse,
+    DatasetBuilderSummary,
+    DatasetBuilderConfiguration,
+)
+
+from app.modules.dataset_builder.schemas.dataset_build_response import (
+    DatasetBuildResponse,
+)
+
 
 class DatasetBuilderService:
+
+    async def get_builder(
+        self,
+        db: AsyncSession,
+        dataset_id: int,
+    ):
+
+        dataset = await (
+            dataset_repository.get_by_id(
+                db,
+                dataset_id,
+            )
+        )
+
+        if dataset is None:
+
+            raise ValueError(
+                "Dataset not found."
+            )
+
+        total_records = await (
+            dataset_record_repository.count_by_dataset(
+                db=db,
+                dataset_id=dataset_id,
+            )
+        )
+
+        summary = DatasetBuilderSummary(
+
+            dataset_id=dataset.id,
+
+            dataset_name=dataset.name,
+
+            dataset_version=dataset.version,
+
+            dataset_status=dataset.status,
+
+            total_records=total_records,
+
+            valid_records=total_records,
+
+            invalid_records=0,
+
+            duplicate_records=0,
+
+            build_status="READY",
+
+            last_build_at=None,
+
+            created_at=dataset.created_at,
+
+            updated_at=dataset.updated_at,
+
+        )
+
+        configuration = DatasetBuilderConfiguration(
+
+            dataset_id=dataset.id,
+
+            train_split=0.8,
+
+            validation_split=0.1,
+
+            test_split=0.1,
+
+            shuffle=True,
+
+            random_seed=None,
+
+        )
+
+        return DatasetBuilderResponse(
+
+            summary=summary,
+
+            configuration=configuration,
+
+            validation=[],
+
+            preview=[],
+
+        )
 
     async def build_dataset(
         self,
@@ -50,52 +142,39 @@ class DatasetBuilderService:
                 "Pipeline not found"
             )
 
-        records = (
-            await dataset_record_repository.list_by_dataset(
-                db,
-                dataset_id
+        total_records = await (
+            dataset_record_repository.count_by_dataset(
+                db=db,
+                dataset_id=dataset_id,
             )
         )
 
-        total_records = len(
-            records
-        )
 
-        processed_records = 0
+        processed_records = total_records
 
         failed_records = 0
 
-        for record in records:
-
-            try:
-
-                processed_records += 1
-
-            except Exception:
-
-                failed_records += 1
-
-        dataset.status = "ready"
 
         await dataset_repository.update(
             db,
             dataset
         )
 
-        return {
+        return DatasetBuildResponse(
 
-            "dataset_id": dataset_id,
+            dataset_id=dataset_id,
 
-            "pipeline_id": pipeline_id,
+            pipeline_id=pipeline_id,
 
-            "total_records": total_records,
+            total_records=total_records,
 
-            "processed_records": processed_records,
+            processed_records=processed_records,
 
-            "failed_records": failed_records,
+            failed_records=failed_records,
 
-            "status": "completed"
-        }
+            status="completed",
+
+        )
 
 
 dataset_builder_service = (

@@ -86,29 +86,133 @@ class DatasetRecordRepository:
 
         return result.scalar_one_or_none()
 
-    async def list_by_dataset(
+    async def list_dataset_records(
 
         self,
 
         db: AsyncSession,
 
-        dataset_id: int
+        dataset_id: int,
+
+        page: int,
+
+        page_size: int,
+
+        search: str | None,
+
+        status: str | None,
 
     ):
 
-        result = await db.execute(
+        query = (
 
             select(
+
                 DatasetRecord
+
             )
+
             .where(
+
                 DatasetRecord.dataset_id
+
                 ==
+
                 dataset_id
+
             )
+
         )
 
-        return result.scalars().all()
+        if search:
+
+            search_text = f"%{search}%"
+
+            query = query.where(
+
+                DatasetRecord.input_text.ilike(search_text)
+
+                |
+
+                DatasetRecord.output_text.ilike(search_text)
+
+            )
+
+        if status:
+
+            query = query.where(
+
+                DatasetRecord.status
+
+                ==
+
+                status
+
+            )
+
+        count_query = (
+
+            select(
+
+                func.count()
+
+            )
+
+            .select_from(
+
+                query.subquery()
+
+            )
+
+        )
+
+        total_result = await db.execute(
+
+            count_query
+
+        )
+
+        total = int(
+
+            total_result.scalar_one()
+
+        )
+
+        result = await db.execute(
+
+            query
+
+            .order_by(
+
+                DatasetRecord.id.desc()
+
+            )
+
+            .offset(
+
+                (page - 1)
+
+                *
+
+                page_size
+
+            )
+
+            .limit(
+
+                page_size
+
+            )
+
+        )
+
+        return (
+
+            result.scalars().all(),
+
+            total,
+
+        )
     
 
     async def list_batch_by_dataset(

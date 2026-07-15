@@ -12,6 +12,10 @@ from app.modules.dataset_records.schemas.dataset_record_create import (
     DatasetRecordCreate
 )
 
+from app.modules.dataset_records.schemas.dataset_record_list_response import (
+    DatasetRecordListResponse,
+)
+
 from app.modules.dataset_records.repositories.dataset_record_repository import (
     dataset_record_repository
 )
@@ -141,22 +145,65 @@ class DatasetRecordService:
             )
         )
 
-    async def list_by_dataset(
+    async def list_dataset_records(
 
         self,
 
         db: AsyncSession,
 
-        dataset_id: int
+        dataset_id: int,
+
+        page: int,
+
+        page_size: int,
+
+        search: str | None,
+
+        status: str | None,
 
     ):
 
-        return await (
+        items, total = await (
+
             dataset_record_repository
-            .list_by_dataset(
-                db,
-                dataset_id
+            .list_dataset_records(
+
+                db=db,
+
+                dataset_id=dataset_id,
+
+                page=page,
+
+                page_size=page_size,
+
+                search=search,
+
+                status=status,
+
             )
+
+        )
+
+        return DatasetRecordListResponse(
+
+            items=items,
+
+            total=total,
+
+            page=page,
+
+            page_size=page_size,
+
+            total_pages=(
+
+                (total + page_size - 1)
+
+                //
+
+                page_size
+
+            ),
+
         )
 
 
