@@ -14,6 +14,10 @@ from app.modules.data_pipelines.repositories.data_pipeline_repository import (
     data_pipeline_repository
 )
 
+from app.modules.pipeline_runtime.services.pipeline_runtime_service import (
+    pipeline_runtime_service,
+)
+
 from app.modules.dataset_builder.schemas.dataset_builder_response import (
     DatasetBuilderResponse,
     DatasetBuilderSummary,
@@ -149,16 +153,31 @@ class DatasetBuilderService:
             )
         )
 
+        pipeline_result = await (
+            pipeline_runtime_service.execute_pipeline(
+                db=db,
+                dataset_id=dataset.id,
+                pipeline_id=pipeline.id,
+            )
+        )
 
-        processed_records = total_records
+        processed_records = (
+            pipeline_result.processed_records
+        )
 
-        failed_records = 0
+        failed_records = (
+            pipeline_result.failed_records
+        )
 
+        dataset.status = "READY"
 
         await dataset_repository.update(
-            db,
-            dataset
+            db=db,
+            entity=dataset,
         )
+
+
+        
 
         return DatasetBuildResponse(
 

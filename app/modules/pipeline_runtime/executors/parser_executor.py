@@ -75,9 +75,8 @@ class ParserExecutor(
                 )
             )
 
-            output = (
-                parsed_document
-                .model_dump()
+            output = parsed_document.model_dump(
+                exclude_none=True
             )
 
             source_metadata = deepcopy(
