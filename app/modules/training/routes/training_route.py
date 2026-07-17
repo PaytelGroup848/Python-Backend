@@ -96,7 +96,152 @@ async def get_training_job(
         )
     )
 
+# =====================================
+# List Training Jobs
+# =====================================
 
+@router.get("/jobs")
+async def list_training_jobs(
+
+    db: AsyncSession = Depends(
+        get_db
+    ),
+
+):
+
+    return await (
+        training_service
+        .list_training_jobs(
+            db=db,
+        )
+    )
+
+
+# =====================================
+# List Training Jobs By Status
+# =====================================
+
+@router.get(
+    "/jobs/status/{status}"
+)
+async def list_training_jobs_by_status(
+
+    status: str,
+
+    db: AsyncSession = Depends(
+        get_db
+    ),
+
+):
+
+    return await (
+
+        training_service
+        .list_training_jobs_by_status(
+
+            db=db,
+
+            status=status,
+
+        )
+
+    )
+
+# =====================================
+# List Training Jobs By Dataset
+# =====================================
+
+@router.get(
+    "/jobs/dataset/{dataset_id}"
+)
+async def list_training_jobs_by_dataset(
+
+    dataset_id: int,
+
+    db: AsyncSession = Depends(
+        get_db
+    ),
+
+):
+
+    return await (
+
+        training_service
+        .list_training_jobs_by_dataset(
+
+            db=db,
+
+            dataset_id=dataset_id,
+
+        )
+
+    )
+
+# =====================================
+# List Training Jobs By Model
+# =====================================
+
+@router.get(
+    "/jobs/model/{base_model_id}"
+)
+async def list_training_jobs_by_model(
+
+    base_model_id: int,
+
+    db: AsyncSession = Depends(
+        get_db
+    ),
+
+):
+
+    return await (
+
+        training_service
+        .list_training_jobs_by_model(
+
+            db=db,
+
+            base_model_id=base_model_id,
+
+        )
+
+    )
+
+# =====================================
+# Delete Training Job
+# =====================================
+
+@router.delete(
+    "/jobs/{training_job_id}"
+)
+async def delete_training_job(
+
+    training_job_id: int,
+
+    db: AsyncSession = Depends(
+        get_db
+    ),
+
+):
+
+    deleted = await (
+
+        training_service
+        .delete_training_job(
+
+            db=db,
+
+            training_job_id=training_job_id,
+
+        )
+
+    )
+
+    return {
+
+        "success": deleted
+
+    }
 # =====================================
 # Dispatch Training Job
 # =====================================
@@ -238,41 +383,6 @@ async def update_training_configuration(
 
     return configuration
 
-# =====================================
-# Update Training Configuration
-# =====================================
-
-@router.put(
-    "/configurations/{configuration_id}"
-)
-async def update_training_configuration(
-
-    configuration_id: int,
-
-    data: TrainingConfigurationUpdate,
-
-    db: AsyncSession = Depends(
-        get_db
-    ),
-
-):
-
-    configuration = await (
-        training_configuration_service
-        .update_configuration(
-            db=db,
-            configuration_id=configuration_id,
-            data=data,
-        )
-    )
-
-    await db.commit()
-
-    await db.refresh(
-        configuration
-    )
-
-    return configuration
 
 # =====================================
 # Clone Training Configuration

@@ -1,5 +1,6 @@
 from copy import deepcopy
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -38,7 +39,12 @@ class ParserExecutor(
             {}
         )
 
-        outputs: list[dict] = []
+        outputs: list[
+            dict[
+                str,
+                Any,
+            ]
+        ] = []
 
         for input_record in context.inputs:
 
@@ -69,12 +75,15 @@ class ParserExecutor(
                 )
             )
 
-            output = deepcopy(
+            output = (
                 parsed_document
+                .model_dump()
             )
 
             source_metadata = deepcopy(
-                output.get("metadata")
+                output.get(
+                    "metadata"
+                )
                 or
                 {}
             )
@@ -83,31 +92,39 @@ class ParserExecutor(
                 "source_path"
             ] = file_path_value
 
-            if input_record.get("size_bytes") is not None:
+            if input_record.get(
+                "size_bytes"
+            ) is not None:
+
                 source_metadata[
                     "source_size_bytes"
                 ] = input_record[
                     "size_bytes"
                 ]
 
-            output["metadata"] = (
-                source_metadata
-            )
+            output[
+                "metadata"
+            ] = source_metadata
 
             if context.dataset is not None:
-                output["dataset_id"] = (
+
+                output[
+                    "dataset_id"
+                ] = (
                     context.dataset.id
                 )
 
             if context.corpus_source is not None:
-                output["corpus_source_id"] = (
+
+                output[
+                    "corpus_source_id"
+                ] = (
                     context.corpus_source.id
                 )
 
             outputs.append(
                 output
             )
-
         return ExecutorResult(
             metrics={
                 "input_count": len(

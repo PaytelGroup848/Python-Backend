@@ -1,16 +1,20 @@
 from datetime import datetime
-from sqlalchemy import UniqueConstraint
+
 from sqlalchemy import (
     Column,
     Integer,
     String,
     Text,
     DateTime,
-    ForeignKey
+    ForeignKey,
+    UniqueConstraint,
+)
+
+from sqlalchemy.orm import (
+    relationship,
 )
 
 from app.db.database import Base
-
 
 class Dataset(Base):
 
@@ -84,6 +88,12 @@ class Dataset(Base):
         DateTime,
         default=datetime.utcnow,
         nullable=False
+    )
+
+    uploads = relationship(
+        "DatasetUpload",
+        back_populates="dataset",
+        cascade="all, delete-orphan",
     )
 
     updated_at = Column(

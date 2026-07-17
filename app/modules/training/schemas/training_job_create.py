@@ -44,3 +44,4 @@ class TrainingJobCreate(
         default=None,
         max_length=255,
     )
+    
