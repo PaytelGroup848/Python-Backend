@@ -10,9 +10,7 @@ from app.modules.ingestion.schemas.parsed_document import (
     ParsedDocument
 )
 
-from app.modules.ingestion.services.tokenizer_execution_service import (
-    tokenizer_execution_service
-)
+
 
 from app.modules.pipeline_runtime.schemas.chunk_configuration import (
     ChunkConfiguration
@@ -108,17 +106,7 @@ class RecursiveChunker(
 
             if content:
 
-                token_count = (
-                    await tokenizer_execution_service.count_tokens(
-
-                        text=content,
-
-                        tokenizer_code=configuration.tokenizer_code,
-
-                        configuration=configuration
-
-                    )
-                )
+                token_count = 0
 
                 chunks.append(
 

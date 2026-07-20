@@ -56,11 +56,20 @@ class ChunkExecutor(
 
         for input_record in context.inputs:
 
-            parsed_document = (
-                ParsedDocument.model_validate(
+            if not input_record:
+                continue
+
+            try:
+
+                parsed_document = ParsedDocument.model_validate(
                     input_record
                 )
-            )
+
+            except Exception as ex:
+
+                raise ValueError(
+                    f"Invalid parsed document: {ex}"
+                )
 
             chunks = await (
                 chunk_execution_service.execute(
@@ -70,9 +79,15 @@ class ChunkExecutor(
                 )
             )
 
+            if not chunks:
+                continue
+
             total_chunks += len(chunks)
 
             for chunk in chunks:
+
+                if not chunk.content.strip():
+                    continue
 
                 output = chunk.model_dump()
 
@@ -85,6 +100,14 @@ class ChunkExecutor(
                     parsed_document.parser_code
                 )
 
+                metadata["chunker_code"] = (
+                    chunker_code
+                )
+
+                metadata["pipeline_step"] = (
+                    context.pipeline_step.step_code
+                )
+
                 metadata["file_name"] = (
                     parsed_document.file_name
                 )
@@ -95,14 +118,32 @@ class ChunkExecutor(
 
                 output["metadata"] = metadata
 
+                output["dataset_id"] = (
+                    context.dataset.id
+                    if context.dataset
+                    else None
+                )
+
+                output["corpus_source_id"] = (
+                    context.corpus_source.id
+                    if context.corpus_source
+                    else None
+                )
+
                 outputs.append(output)
 
         return ExecutorResult(
             metrics={
-                "input_count": len(
-                    context.inputs
-                ),
+
+                "input_count": len(context.inputs),
+
+                "output_count": len(outputs),
+
                 "chunk_count": total_chunks,
+
+                "pipeline_step": context.pipeline_step.step_code,
+
+                "runtime": chunker_code,
             },
             outputs=outputs,
         )

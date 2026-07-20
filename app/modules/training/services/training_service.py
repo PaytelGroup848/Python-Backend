@@ -42,6 +42,14 @@ from app.models.model_version import (
     ModelVersion,
 )
 
+from app.modules.training.services.training_dispatch_service import (
+    training_dispatch_service,
+)
+
+from app.modules.tokenizers.models.tokenizer_version import (
+    TokenizerVersion,
+)
+
 
 class TrainingService:
 
@@ -228,6 +236,48 @@ class TrainingService:
                 "Base model version has no "
                 "loadable source configuration."
             )
+        
+        tokenizer_version_result = await db.execute(
+            select(
+                TokenizerVersion
+            )
+            .where(
+                TokenizerVersion.id
+                ==
+                data.tokenizer_version_id
+            )
+        )
+
+        tokenizer_version = (
+            tokenizer_version_result
+            .scalar_one_or_none()
+        )
+
+        if tokenizer_version is None:
+
+            raise BusinessException(
+                "Tokenizer version not found."
+            )
+
+        if not tokenizer_version.is_active:
+
+            raise BusinessException(
+                "Tokenizer version is inactive."
+            )
+
+        if not tokenizer_version.is_immutable:
+
+            raise BusinessException(
+                "Training requires an immutable tokenizer version."
+            )
+
+        if (
+            not tokenizer_version.content_hash
+        ):
+
+            raise BusinessException(
+                "Tokenizer version has no content hash."
+            )
 
         training_job = TrainingJob(
             dataset_id=data.dataset_id,
@@ -242,6 +292,9 @@ class TrainingService:
             ),
             base_model_version_id=(
                 data.base_model_version_id
+            ),
+            tokenizer_version_id=(
+                data.tokenizer_version_id
             ),
             training_configuration_id=(
                 data.training_configuration_id
@@ -261,6 +314,11 @@ class TrainingService:
         )
 
         await db.commit()
+
+        await training_dispatch_service.dispatch(
+            db=db,
+            training_job_id=training_job.id,
+        )
 
         return training_job
 

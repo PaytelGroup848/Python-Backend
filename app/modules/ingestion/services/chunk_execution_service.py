@@ -14,6 +14,10 @@ from app.shared.exceptions.business_exception import (
     BusinessException
 )
 
+from app.modules.pipeline_runtime.schemas.chunk_configuration import (
+    ChunkConfiguration
+)
+
 
 class ChunkExecutionService:
 
@@ -28,9 +32,13 @@ class ChunkExecutionService:
             chunker_code
         )
 
+        chunk_configuration = ChunkConfiguration.model_validate(
+            configuration or {}
+        )
+
         chunks = await chunker.chunk(
             parsed_document=parsed_document,
-            configuration=configuration
+            configuration=chunk_configuration
         )
 
         if not isinstance(

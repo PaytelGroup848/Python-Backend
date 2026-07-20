@@ -4,7 +4,6 @@ from app.db.database import Base
 from sqlalchemy import Boolean
 from sqlalchemy import DateTime
 from datetime import datetime
-from sqlalchemy import BigInteger
 
 class User(Base):
 

@@ -153,47 +153,41 @@ class DatasetBuilderService:
             )
         )
 
-        pipeline_result = await (
-            pipeline_runtime_service.execute_pipeline(
+        await pipeline_runtime_service.execute_pipeline(
+            db=db,
+            dataset_id=dataset.id,
+            pipeline_id=pipeline.id,
+        )
+
+        processed_records = await (
+            dataset_record_repository.count_by_dataset(
                 db=db,
                 dataset_id=dataset.id,
-                pipeline_id=pipeline.id,
             )
         )
 
-        processed_records = (
-            pipeline_result.processed_records
-        )
+        failed_records = 0
 
-        failed_records = (
-            pipeline_result.failed_records
+        dataset.status = (
+            "READY"
+            if processed_records > 0
+            else "FAILED"
         )
-
-        dataset.status = "READY"
 
         await dataset_repository.update(
             db=db,
             entity=dataset,
         )
 
-
-        
-
         return DatasetBuildResponse(
-
-            dataset_id=dataset_id,
-
-            pipeline_id=pipeline_id,
-
-            total_records=total_records,
-
+            dataset_id=dataset.id,
+            pipeline_id=pipeline.id,
+            total_records=processed_records,
             processed_records=processed_records,
-
             failed_records=failed_records,
-
-            status="completed",
-
+            status=dataset.status,
         )
+   
 
 
 dataset_builder_service = (

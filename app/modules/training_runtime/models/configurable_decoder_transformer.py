@@ -1,14 +1,16 @@
-import math
-
 import torch
 
 from torch import (
     nn,
 )
 
+from app.modules.training_runtime.contracts.trainable_model import (
+    TrainableModel,
+)
+
 
 class ConfigurableDecoderTransformer(
-    nn.Module
+    TrainableModel
 ):
 
     def __init__(
@@ -114,6 +116,12 @@ class ConfigurableDecoderTransformer(
             self.vocab_size,
             bias=False,
         )
+
+        self.output_projection.weight = (
+            self.token_embedding.weight
+        )
+
+
 
         self._initialize_parameters(
             configuration

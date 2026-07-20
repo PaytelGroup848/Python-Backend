@@ -179,3 +179,7 @@ from app.modules.storage_registry.models.storage_implementation import (
 from app.modules.storage_registry.models.storage_instance import (
     StorageInstance,
 )
+
+from app.modules.tokenizers.models.tokenizer_version import (
+    TokenizerVersion,
+)

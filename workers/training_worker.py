@@ -33,9 +33,10 @@ logger = logging.getLogger(__name__)
 
 async def worker():
 
-    logger.info(
-        "Training worker started."
-    )
+    #logger.info(
+     #   "Training worker started."
+    #)
+    print("WORKER STARTED", flush=True)
 
     while True:
 
@@ -43,6 +44,8 @@ async def worker():
             training_queue
             .dequeue()
         )
+
+        logger.info("========== PAYLOAD: %s ==========", payload)
 
         if not payload:
             continue
@@ -99,6 +102,7 @@ async def worker():
 
                     continue
 
+
                 await (
                     training_job_lifecycle_service
                     .mark_running(
@@ -107,12 +111,20 @@ async def worker():
                     )
                 )
 
+                logger.info("========== JOB MARKED RUNNING ==========")
+
                 await db.commit()
+
+                logger.info("========== RUNNING COMMIT DONE ==========")
+
+
 
                 logger.info(
                     "Training job %s started.",
                     training_job_id,
                 )
+
+                print("BEFORE EXECUTE", flush=True)
 
                 await (
                     training_executor_service
@@ -121,6 +133,8 @@ async def worker():
                         training_job_id=training_job_id,
                     )
                 )
+
+                print("AFTER EXECUTE", flush=True)
 
                 await (
                     training_job_lifecycle_service
@@ -138,6 +152,8 @@ async def worker():
                 )
 
             except Exception as ex:
+
+                print("EXCEPTION:", repr(ex), flush=True)
 
                 await db.rollback()
 
@@ -158,7 +174,7 @@ async def worker():
                             .mark_failed(
                                 db=db,
                                 training_job=job,
-                                error_message=str(ex),
+                                failure_reason=str(ex),
                             )
                         )
 

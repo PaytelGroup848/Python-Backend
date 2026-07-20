@@ -1,5 +1,4 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
 from app.models.document_job import DocumentJob
 from app.models.document import Document

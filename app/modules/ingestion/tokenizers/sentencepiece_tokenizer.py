@@ -1,4 +1,3 @@
-import sentencepiece as spm
 
 from app.modules.ingestion.tokenizers.base_tokenizer import (
     BaseTokenizer

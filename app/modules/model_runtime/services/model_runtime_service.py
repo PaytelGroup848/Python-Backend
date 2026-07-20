@@ -13,9 +13,6 @@ from app.modules.model_releases.repositories.model_release_repository import (
     model_release_repository
 )
 
-from app.modules.model_artifacts.repositories.model_artifact_repository import (
-    model_artifact_repository
-)
 
 from app.modules.model_runtime.manager.model_runtime_manager import (
     model_runtime_manager

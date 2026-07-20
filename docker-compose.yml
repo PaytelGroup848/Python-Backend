@@ -81,6 +81,34 @@ services:
       - .:/app
       - platform_data:/data
 
+  training-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: training-worker
+
+    restart: always
+
+    gpus: all
+
+    depends_on:
+      redis:
+        condition: service_healthy
+
+      postgres:
+        condition: service_started
+
+    env_file:
+      - .env
+
+    command: >
+      python -m workers.training_worker
+
+    volumes:
+      - .:/app
+      - platform_data:/data
+
 
   postgres:
     image: pgvector/pgvector:pg15
@@ -155,3 +183,4 @@ volumes:
   postgres_data:
   redis_data:
   platform_data:
+

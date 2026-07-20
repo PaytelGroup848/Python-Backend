@@ -1,4 +1,3 @@
-import tiktoken
 
 from app.modules.ingestion.tokenizers.base_tokenizer import (
     BaseTokenizer

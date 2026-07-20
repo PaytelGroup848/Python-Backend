@@ -54,12 +54,42 @@ class EmbeddingExecutor(
                 "Embedding provider runtime_code is required."
             )
 
-        chunks: list[DocumentChunk] = [
-            DocumentChunk.model_validate(
-                item
+        chunks: list[DocumentChunk] = []
+
+        for item in context.inputs:
+
+            if not item:
+                continue
+
+            try:
+
+                chunk = DocumentChunk.model_validate(
+                    item
+                )
+
+            except Exception as ex:
+
+                raise ValueError(
+                    f"Invalid document chunk: {ex}"
+                )
+
+            if not chunk.content.strip():
+                continue
+
+        chunks.append(chunk)
+
+        if not chunks:
+
+            return ExecutorResult(
+
+                metrics={
+                    "input_count": 0,
+                    "embedding_count": 0,
+                    "embedding_dimension": 0,
+                },
+
+                outputs=[],
             )
-            for item in context.inputs
-        ]
 
         texts = [
             chunk.content
@@ -73,6 +103,12 @@ class EmbeddingExecutor(
                 configuration=configuration,
             )
         )
+
+        if len(vectors) != len(chunks):
+
+            raise ValueError(
+                "Embedding count mismatch."
+            )
 
         outputs: list[
             dict[str, Any]
@@ -91,19 +127,50 @@ class EmbeddingExecutor(
                 vector
             )
 
+            metadata = payload.get("metadata") or {}
+
+            metadata["embedding_provider"] = provider_code
+
+            metadata["embedding_dimension"] = len(vector)
+
+            metadata["pipeline_step"] = (
+                context.pipeline_step.step_code
+            )
+
+            payload["metadata"] = metadata
+
+            payload["dataset_id"] = (
+                context.dataset.id
+                if context.dataset
+                else None
+            )
+
+            payload["corpus_source_id"] = (
+                context.corpus_source.id
+                if context.corpus_source
+                else None
+            )
+
             outputs.append(
                 payload
             )
 
         return ExecutorResult(
             metrics={
+
                 "input_count": len(chunks),
+
+                "output_count": len(outputs),
+
                 "embedding_count": len(vectors),
+
                 "embedding_dimension": (
                     len(vectors[0])
                     if vectors
                     else 0
                 ),
+
+                "provider": provider_code,
             },
             outputs=outputs,
         )

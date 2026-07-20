@@ -1,6 +1,5 @@
 import asyncio
 import uuid
-import json
 
 from fastapi import (
     APIRouter,
@@ -40,8 +39,6 @@ print(
 from app.shared.constants.streams import (
 
     CHAT_REQUEST_STREAM,
-
-    CHAT_RESPONSE_STREAM,
 )
 
 
@@ -49,9 +46,6 @@ from app.core.queues.queue_service import (
     queue_service
 )
 
-from app.shared.metrics.metrics_service import (
-    metrics_service
-)
 
 from app.core.logger import (
     logger,

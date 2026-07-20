@@ -26,6 +26,10 @@ class TrainingJobCreate(
 
     base_model_version_id: int
 
+    tokenizer_version_id: int = Field(
+        gt=0
+    )
+
     training_configuration_id: int = Field(
         gt=0
     )

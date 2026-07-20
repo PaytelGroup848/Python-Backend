@@ -5,8 +5,7 @@ from sqlalchemy import (
     Integer,
     String,
     DateTime,
-    ForeignKey,
-    UniqueConstraint
+    ForeignKey
 )
 
 from app.db.database import Base

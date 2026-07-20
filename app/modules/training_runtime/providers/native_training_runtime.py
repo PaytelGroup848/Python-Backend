@@ -64,7 +64,7 @@ class NativeTrainingRuntime(
 
         formatter_configuration = (
             runtime.runtime_configuration.get(
-                "sample_formatter"
+                "formatter"
             )
         )
 
@@ -74,7 +74,7 @@ class NativeTrainingRuntime(
         ):
             raise ValueError(
                 "Training configuration must define "
-                "'sample_formatter' as an object."
+                "'formatter' as an object."
             )
 
         tokenizer_configuration = (

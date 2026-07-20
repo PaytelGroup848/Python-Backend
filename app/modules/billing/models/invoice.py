@@ -8,8 +8,7 @@ from sqlalchemy import (
     Numeric,
     DateTime,
     ForeignKey,
-    Boolean,
-    JSON
+    Boolean
 )
 
 from app.db.database import Base

@@ -223,6 +223,13 @@ class DynamicModelInitializer(
                 )
             )
 
+
+            await model.initialize_from_source(
+                loaded_source
+            )
+
+            
+
         if not isinstance(
             model,
             TrainableModel,

@@ -20,9 +20,6 @@ from slowapi.errors import (
 
 from app.core.config import settings
 
-from app.models import audit
-from app.models import conversation
-from app.models import session
 
 from app.modules.auth.routes import (
     router as auth_router
@@ -206,6 +203,10 @@ from app.modules.dataset_builder.routes import (
 
 from app.modules.datasets.routes.dataset_route import (
     router as dataset_router,
+)
+
+from app.modules.datasets.routes.dataset_upload_routes import (
+    router as dataset_upload_router,
 )
 
 
@@ -516,6 +517,10 @@ app.include_router(
 
 app.include_router(
     dataset_record_router
+)
+
+app.include_router(
+    dataset_upload_router
 )
 
 app.include_router(

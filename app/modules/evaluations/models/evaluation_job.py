@@ -1,4 +1,5 @@
 from datetime import datetime
+from sqlalchemy.dialects.postgresql import JSONB
 
 from sqlalchemy import (
     Column,
@@ -37,30 +38,60 @@ class EvaluationJob(Base):
         nullable=False
     )
 
-    accuracy_score = Column(
-        Float,
-        nullable=True
+    dataset_version_id = Column(
+        Integer,
+        ForeignKey(
+            "dataset_versions.id",
+            name="fk_evaluation_job_dataset_version_id",
+        ),
+        nullable=False,
+        index=True,
     )
 
-    hallucination_score = Column(
-        Float,
-        nullable=True
+   
+
+    runtime_configuration = Column(
+        JSONB,
+        nullable=False,
+        default=dict,
     )
 
-    latency_score = Column(
-        Float,
-        nullable=True
+    metrics = Column(
+        JSONB,
+        nullable=False,
+        default=dict,
     )
 
-    overall_score = Column(
+    summary = Column(
+        JSONB,
+        nullable=False,
+        default=dict,
+    )
+
+    started_at = Column(
+        DateTime,
+        nullable=True,
+    )
+
+    completed_at = Column(
+        DateTime,
+        nullable=True,
+    )
+
+    duration_ms = Column(
         Float,
-        nullable=True
+        nullable=True,
     )
 
     status = Column(
         String(50),
         default="pending",
         nullable=False
+    )
+
+    failure_reason = Column(
+        String(1000),
+        nullable=True,
     )
 
     created_at = Column(

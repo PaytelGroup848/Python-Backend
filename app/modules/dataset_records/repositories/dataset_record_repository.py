@@ -264,6 +264,26 @@ class DatasetRecordRepository:
 
         return result.scalars().all()
     
+    async def count_by_dataset(
+        self,
+        db: AsyncSession,
+        dataset_id: int,
+    ) -> int:
+
+        result = await db.execute(
+            select(
+                func.count(
+                    DatasetRecord.id
+                )
+            ).where(
+                DatasetRecord.dataset_id == dataset_id
+            )
+        )
+
+        return int(
+            result.scalar_one()
+        )
+    
     async def get_max_id_by_dataset(
         self,
         db: AsyncSession,

@@ -9,8 +9,6 @@ import logging
 
 
 from deepgram import (
-    DeepgramClient,
-    DeepgramClientOptions,
     LiveTranscriptionEvents,
     LiveOptions,
 )

@@ -24,8 +24,7 @@ from app.services.job_service import (
 )
 
 from app.shared.constants.streams import (
-    EMBEDDING_STREAM,
-    INGESTION_STREAM
+    EMBEDDING_STREAM
 )
 
 

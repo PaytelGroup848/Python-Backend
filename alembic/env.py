@@ -1,8 +1,4 @@
 from logging.config import fileConfig
-from app.models.document import Document
-from app.models.analytics import AnalyticsLog
-from app.models.conversation import Conversation
-from app.models.document_job import DocumentJob
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
@@ -31,108 +27,32 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 from app.db.database import Base
-from app.models.user import User
-from app.models.audit import AuditLog
-from app.models.session import Session
 
-from app.models.model_pricing import (
-    ModelPricing
-)
 
-from app.modules.billing.models.wallet import Wallet
-from app.modules.billing.models.wallet_transaction import WalletTransaction
-from app.modules.billing.models.subscription import Subscription
 
-from app.modules.billing.models.invoice import Invoice
-from app.modules.billing.models.payment import Payment
 
-from app.modules.billing.models.plan import Plan
 
-from app.modules.billing.models.plan_version import (
-    PlanVersion
-)
 
-from app.modules.billing.models.plan_price import (
-    PlanPrice
-)
 
-from app.models.provider import Provider
-from app.models.model_version import ModelVersion
 
-from app.modules.corpora.models.corpus import Corpus
-from app.modules.corpora.models.corpus_source import CorpusSource
 
-from app.modules.ingestion.models.ingestion_job import (
-    IngestionJob
-)
 
-from app.modules.connector_registry.models.connector_type import (
-    ConnectorType
-)
 
-from app.modules.connector_registry.models.connector_implementation import (
-    ConnectorImplementation
-)
 
-from app.modules.connector_registry.models.connector_instance import (
-    ConnectorInstance
-)
 
-from app.modules.datasets.models.dataset import (
-    Dataset
-)
 
-from app.modules.dataset_records.models.dataset_record import (
-    DatasetRecord
-)
 
-from app.modules.data_pipelines.models.data_pipeline import (
-    DataPipeline
-)
 
-from app.modules.data_pipelines.models.data_pipeline_step import (
-    DataPipelineStep
-)
 
-from app.modules.pipeline_runtime.models.pipeline_run import (
-    PipelineRun
-)
 
-from app.modules.pipeline_runtime.models.pipeline_step_run import (
-    PipelineStepRun
-)
 
-from app.modules.pipeline_runtime.models.pipeline_execution_artifact import (
-    PipelineExecutionArtifact
-)
 
-from app.modules.pipeline_runtime.models.pipeline_execution_artifact_edge import (
-    PipelineExecutionArtifactEdge
-)
 
-from app.modules.tokenizers.models.tokenizer import (
-    Tokenizer,
-)
 
-from app.modules.tokenizers.models.tokenizer_implementation import (
-    TokenizerImplementation,
-)
 
-from app.modules.tokenizers.models.tokenizer_training_configuration import (
-    TokenizerTrainingConfiguration,
-)
 
-from app.modules.tokenizers.models.tokenizer_training_job import (
-    TokenizerTrainingJob,
-)
 
-from app.modules.tokenizers.models.tokenizer_version import (
-    TokenizerVersion,
-)
 
-from app.modules.tokenizers.models.tokenizer_version_artifact import (
-    TokenizerVersionArtifact,
-)
 
 target_metadata = Base.metadata
 

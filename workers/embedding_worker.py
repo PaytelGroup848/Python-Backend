@@ -26,9 +26,6 @@ from app.modules.retrieval_runtime.services.embedding_service import (
 from app.services.vector_service import (
     store_document
 )
-from app.shared.metrics.metrics_service import (
-    metrics_service
-)
 
 logger = logging.getLogger(__name__)
 

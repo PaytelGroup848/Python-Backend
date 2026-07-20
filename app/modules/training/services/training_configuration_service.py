@@ -93,7 +93,7 @@ class TrainingConfigurationService:
                 runtime_code=(
                     data.runtime_code
                 ),
-                configuration_json=(
+                configuration_json=await self._prepare_runtime_configuration(
                     data.configuration_json
                 ),
                 created_by=(
@@ -216,7 +216,9 @@ class TrainingConfigurationService:
             is not None
         ):
             configuration.configuration_json = (
-                data.configuration_json
+                await self._prepare_runtime_configuration(
+                    data.configuration_json
+                )
             )
 
         if (
@@ -340,6 +342,51 @@ class TrainingConfigurationService:
                 ),
             )
         )
+
+    async def _prepare_runtime_configuration(
+        self,
+        configuration_json: dict | None,
+    ) -> dict:
+
+        if configuration_json is None:
+            runtime = {}
+        elif not isinstance(configuration_json, dict):
+            raise BusinessException(
+                "Runtime configuration must be an object."
+            )
+        else:
+            runtime = deepcopy(configuration_json)
+
+        required_sections = (
+            "execution",
+            "training",
+            "tokenizer",
+            "formatter",
+            "model_initialization",
+            "optimizer",
+            "scheduler",
+            "checkpoint",
+            "metrics",
+            "final_artifact",
+        )
+
+        for section in required_sections:
+
+            value = runtime.get(section)
+
+            if value is None:
+                runtime[section] = {}
+                continue
+
+            if not isinstance(value, dict):
+                raise BusinessException(
+                    f"Runtime section '{section}' must be an object."
+                )
+
+        return runtime
+        
+        
+
     
     async def activate_configuration(
         self,

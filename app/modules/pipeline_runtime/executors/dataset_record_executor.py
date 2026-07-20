@@ -34,7 +34,25 @@ class DatasetRecordExecutor(
 
         created_count = 0
 
+        if not context.inputs:
+
+            return ExecutorResult(
+                metrics={
+                    "input_count": 0,
+                    "created_count": 0,
+                },
+                outputs=[],
+            )
+
         for input_record in context.inputs:
+
+            if not input_record:
+                continue
+
+            content = input_record.get("content")
+
+            if not content or not content.strip():
+                continue
 
             dataset_id = input_record.get(
                 "dataset_id"
@@ -45,6 +63,10 @@ class DatasetRecordExecutor(
                 raise ValueError(
                     "dataset_id is required."
                 )
+            
+            metadata = deepcopy(
+                input_record.get("metadata") or {}
+            )
 
             dataset_record = DatasetRecordCreate(
 
@@ -72,12 +94,7 @@ class DatasetRecordExecutor(
                     "output_text"
                 ),
 
-                metadata_json=deepcopy(
-                    input_record.get(
-                        "metadata"
-                    )
-                    or {}
-                ),
+                metadata_json=metadata,
             )
 
             created = await (
@@ -102,6 +119,7 @@ class DatasetRecordExecutor(
                 "input_count": len(
                     context.inputs
                 ),
+                "output_count": len(outputs),
                 "created_count": created_count,
             },
             outputs=outputs,
