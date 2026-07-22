@@ -125,6 +125,7 @@ async def worker():
                 )
 
                 print("BEFORE EXECUTE", flush=True)
+                print(f"[WORKER] Before executor job={training_job_id}", flush=True)
 
                 await (
                     training_executor_service
@@ -133,6 +134,7 @@ async def worker():
                         training_job_id=training_job_id,
                     )
                 )
+                print(f"[WORKER] After executor job={training_job_id}", flush=True)
 
                 print("AFTER EXECUTE", flush=True)
 

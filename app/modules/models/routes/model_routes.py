@@ -15,6 +15,9 @@ from app.db.database import (
 from app.modules.models.services.model_service import (
     model_service
 )
+from app.modules.models.services.model_version_service import (
+    model_version_service,
+)
 
 from app.modules.models.schemas.model_schema import (
     CreateModelRequest,
@@ -178,3 +181,75 @@ async def delete_model(
         "message":
         "Model deleted"
     }
+
+# =====================================
+# List Model Versions
+# =====================================
+
+@router.get(
+    "/{model_id}/versions"
+)
+async def list_model_versions(
+
+    model_id: int,
+
+    db: AsyncSession = Depends(
+        get_db
+    ),
+
+):
+
+    return await (
+
+        model_version_service
+        .list_by_model(
+
+            db=db,
+
+            model_id=model_id,
+
+        )
+
+    )
+
+# =====================================
+# Get Model Version
+# =====================================
+
+@router.get(
+    "/versions/{model_version_id}"
+)
+async def get_model_version(
+
+    model_version_id: int,
+
+    db: AsyncSession = Depends(
+        get_db
+    ),
+
+):
+
+    model_version = await (
+
+        model_version_service
+        .get_by_id(
+
+            db=db,
+
+            model_version_id=model_version_id,
+
+        )
+
+    )
+
+    if model_version is None:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail="Model version not found",
+
+        )
+
+    return model_version

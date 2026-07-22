@@ -34,6 +34,13 @@ from app.modules.datasets.services.dataset_service import (
     dataset_service,
 )
 
+from app.modules.datasets.services.dataset_snapshot_service import (
+    dataset_snapshot_service,
+)
+
+from app.modules.datasets.schemas.dataset_snapshot_response import (
+    DatasetSnapshotResponse,
+)
 router = APIRouter(
 
     prefix="/datasets",
@@ -228,4 +235,19 @@ async def delete_dataset(
             db=db,
             dataset_id=dataset_id,
         )
+    )
+
+
+@router.get(
+    "/{dataset_id}/snapshots",
+    response_model=list[DatasetSnapshotResponse],
+)
+async def list_dataset_snapshots(
+    dataset_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+
+    return await dataset_snapshot_service.list_dataset_snapshots(
+        db=db,
+        dataset_id=dataset_id,
     )

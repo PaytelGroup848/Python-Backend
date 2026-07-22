@@ -209,6 +209,14 @@ from app.modules.datasets.routes.dataset_upload_routes import (
     router as dataset_upload_router,
 )
 
+from app.modules.tokenizers.routes import (
+    router as tokenizer_router,
+)
+
+from app.modules.storage_runtime.bootstrap.storage_runtime_bootstrap import (
+    register_storage_runtime_factories,
+)
+
 
 logging.basicConfig(
     level=logging.INFO
@@ -338,6 +346,10 @@ async def security_headers(
 
 @app.on_event("startup")
 async def startup_event():
+
+    register_storage_runtime_factories()
+
+    register_pipeline_executors()
 
     scheduler.start()
 
@@ -536,6 +548,10 @@ app.include_router(
 
 app.include_router(
     dataset_router
+)
+
+app.include_router(
+    tokenizer_router,
 )
 
 # =========================

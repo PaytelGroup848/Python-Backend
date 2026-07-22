@@ -168,12 +168,16 @@ class NativeTrainingRuntime(
                     "must be a positive integer."
                 )
 
+        print("[RUNTIME] 2 BEFORE MODEL INIT", flush=True)
+
         model = await (
             training_model_initialization_service
             .initialize(
                 runtime=runtime,
             )
         )
+
+        print("[RUNTIME] 3 AFTER MODEL INIT", flush=True)
 
         if not isinstance(
             model,
@@ -196,6 +200,11 @@ class NativeTrainingRuntime(
             )
         )
 
+
+        print("[RUNTIME] 6 BEFORE TRAINING_STARTED", flush=True)
+
+
+
         await (
             training_progress_service
             .on_training_started(
@@ -204,7 +213,11 @@ class NativeTrainingRuntime(
             )
         )
 
+
+
         await context.db.commit()
+
+        print("[RUNTIME] 7 AFTER TRAINING_STARTED", flush=True)
 
         processed_record_count = 0
         processed_batch_count = 0

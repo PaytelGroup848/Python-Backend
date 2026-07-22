@@ -39,6 +39,8 @@ class TrainingExecutorService:
         training_job_id: int,
     ) -> TrainingResult:
 
+        print("[EXECUTOR] 1 BEFORE load_runtime", flush=True)
+
         runtime = await (
             training_runtime_service
             .load_runtime(
@@ -46,6 +48,8 @@ class TrainingExecutorService:
                 training_job_id=training_job_id,
             )
         )
+
+        print("[EXECUTOR] 2 AFTER load_runtime", flush=True)
 
         tokenizer_configuration = (
             runtime.runtime_configuration.get(
@@ -62,6 +66,8 @@ class TrainingExecutorService:
                 "'tokenizer' as an object."
             )
 
+        print("[EXECUTOR] 3 BEFORE prepare_configuration", flush=True)
+
         prepared_tokenizer_configuration = await (
             training_tokenization_service
             .prepare_configuration(
@@ -74,6 +80,8 @@ class TrainingExecutorService:
                 ),
             )
         )
+
+        print("[EXECUTOR] 4 AFTER prepare_configuration", flush=True)
 
         prepared_runtime_configuration = dict(
             runtime.runtime_configuration
@@ -230,6 +238,8 @@ class TrainingExecutorService:
                             "is invalid."
                         )
 
+        print("[EXECUTOR] 5 BEFORE open_snapshot_stream", flush=True)
+
         training_data = await (
             training_data_runtime_service
             .open_snapshot_stream(
@@ -244,12 +254,22 @@ class TrainingExecutorService:
             )
         )
 
+        print("[EXECUTOR] 6 AFTER open_snapshot_stream", flush=True)
+
+        print("[EXECUTOR] 7 BEFORE get_runtime", flush=True)
+
+
+
         training_runtime = (
             training_runtime_factory
             .get_runtime(
                 runtime.runtime_class
             )
         )
+
+        print("[EXECUTOR] 8 AFTER get_runtime", flush=True)
+
+
 
         if training_runtime is None:
 
@@ -270,6 +290,9 @@ class TrainingExecutorService:
                 context=execution_context,
             )
         )
+
+    print("[EXECUTOR] 9 BEFORE runtime.execute()", flush=True)
+    
 
 
 training_executor_service = (

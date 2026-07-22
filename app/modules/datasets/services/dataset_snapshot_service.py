@@ -404,6 +404,30 @@ class DatasetSnapshotService:
                 content_hash_matches
             ),
         )
+    
+    async def list_dataset_snapshots(
+        self,
+        db: AsyncSession,
+        dataset_id: int,
+    ):
+
+        dataset = await dataset_repository.get_by_id(
+            db,
+            dataset_id,
+        )
+
+        if dataset is None:
+
+            raise BusinessException(
+                "Dataset not found."
+            )
+
+        return await (
+            dataset_snapshot_repository.list_by_dataset(
+                db=db,
+                dataset_id=dataset_id,
+            )
+        )
 
 
 dataset_snapshot_service = (
