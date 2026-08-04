@@ -98,6 +98,8 @@ async def websocket_chat(
 
     try:
 
+        print("WS TOKEN =", token)
+
         payload = jwt.decode(
 
             token,
@@ -106,6 +108,8 @@ async def websocket_chat(
 
             algorithms=[ALGORITHM]
         )
+
+        print(payload)
 
         user_id = payload.get("sub")
 
@@ -132,9 +136,10 @@ async def websocket_chat(
 
     except JWTError as e:
 
+        print("JWT ERROR =", e)
+
         logger.warning(
-            f"JWT verification failed: "
-            f"{str(e)}"
+            f"JWT verification failed: {str(e)}"
         )
 
         await websocket.close(
@@ -253,17 +258,7 @@ async def websocket_chat(
                 )
             )
 
-            if not assistant_id:
-
-                await websocket.send_json({
-
-                    "type": "error",
-
-                    "message":
-                    "Missing assistant_id"
-                })
-
-                continue
+           
 
             if not conversation_id:
 

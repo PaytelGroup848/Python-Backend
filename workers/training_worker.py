@@ -27,6 +27,10 @@ from app.modules.training.services.training_job_lifecycle_service import (
     training_job_lifecycle_service,
 )
 
+from app.modules.storage_runtime.bootstrap.storage_runtime_bootstrap import (
+    register_storage_runtime_factories,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +41,13 @@ async def worker():
      #   "Training worker started."
     #)
     print("WORKER STARTED", flush=True)
+
+    register_storage_runtime_factories()
+
+    print(
+        "[WORKER] Storage runtime factories registered",
+        flush=True,
+    )
 
     while True:
 

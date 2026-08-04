@@ -13,6 +13,8 @@ MODEL_NAME = (
 )
 
 
+
+
 class GroqProvider(
     BaseProvider
 ):
@@ -21,9 +23,9 @@ class GroqProvider(
 
         self,
 
-        model: str,
-
         messages: list,
+
+        model: str | None = None,
 
         temperature: float = 0.7,
 
@@ -33,8 +35,10 @@ class GroqProvider(
 
         tools: list | None = None,
 
-        metadata: dict | None = None
+        metadata: dict | None = None,
     ):
+
+        resolved_model = model or MODEL_NAME
 
         response = await http_client.post(
 
@@ -51,7 +55,7 @@ class GroqProvider(
 
             json={
 
-                "model": model,
+                "model": resolved_model,
 
                 "messages": messages,
 
@@ -85,7 +89,7 @@ class GroqProvider(
 
         return {
 
-            "model": model,
+            "model": resolved_model,
 
                 "response":
                 data["choices"][0]["message"]["content"],

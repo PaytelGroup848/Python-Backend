@@ -8,6 +8,10 @@ from app.modules.providers.base_provider import (
     BaseProvider
 )
 
+MODEL_NAME = (
+    "mistral-small-latest"
+)
+
 
 class MistralProvider(
     BaseProvider
@@ -17,9 +21,9 @@ class MistralProvider(
 
         self,
 
-        model: str,
-
         messages: list,
+
+        model: str | None = None,
 
         temperature: float = 0.7,
 
@@ -31,6 +35,8 @@ class MistralProvider(
 
         metadata: dict | None = None
     ):
+
+        resolved_model = model or MODEL_NAME
 
         response = await http_client.post(
 
@@ -47,7 +53,7 @@ class MistralProvider(
 
             json={
 
-                "model": model,
+                "model": resolved_model,
 
                 "messages": messages,
 
@@ -67,7 +73,7 @@ class MistralProvider(
 
         return {
 
-            "model": model,
+            "model": resolved_model,
 
             "response":
             data["choices"][0]["message"]["content"],

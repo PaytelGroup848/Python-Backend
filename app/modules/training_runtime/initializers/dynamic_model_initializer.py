@@ -92,45 +92,8 @@ class DynamicModelInitializer(
                 "an object."
             )
 
-        source_lineage = {
-            "base_model_id": (
-                runtime.base_model_id
-            ),
-            "base_model_version_id": (
-                runtime.base_model_version_id
-            ),
-            "base_model_version": (
-                runtime.base_model_version
-            ),
-            "source_type": (
-                runtime.base_model_source_type
-            ),
-            "source_uri": (
-                runtime.base_model_source_uri
-            ),
-            "source_revision": (
-                runtime.base_model_source_revision
-            ),
-        }
 
-        for key in (
-            "source_type",
-            "source_uri",
-            "source_revision",
-        ):
-            value = source_lineage.get(
-                key
-            )
-
-            if (
-                not isinstance(value, str)
-                or
-                not value.strip()
-            ):
-                raise ValueError(
-                    "Base model version has incomplete "
-                    f"source lineage: {key}."
-                )
+        
 
         model_class_type = (
             dynamic_class_resolver
@@ -146,17 +109,53 @@ class DynamicModelInitializer(
 
         if source_loader_class is None:
 
-            model_configuration[
-                "source_lineage"
-            ] = source_lineage
-
             model = model_class_type(
-                configuration=(
-                    model_configuration
-                )
+                configuration=model_configuration
             )
 
         else:
+
+            source_lineage = {
+                "base_model_id": (
+                    runtime.base_model_id
+                ),
+                "base_model_version_id": (
+                    runtime.base_model_version_id
+                ),
+                "base_model_version": (
+                    runtime.base_model_version
+                ),
+                "source_type": (
+                    runtime.base_model_source_type
+                ),
+                "source_uri": (
+                    runtime.base_model_source_uri
+                ),
+
+
+                "source_revision": (
+                    runtime.base_model_source_revision
+                ),
+            }
+            
+            for key in (
+                "source_type",
+                "source_uri",
+                "source_revision",
+            ):
+                value = source_lineage.get(
+                    key
+                )
+            
+                if (
+                    not isinstance(value, str)
+                    or
+                    not value.strip()
+                ):
+                    raise ValueError(
+                        "Base model version has incomplete "
+                        f"source lineage: {key}."
+                    )
 
             if (
                 not isinstance(
@@ -239,8 +238,9 @@ class DynamicModelInitializer(
                 "a TrainableModel instance."
             )
 
-        model._training_source_lineage = (
-            source_lineage
-        )
+        if source_loader_class is not None:
+            model._training_source_lineage = source_lineage
+        else:
+            model._training_source_lineage = None
 
         return model

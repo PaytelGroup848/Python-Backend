@@ -94,7 +94,7 @@ async def chat(
 
     try:
 
-        log_action(
+        await log_action(
             user_id,
             "chat_request",
             "/chat"
@@ -133,6 +133,8 @@ async def agent_chat(
         )
 
     response = await run_agent(
+
+        assistant_id=req.assistant_id,
 
         query=req.message,
 
@@ -273,7 +275,7 @@ async def admin_dashboard(
 
     try:
 
-        log_action(
+        await log_action(
 
             user["user_id"],
 
@@ -306,7 +308,7 @@ async def reports(
 
     try:
 
-        log_action(
+        await log_action(
 
             user["user_id"],
 

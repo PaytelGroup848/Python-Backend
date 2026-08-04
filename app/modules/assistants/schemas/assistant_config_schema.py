@@ -26,6 +26,16 @@ class AssistantConfigCreate(
 
     tool_calling_enabled: bool = False
 
+    voice_enabled: bool = False
+
+    ocr_enabled: bool = False
+
+    web_search_enabled: bool = False
+
+    document_chat_enabled: bool = True
+
+    image_generation_enabled: bool = False
+
 
 class AssistantConfigResponse(
 

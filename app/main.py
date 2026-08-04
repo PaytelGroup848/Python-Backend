@@ -45,13 +45,13 @@ from app.modules.voice.routes.voice_ws_routes import (
     router as voice_ws_router
 )
 
-#from app.routes.conversation_routes import (
- #   router as conversation_router
-#)
+from app.routes.conversation_routes import (
+    router as conversation_router
+)
 
-#from app.routes.chat_routes import (
- #   router as chat_router
-#)
+from app.routes.chat_routes import (
+    router as chat_router
+)
 
 #from app.routes.translation_routes import (
  #   router as translation_router
@@ -387,13 +387,13 @@ app.include_router(
     voice_ws_router
 )
 
-#app.include_router(
- #   conversation_router
-#)
+app.include_router(
+    conversation_router
+)
 
-#app.include_router(
- #   chat_router
-#)
+app.include_router(
+    chat_router
+)
 
 #app.include_router(
  #   translation_router

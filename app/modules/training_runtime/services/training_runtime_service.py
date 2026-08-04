@@ -170,9 +170,11 @@ class TrainingRuntimeService:
 
         runtime_configuration = (
             self._build_runtime_configuration(
+                provider_runtime_components=(
+                    provider.runtime_components
+                ),
                 configuration_json=(
-                    training_configuration
-                    .configuration_json
+                    training_configuration.configuration_json
                 ),
                 tokenizer_version=(
                     tokenizer_version
@@ -505,14 +507,24 @@ class TrainingRuntimeService:
 
     @staticmethod
     def _build_runtime_configuration(
+        provider_runtime_components: dict | None,
         configuration_json: dict | None,
         tokenizer_version,
     ) -> dict:
 
         runtime_configuration = deepcopy(
-            configuration_json
+            provider_runtime_components
             or
             {}
+        )
+
+        TrainingRuntimeService._deep_merge(
+            runtime_configuration,
+            deepcopy(
+                configuration_json
+                or
+                {}
+            ),
         )
 
         tokenizer_configuration = (
@@ -586,8 +598,9 @@ class TrainingRuntimeService:
             version_runtime_configuration
         )
 
-        resolved_algorithm_configuration.update(
-            algorithm_configuration
+        TrainingRuntimeService._deep_merge(
+            resolved_algorithm_configuration,
+            algorithm_configuration,
         )
 
         prepared_tokenizer_configuration[
@@ -616,6 +629,29 @@ class TrainingRuntimeService:
         ] = prepared_tokenizer_configuration
 
         return runtime_configuration
+
+    @staticmethod
+    def _deep_merge(
+        target: dict,
+        source: dict,
+    ) -> None:
+
+        for key, value in source.items():
+
+            if (
+                key in target
+                and isinstance(target[key], dict)
+                and isinstance(value, dict)
+            ):
+
+                TrainingRuntimeService._deep_merge(
+                    target[key],
+                    value,
+                )
+
+            else:
+
+                target[key] = deepcopy(value)
 
 
 training_runtime_service = (

@@ -29,6 +29,18 @@ class TrainingModelInitializationService:
             )
         )
 
+        print(
+            "[MODEL_INIT] runtime_configuration =",
+            runtime.runtime_configuration,
+            flush=True,
+        )
+
+        print(
+            "[MODEL_INIT] model_initialization =",
+            initialization_configuration,
+            flush=True,
+        )
+
         if not isinstance(
             initialization_configuration,
             dict,
@@ -43,6 +55,12 @@ class TrainingModelInitializationService:
             .get(
                 "initializer_class"
             )
+        )
+
+        print(
+            "[MODEL_INIT] initializer_class =",
+            initializer_class,
+            flush=True,
         )
 
         if (
@@ -75,6 +93,12 @@ class TrainingModelInitializationService:
                 "must be an object."
             )
 
+        print(
+            "[MODEL_INIT] Resolving class:",
+            initializer_class,
+            flush=True,
+        )
+
         initializer_class_type = (
             dynamic_class_resolver
             .resolve_class(
@@ -89,6 +113,12 @@ class TrainingModelInitializationService:
 
         initializer = (
             initializer_class_type()
+        )
+
+        print(
+            "[MODEL_INIT] Initializer instance:",
+            initializer.__class__.__name__,
+            flush=True,
         )
 
         return await (

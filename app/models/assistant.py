@@ -12,6 +12,10 @@ from sqlalchemy import (
     Text
 )
 
+from sqlalchemy.orm import (
+    relationship,
+)
+
 from app.db.database import Base
 
 
@@ -64,4 +68,18 @@ class Assistant(Base):
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
         nullable=False
+    )
+
+    config = relationship(
+
+        "AssistantConfig",
+
+        uselist=False,
+
+        backref="assistant",
+
+        lazy="selectin",
+
+        cascade="all, delete-orphan",
+
     )

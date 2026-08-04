@@ -134,6 +134,8 @@ class ConversationRepository:
 
         workspace_id: int,
 
+        assistant_id: int | None = None,
+
         limit: int = 20,
 
         cursor: int | None = None,
@@ -155,6 +157,25 @@ class ConversationRepository:
             )
 
         )
+
+        #
+        # Assistant filter
+        #
+        if assistant_id is not None:
+
+            query = query.where(
+
+                Conversation.assistant_id == assistant_id
+
+            )
+
+        else:
+
+            query = query.where(
+
+                Conversation.assistant_id.is_(None)
+
+            )
 
         #
         # Cursor Pagination

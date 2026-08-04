@@ -2,12 +2,18 @@ from google import genai
 
 from app.core.config import settings
 
+from app.modules.providers.base_provider import (
+    BaseProvider
+)
+
 MODEL_NAME = (
     "gemini-2.5-flash"
 )
 
 
-class GeminiProvider:
+class GeminiProvider(
+    BaseProvider
+):
 
     def __init__(self):
 
@@ -17,14 +23,22 @@ class GeminiProvider:
 
     async def generate(
         self,
-        messages
+        messages: list,
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        stream: bool = False,
+        tools: list | None = None,
+        metadata: dict | None = None,
     ):
+
+        resolved_model = model or MODEL_NAME
 
         prompt = messages[-1]["content"]
 
         response = self.client.models.generate_content(
 
-            model=MODEL_NAME,
+            model=resolved_model,
 
             contents=prompt
         )
@@ -52,7 +66,7 @@ class GeminiProvider:
         return {
 
             "model":
-            MODEL_NAME,
+            resolved_model,
 
             "response":
             response.text,
@@ -60,3 +74,8 @@ class GeminiProvider:
             "usage":
             usage
         }
+
+    async def health_check(
+        self
+    ):
+        return True

@@ -3,6 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.assistant import Assistant
 
+from sqlalchemy.orm import (
+    selectinload,
+)
+
 
 class AssistantRepository:
 
@@ -29,6 +33,12 @@ class AssistantRepository:
         result = await db.execute(
             select(
                 Assistant
+            ).options(
+
+                selectinload(
+                    Assistant.config
+                )
+
             ).where(
                 Assistant.id
                 ==
@@ -46,6 +56,12 @@ class AssistantRepository:
         result = await db.execute(
             select(
                 Assistant
+            ).options(
+
+                selectinload(
+                    Assistant.config
+                )
+
             ).where(
                 Assistant.code
                 ==
@@ -62,6 +78,12 @@ class AssistantRepository:
         result = await db.execute(
             select(
                 Assistant
+            ).options(
+
+            selectinload(
+                Assistant.config
+            )
+
             ).where(
                 Assistant.is_active == True
             )

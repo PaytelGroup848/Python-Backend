@@ -79,7 +79,8 @@ class TrainingDispatchService:
                 f"Training job is in '{job.status}' state "
                 "and cannot be dispatched."
             )
-
+        
+        print("DISPATCH-1")
         await (
             training_job_lifecycle_service
             .mark_queued(
@@ -88,7 +89,11 @@ class TrainingDispatchService:
             )
         )
 
+        print("DISPATCH-2")
+
         await db.commit()
+
+        print("DISPATCH-3")
 
         await (
             training_queue
@@ -96,6 +101,8 @@ class TrainingDispatchService:
                 training_job_id
             )
         )
+
+        print("DISPATCH-4")
 
         return {
             "success": True,

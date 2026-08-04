@@ -315,10 +315,14 @@ class TrainingService:
 
         await db.commit()
 
+        print("SERVICE-1 BEFORE DISPATCH", flush=True)
+
         await training_dispatch_service.dispatch(
             db=db,
             training_job_id=training_job.id,
         )
+
+        print("SERVICE-2 AFTER DISPATCH", flush=True)
 
         return training_job
 

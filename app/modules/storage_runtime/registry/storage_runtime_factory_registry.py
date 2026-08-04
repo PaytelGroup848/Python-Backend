@@ -63,6 +63,13 @@ class StorageRuntimeFactoryRegistry:
             normalized
         ] = factory
 
+        print(
+            "[REGISTER]",
+            id(self),
+            normalized,
+            list(self._factories.keys()),
+        )
+
     def get_factory(
         self,
         implementation_code: str,
@@ -70,6 +77,13 @@ class StorageRuntimeFactoryRegistry:
 
         normalized = self._normalize(
             implementation_code
+        )
+
+        print(
+            "[GET_FACTORY]",
+            id(self),
+            normalized,
+            list(self._factories.keys()),
         )
 
         factory = self._factories.get(

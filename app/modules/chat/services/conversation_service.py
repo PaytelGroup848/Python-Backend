@@ -108,6 +108,8 @@ class ConversationService:
 
         workspace_id: int,
 
+        assistant_id: int | None = None,
+
         limit: int = 20,
 
         cursor: int | None = None,
@@ -121,6 +123,8 @@ class ConversationService:
             organization_id=organization_id,
 
             workspace_id=workspace_id,
+
+            assistant_id=assistant_id,
 
             limit=limit,
 

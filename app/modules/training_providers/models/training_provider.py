@@ -56,6 +56,12 @@ class TrainingProvider(Base):
         nullable=True
     )
 
+    runtime_components = Column(
+        JSON,
+        nullable=False,
+        server_default="{}"
+    )
+
     is_active = Column(
         Boolean,
         default=True,

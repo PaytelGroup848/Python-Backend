@@ -62,6 +62,8 @@ class NativeTrainingRuntime(
         context: TrainingExecutionContext,
     ) -> TrainingResult:
 
+        print("[RUNTIME] ENTER execute()", flush=True)
+
         formatter_configuration = (
             runtime.runtime_configuration.get(
                 "formatter"

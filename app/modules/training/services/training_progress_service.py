@@ -137,57 +137,57 @@ class TrainingProgressService(
         )
 
 
-        async def _persist_progress(
-            self,
-            db: AsyncSession,
-            training_job_id: int,
-            **progress,
-        ) -> None:
+    async def _persist_progress(
+        self,
+        db: AsyncSession,
+        training_job_id: int,
+        **progress,
+    ) -> None:
 
-            training_job = await (
-                training_job_repository
-                .get_by_id(
-                    db=db,
-                    training_job_id=training_job_id,
-                )
+        training_job = await (
+            training_job_repository
+            .get_by_id(
+                db=db,
+                training_job_id=training_job_id,
+            )
+        )
+
+        if training_job is None:
+
+            raise ValueError(
+                f"Training job {training_job_id} not found."
             )
 
-            if training_job is None:
-
-                raise ValueError(
-                    f"Training job {training_job_id} not found."
-                )
-
-            for field, value in progress.items():
+        for field, value in progress.items():
  
-                if hasattr(
-                    training_job,
-                    field,
-                ):
-
-                    setattr(
-                        training_job,
-                        field,
-                        value,
-                    )
-
-            if (
-                "last_checkpoint_path"
-                in
-                progress
+            if hasattr(
+                training_job,
+                field,
             ):
 
-                training_job.last_checkpoint_at = (
-                    datetime.utcnow()
+                setattr(
+                    training_job,
+                    field,
+                    value,
                 )
 
-            await (
-                training_job_repository
-                .update(
-                    db=db,
-                    training_job=training_job,
-                )
+        if (
+            "last_checkpoint_path"
+            in
+            progress
+        ):
+
+            training_job.last_checkpoint_at = (
+                datetime.utcnow()
             )
+
+        await (
+            training_job_repository
+            .update(
+                db=db,
+                training_job=training_job,
+            )
+        )
 
 
 training_progress_service = (

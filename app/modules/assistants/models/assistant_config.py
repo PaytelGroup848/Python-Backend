@@ -90,6 +90,36 @@ class AssistantConfig(Base):
         default=False
     )
 
+    voice_enabled = Column(
+        Boolean,
+        nullable=False,
+        default=False
+    )
+
+    ocr_enabled = Column(
+        Boolean,
+        nullable=False,
+        default=False
+    )
+
+    web_search_enabled = Column(
+        Boolean,
+        nullable=False,
+        default=False
+    )
+
+    document_chat_enabled = Column(
+        Boolean,
+        nullable=False,
+        default=True
+    )
+
+    image_generation_enabled = Column(
+        Boolean,
+        nullable=False,
+        default=False
+    )
+
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,

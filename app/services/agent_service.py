@@ -43,8 +43,8 @@ from app.services.tool_service import (
     search_documents_tool
 )
 
-from app.modules.usage.services.usage_service import (
-    usage_service
+from app.modules.usage.services.usage_limit_service import (
+    usage_limit_service
 )
 
 # =========================================================
@@ -113,7 +113,7 @@ class AgentState(TypedDict):
     # user
     session_id: str
     user_id: int
-    assistant_id: int
+    assistant_id: int | None
     user_role: str
     user_department: str
 
@@ -530,6 +530,37 @@ async def assistant_runtime_node(
         state: AgentState
     ):
 
+        if state["assistant_id"] is None:
+
+            return {
+
+                **state,
+
+                "system_prompt": "",
+
+                "assistant_name": "General Chat",
+
+                "assistant_code": "GENERAL",
+
+                "model_id": None,
+
+                "temperature": 0.2,
+
+                "top_p": 0.95,
+
+                "max_tokens": 4000,
+
+                "context_window": 8000,
+
+                "memory_enabled": True,
+
+                "rag_enabled": False,
+
+                "cag_enabled": False,
+
+                "tool_calling_enabled": False,
+            }
+
         async with AsyncSessionLocal() as db:
 
             runtime = await (
@@ -793,10 +824,10 @@ async def generation_node(state: AgentState):
     async with AsyncSessionLocal() as db:
 
         allowed = await (
-            usage_service
+            usage_limit_service
             .check_usage_limit(
                 db,
-                state["user_id"]
+                user_id=state["user_id"],
             )
         )
 
@@ -999,7 +1030,7 @@ class AgentRuntime:
         query: str,
         session_id: str,
         user_id: int,
-        assistant_id: int,
+        assistant_id: int | None,
         user_role: str,
         user_department: str
     ) -> AgentResponse:
@@ -1108,7 +1139,7 @@ async def run_agent(
     query: str,
     session_id: str,
     user_id: int,
-    assistant_id: int,
+    assistant_id: int | None,
     user_role: str,
     user_department: str
 ):

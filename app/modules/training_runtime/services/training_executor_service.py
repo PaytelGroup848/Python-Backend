@@ -100,17 +100,31 @@ class TrainingExecutorService:
             }
         )
 
+        training_configuration = (
+            runtime.runtime_configuration.get(
+                "training"
+            )
+        )
+
+        if not isinstance(
+            training_configuration,
+            dict,
+        ):
+            raise ValueError(
+                "Training configuration must define "
+                "'training' as an object."
+            )
+
         batch_size = (
-            runtime.runtime_configuration
-            .get(
+            training_configuration.get(
                 "data_batch_size"
             )
         )
 
         if batch_size is None:
             raise ValueError(
-                "Training configuration must define "
-                "'data_batch_size'."
+                "Training configuration.training "
+                "must define 'data_batch_size'."
             )
 
         if (
@@ -121,7 +135,8 @@ class TrainingExecutorService:
             batch_size <= 0
         ):
             raise ValueError(
-                "'data_batch_size' must be a positive integer."
+                "'training.data_batch_size' "
+                "must be a positive integer."
             )
         
         resume_after_record_id = None
@@ -277,21 +292,46 @@ class TrainingExecutorService:
                 f"No runtime registered for "
                 f"{runtime.runtime_class}."
             )
-        execution_context = (
-            TrainingExecutionContext(
-                db=db,
-            )
+        #execution_context = (
+         #   TrainingExecutionContext(
+          #      db=db,
+           # )
+        #)
+
+        #print("[EXECUTOR] runtime object:", training_runtime, flush=True)
+        #print("[EXECUTOR] runtime type:", type(training_runtime), flush=True)
+
+        #return await (
+         #   training_runtime.execute(
+          #      runtime=runtime,
+           #     training_data=training_data,
+            #    context=execution_context,
+            #)
+        #
+        #print("[EXECUTOR] runtime.execute() returned", flush=True)
+
+        #return result
+
+    
+
+        #print("[EXECUTOR] 9 BEFORE runtime.execute()", flush=True)
+
+        execution_context = TrainingExecutionContext(
+            db=db,
         )
 
-        return await (
-            training_runtime.execute(
-                runtime=runtime,
-                training_data=training_data,
-                context=execution_context,
-            )
+        print("[EXECUTOR] runtime object:", training_runtime, flush=True)
+        print("[EXECUTOR] runtime type:", type(training_runtime), flush=True)
+
+        result = await training_runtime.execute(
+            runtime=runtime,
+            training_data=training_data,
+            context=execution_context,
         )
 
-    print("[EXECUTOR] 9 BEFORE runtime.execute()", flush=True)
+        print("[EXECUTOR] runtime.execute() returned", flush=True)
+
+        return result
     
 
 

@@ -247,9 +247,9 @@ class ProviderRuntimeManager:
             )
 
             result = await provider.generate(
-                messages
+                messages=messages,
+                temperature=temperature,
             )
-
             latency_ms = int(
                 (
                     time.perf_counter()
@@ -358,7 +358,7 @@ class ProviderRuntimeManager:
 
             result = await (
                 fallback_provider.generate(
-                    messages
+                    messages=messages
                 )
             )
 

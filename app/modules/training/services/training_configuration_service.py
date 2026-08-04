@@ -29,6 +29,10 @@ from app.modules.training_providers.repositories.training_provider_repository im
     training_provider_repository,
 )
 
+from app.modules.training_providers.models.training_provider import (
+    TrainingProvider,
+)
+
 
 class TrainingConfigurationService:
 
@@ -93,8 +97,10 @@ class TrainingConfigurationService:
                 runtime_code=(
                     data.runtime_code
                 ),
-                configuration_json=await self._prepare_runtime_configuration(
-                    data.configuration_json
+                configuration_json=await self._build_runtime_configuration(
+                    db=db,
+                    data=data,
+                    provider=provider,
                 ),
                 created_by=(
                     data.created_by
@@ -343,6 +349,55 @@ class TrainingConfigurationService:
             )
         )
 
+    async def _build_runtime_configuration(
+        self,
+        db: AsyncSession,
+        data: TrainingConfigurationCreate,
+        provider: TrainingProvider,
+    ) -> dict:
+
+        provider_runtime = deepcopy(
+            provider.runtime_components or {}
+        )
+
+        user_runtime = deepcopy(
+            data.configuration_json or {}
+        )
+
+        runtime = deepcopy(provider_runtime)
+
+        def deep_merge(
+            target: dict,
+            source: dict,
+        ) -> dict:
+
+            for key, value in source.items():
+
+                if (
+                    isinstance(value, dict)
+                    and
+                    isinstance(target.get(key), dict)
+                ):
+                    deep_merge(
+                        target[key],
+                        value,
+                    )
+                else:
+                    target[key] = value
+
+            return target
+
+        runtime = deep_merge(
+            runtime,
+            user_runtime,
+        )
+
+        runtime = await self._prepare_runtime_configuration(
+            runtime
+        )
+
+        return runtime
+
     async def _prepare_runtime_configuration(
         self,
         configuration_json: dict | None,
@@ -382,6 +437,82 @@ class TrainingConfigurationService:
                 raise BusinessException(
                     f"Runtime section '{section}' must be an object."
                 )
+
+        model_initialization = runtime["model_initialization"]
+
+        initializer_class = (
+            model_initialization.get(
+                "initializer_class"
+            )
+        )
+
+        if (
+            not isinstance(
+                initializer_class,
+                str,
+            )
+            or
+            not initializer_class.strip()
+        ):
+            raise BusinessException(
+                "Runtime configuration must define "
+                "'model_initialization.initializer_class'."
+            )
+
+        initializer_configuration = (
+            model_initialization.get(
+                "configuration"
+            )
+        )
+
+        if not isinstance(
+            initializer_configuration,
+            dict,
+        ):
+            raise BusinessException(
+                "Runtime configuration must define "
+                "'model_initialization.configuration'."
+            )
+
+        model_class = (
+            initializer_configuration.get(
+                "model_class"
+            )
+        )
+
+        if (
+            not isinstance(
+                model_class,
+                str,
+            )
+            or
+            not model_class.strip()
+        ):
+            raise BusinessException(
+                "Runtime configuration must define "
+                "'model_initialization.configuration.model_class'."
+            )
+
+       
+
+        model_configuration = (
+            initializer_configuration.get(
+                "model_configuration"
+            )
+        )
+
+        if (
+            model_configuration is not None
+            and
+            not isinstance(
+                model_configuration,
+                dict,
+            )
+        ):
+            raise BusinessException(
+                "'model_initialization.configuration.model_configuration' "
+                "must be an object."
+            )
 
         return runtime
         
@@ -665,6 +796,82 @@ class TrainingConfigurationService:
                     f"'{section}' "
                     f"must be an object."
                 )
+
+        model_initialization = runtime["model_initialization"]
+
+        initializer_class = (
+            model_initialization.get(
+                "initializer_class"
+            )
+        )
+
+        if (
+            not isinstance(
+                initializer_class,
+                str,
+            )
+            or
+            not initializer_class.strip()
+        ):
+            raise BusinessException(
+                "Runtime configuration must define "
+                "'model_initialization.initializer_class'."
+            )
+
+        initializer_configuration = (
+            model_initialization.get(
+                "configuration"
+            )
+        )
+
+        if not isinstance(
+            initializer_configuration,
+            dict,
+        ):
+            raise BusinessException(
+                "Runtime configuration must define "
+                "'model_initialization.configuration'."
+            )
+
+        model_class = (
+            initializer_configuration.get(
+                "model_class"
+            )
+        )
+
+        if (
+            not isinstance(
+                model_class,
+                str,
+            )
+            or
+            not model_class.strip()
+        ):
+            raise BusinessException(
+                "Runtime configuration must define "
+                "'model_initialization.configuration.model_class'."
+            )
+
+        model_configuration = (
+            initializer_configuration.get(
+                "model_configuration"
+            )
+        )
+
+        if (
+            model_configuration is not None
+            and
+            not isinstance(
+                model_configuration,
+                dict,
+            )
+        ):
+            raise BusinessException(
+                "'model_initialization.configuration.model_configuration' "
+                "must be an object."
+            )
+
+        
             
     async def validate_configuration(
         self,

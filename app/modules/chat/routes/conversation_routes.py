@@ -106,6 +106,10 @@ async def list_conversations(
         default=None,
     ),
 
+    assistant_id: int | None = Query(
+        default=None,
+    ),
+
     context: RequestContext = Depends(
         get_request_context
     ),
@@ -123,6 +127,8 @@ async def list_conversations(
         organization_id=context.organization.id,
 
         workspace_id=context.workspace.id,
+
+        assistant_id=assistant_id,
 
         limit=limit,
 

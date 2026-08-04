@@ -19,14 +19,16 @@ class OpenAIProvider(
 
     async def generate(
         self,
-        model: str,
         messages: list,
+        model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 4096,
         stream: bool = False,
         tools: list | None = None,
-        metadata: dict | None = None
+        metadata: dict | None = None,
     ):
+
+        resolved_model = model or MODEL_NAME
 
         response = await http_client.post(
 
@@ -42,7 +44,7 @@ class OpenAIProvider(
 
             json={
 
-                "model": model,
+                "model": resolved_model,
 
                 "messages": messages,
 
@@ -62,7 +64,7 @@ class OpenAIProvider(
 
         return {
 
-            "model": model,
+            "model": resolved_model,
 
             "response":
             data["choices"][0]["message"]["content"],
