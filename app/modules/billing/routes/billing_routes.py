@@ -4,6 +4,10 @@ from fastapi import (
     Request,
     HTTPException
 )
+from fastapi.responses import StreamingResponse
+from app.modules.billing.services.invoice_data_service import invoice_data_service
+from app.modules.billing.services.invoice_pdf_service_v2 import invoice_pdf_service_v2
+
 
 from slowapi import Limiter
 
@@ -369,6 +373,33 @@ async def get_invoice(
         "created_at":
             invoice.created_at
     }
+
+@router.get(
+    "/invoices/{invoice_id}/pdf"
+)
+async def download_user_invoice_pdf(
+    invoice_id: int,
+    user=Depends(verify_token),
+    db: AsyncSession = Depends(get_db)
+):
+    invoice_data = await invoice_data_service.build_invoice_data(db, invoice_id)
+    if not invoice_data or not invoice_data.get("invoice"):
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    invoice = invoice_data["invoice"]
+    if invoice.user_id != user["user_id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    pdf_buffer = await invoice_pdf_service_v2.generate(invoice_data)
+
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename={invoice.invoice_number}.pdf"
+        }
+    )
+
 
 @router.get(
     "/subscription"

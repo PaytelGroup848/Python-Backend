@@ -1,38 +1,16 @@
-from fastapi import APIRouter
-from fastapi import Depends
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete
 
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-)
-
-from sqlalchemy import select
-from sqlalchemy import delete
-
-from app.models.message import (
-    Message,
-)
-
-from app.schemas.message import (
-    MessageResponse,
-)
-
-from app.db.database import (
-    get_db,
-)
-
-from app.models.conversation_session import (
-    ConversationSession,
-)
-
+from app.models.message import Message
+from app.schemas.message import MessageResponse
+from app.db.database import get_db
+from app.models.conversation_session import ConversationSession
 from app.schemas.conversation import (
     ConversationCreate,
     ConversationResponse,
 )
-
-from app.core.security import (
-    get_current_user
-)
-
+from app.core.security import get_current_user
 
 
 router = APIRouter(
@@ -50,27 +28,18 @@ router = APIRouter(
 )
 
 async def create_conversation(
-
     payload: ConversationCreate,
-
     db: AsyncSession = Depends(get_db),
-
-    current_user = Depends(
-        get_current_user
-    ),
+    current_user = Depends(get_current_user),
 ):
-
-
-
     conversation = ConversationSession(
         user_id=current_user.id,
         title=payload.title,
+        assistant_id=payload.assistant_id
     )
 
     db.add(conversation)
-
     await db.commit()
-
     await db.refresh(conversation)
 
     return conversation
@@ -82,40 +51,26 @@ async def create_conversation(
 
 @router.get(
     "",
-    response_model=list[
-        ConversationResponse
-    ]
+    response_model=list[ConversationResponse]
 )
 
 async def get_conversations(
-
+    assistant_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
-
-    current_user = Depends(
-        get_current_user
-    ),
+    current_user = Depends(get_current_user),
 ):
-
-
-
-    result = await db.execute(
-
-        select(
-            ConversationSession
-        )
-        .where(
-            ConversationSession.user_id
-            ==
-            current_user.id
-        )
-        .order_by(
-            ConversationSession.created_at.desc()
-        )
+    stmt = (
+        select(ConversationSession)
+        .where(ConversationSession.user_id == current_user.id)
     )
 
-    conversations = (
-        result.scalars().all()
-    )
+    if assistant_id is not None:
+        stmt = stmt.where(ConversationSession.assistant_id == assistant_id)
+
+    stmt = stmt.order_by(ConversationSession.created_at.desc())
+
+    result = await db.execute(stmt)
+    conversations = result.scalars().all()
 
     return conversations
 

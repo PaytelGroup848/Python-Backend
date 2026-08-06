@@ -170,6 +170,37 @@ async def process_chat_requests():
                         )
 
                         # =========================
+                        # SAVE ASSISTANT MESSAGE & CONVERSATION RECORD TO DB
+                        # =========================
+                        if conversation_id and response_text:
+                            try:
+                                from app.db.database import AsyncSessionLocal
+                                from app.models.message import Message
+                                from app.models.conversation import Conversation
+                                async with AsyncSessionLocal() as db:
+                                    assistant_msg = Message(
+                                        conversation_id=int(conversation_id),
+                                        role="assistant",
+                                        content=response_text
+                                    )
+                                    db.add(assistant_msg)
+
+                                    conv_record = Conversation(
+                                        user_id=int(user_id) if user_id and str(user_id).isdigit() else None,
+                                        session_id=str(conversation_id),
+                                        query=query,
+                                        response=response_text,
+                                        model_used=str(assistant_id or "LawGPT")
+                                    )
+                                    db.add(conv_record)
+
+                                    await db.commit()
+                                    logger.info(f"Saved assistant message & conversation audit record to DB for conversation={conversation_id}")
+                            except Exception as db_err:
+                                logger.error(f"Failed to save to DB: {db_err}")
+
+
+                        # =========================
                         # PUBLISH RESPONSE EVENT
                         # =========================
 
@@ -183,6 +214,9 @@ async def process_chat_requests():
                                 "request_id":
                                     request_id,
 
+                                "conversation_id":
+                                    conversation_id,
+
                                 "type":
                                     "message",
 
@@ -190,6 +224,7 @@ async def process_chat_requests():
                                     response_text,
                             }
                         )
+
 
 
 

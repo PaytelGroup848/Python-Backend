@@ -17,8 +17,10 @@ from app.db.database import (
 )
 
 from app.core.security import (
-    require_role
+    verify_token,
+    require_role,
 )
+
 
 from app.modules.billing.services.invoice_data_service import (
     invoice_data_service
@@ -44,7 +46,7 @@ async def download_invoice_pdf(
     invoice_id: int,
 
     user=Depends(
-        require_role("admin")
+        verify_token
     ),
 
     db: AsyncSession = Depends(
@@ -60,14 +62,26 @@ async def download_invoice_pdf(
         )
     )
 
-    if not invoice_data:
-
+    if not invoice_data or not invoice_data.get("invoice"):
         raise HTTPException(
-
             status_code=404,
-
             detail="Invoice not found"
         )
+
+    invoice = (
+        invoice_data["invoice"]
+    )
+
+    user_id = user.get("user_id") if isinstance(user, dict) else getattr(user, "id", None)
+    user_role = user.get("role") if isinstance(user, dict) else getattr(user, "role", None)
+
+    if invoice.user_id != user_id and user_role != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied to this invoice"
+        )
+
+
 
     pdf_buffer = await (
         invoice_pdf_service_v2

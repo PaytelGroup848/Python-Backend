@@ -1,19 +1,24 @@
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-)
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.storage_registry.repositories.storage_instance_repository import (
     storage_instance_repository,
 )
-
+from app.modules.storage_registry.models.storage_implementation import (
+    StorageImplementation,
+)
+from app.modules.storage_registry.models.storage_instance import (
+    StorageInstance,
+)
+from app.shared.constants.storage_scope_type import (
+    StorageScopeType,
+)
 from app.modules.storage_runtime.schemas.resolved_storage_runtime import (
     ResolvedStorageRuntime,
 )
-
 from app.modules.storage_runtime.services.storage_resolution_service import (
     storage_resolution_service,
 )
-
 from app.shared.exceptions.business_exception import (
     BusinessException,
 )
@@ -41,11 +46,37 @@ class DatasetStorageService:
         )
 
         if instance is None:
-
-            raise BusinessException(
-                "Platform dataset storage "
-                "is not configured."
+            # Auto-create local storage implementation and instance
+            impl_res = await db.execute(
+                select(StorageImplementation).where(
+                    StorageImplementation.implementation_code == "LOCAL_FILESYSTEM"
+                )
             )
+            impl = impl_res.scalars().first()
+            if not impl:
+                impl = StorageImplementation(
+                    implementation_code="LOCAL_FILESYSTEM",
+                    implementation_version="1.0",
+                    display_name="Local Filesystem Storage",
+                    description="Default Local Storage",
+                    runtime_type="LOCAL",
+                    configuration_schema_json={},
+                    capabilities_json={"read": True, "write": True, "delete": True},
+                    is_active=True,
+                )
+                db.add(impl)
+                await db.flush()
+
+            instance = StorageInstance(
+                storage_implementation_id=impl.id,
+                scope_type=StorageScopeType.PLATFORM.value,
+                instance_code=self.DEFAULT_PLATFORM_STORAGE_CODE,
+                display_name="Platform Pipeline Dataset Storage",
+                configuration_json={"root_directory": "/tmp/platform_storage"},
+                is_active=True,
+            )
+            db.add(instance)
+            await db.flush()
 
         return await (
             storage_resolution_service

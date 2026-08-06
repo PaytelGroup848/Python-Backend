@@ -21,6 +21,10 @@ class DatasetResponse(
 
     record_count: int
 
+    snapshot_count: int = 0
+
+    training_job_count: int = 0
+
     status: str
 
     created_at: datetime

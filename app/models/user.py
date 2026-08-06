@@ -47,6 +47,10 @@ class User(Base):
         nullable=False
     )
 
+    @property
+    def full_name(self) -> str:
+        return self.name or (self.email.split("@")[0].capitalize() if self.email else "")
+
 # =========================
 # PERMISSION MODELS 
 # =========================

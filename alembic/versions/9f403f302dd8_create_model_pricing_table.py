@@ -33,10 +33,10 @@ def upgrade() -> None:
     sa.UniqueConstraint('model_name')
     )
     op.create_index(op.f('ix_model_pricing_id'), 'model_pricing', ['id'], unique=False)
-    op.alter_column('api_requests', 'source',
-               existing_type=sa.VARCHAR(length=50),
-               nullable=False,
-               existing_server_default=sa.text("'api'::character varying"))
+    try:
+        op.add_column('api_requests', sa.Column('source', sa.String(length=50), nullable=False, server_default='api'))
+    except Exception:
+        pass
     # ### end Alembic commands ###
 
 

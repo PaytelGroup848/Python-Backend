@@ -43,6 +43,8 @@ class TokenResponse(BaseModel):
 
     token_type: str
 
+    user: dict | None = None
+
 
 # =========================
 # REFRESH TOKEN RESPONSE

@@ -22,6 +22,10 @@ from app.modules.datasets.services.dataset_upload_service import (
     dataset_upload_service,
 )
 
+from app.modules.datasets.services.dataset_upload_ingest_service import (
+    dataset_upload_ingest_service,
+)
+
 router = APIRouter(
 
     prefix="/dataset-uploads",
@@ -142,4 +146,29 @@ async def delete_dataset_upload(
     return {
         "message": "Dataset upload deleted successfully."
     }
+
+
+@router.post("/{upload_id}/ingest")
+async def ingest_dataset_upload(
+
+    upload_id: int,
+
+    db: AsyncSession = Depends(
+        get_db,
+    ),
+
+):
+    """
+    Trigger ingestion of a previously uploaded file.
+    Parses the file using the platform parser registry (PDF, CSV, XLSX, TXT, DOCX …)
+    and stores resulting chunks as dataset_records.
+    """
+
+    return await (
+        dataset_upload_ingest_service
+        .ingest(
+            db=db,
+            upload_id=upload_id,
+        )
+    )
 

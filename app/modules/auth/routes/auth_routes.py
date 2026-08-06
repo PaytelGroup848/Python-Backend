@@ -249,11 +249,17 @@ async def login(
             detail="Session creation failed"
         )
 
-    # return tokens
+    user_display_name = getattr(user, "name", None) or user.email.split("@")[0].capitalize()
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
-        "token_type": "bearer"
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user_display_name,
+            "role": user.role or "MEMBER",
+        }
     }
 
 @router.post(

@@ -197,7 +197,10 @@ async def execute_with_retry(
 
             await asyncio.sleep(1)
 
-    raise last_error
+    if last_error is not None:
+        raise last_error
+    
+    raise RuntimeError("execute_with_retry failed: no attempts were made")
 
 
 # =========================================================
@@ -309,12 +312,17 @@ class QueryRewriteService:
                     OPTIMIZED QUERY:
                 """
 
-        response = await provider_runtime_manager.generate_response(
-            prompt=prompt,
-            user_id=user_id,
-            temperature=0.1
-        )
-        return response["response"].strip()
+        try:
+            response = await provider_runtime_manager.generate_response(
+                prompt=prompt,
+                user_id=user_id,
+                temperature=0.1
+            )
+            return response["response"].strip()
+        except Exception as exc:
+            logger.warning(f"Query rewrite failed (using raw query): {exc}")
+            return query
+
 
 
 # =========================================================
@@ -837,15 +845,22 @@ async def generation_node(state: AgentState):
                 "Plan limit exceeded"
             )
 
-    response = await provider_runtime_manager.generate_response(
-        prompt=final_prompt,
-        user_id=state["user_id"],
-        temperature=
-            state["temperature"],
-        stream=False
-    )
+        try:
+            response = await provider_runtime_manager.generate_response(
+                prompt=final_prompt,
+                user_id=state["user_id"],
+                temperature=
+                    state["temperature"],
+                stream=False
+            )
+            final_response = response["response"]
+        except Exception as exc:
+            if state.get("context"):
+                logger.info("External provider unavailable, returning dataset context directly.")
+                final_response = f"Based on your trained LawGPT dataset:\n\n{state['context']}"
+            else:
+                raise exc
 
-    final_response = response["response"]
 
     if state["cag_enabled"]:
 

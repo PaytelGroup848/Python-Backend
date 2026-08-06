@@ -76,14 +76,21 @@ def verify_token(token=Depends(security)):
 # =========================
 # ROLE BASED ACCESS
 # =========================
-def require_role(required_role: str):
+def require_role(required_role: str | list[str]):
     def checker(user=Depends(verify_token)):
-        if user["role"] != required_role:
-            raise HTTPException(status_code=403, detail="Forbidden")
+        user_role = str(user.get("role", "")).lower()
+        if isinstance(required_role, list):
+            allowed = [r.lower() for r in required_role]
+            if user_role not in allowed:
+                raise HTTPException(status_code=403, detail="Forbidden")
+        else:
+            if user_role != required_role.lower():
+                raise HTTPException(status_code=403, detail="Forbidden")
 
         return user
 
     return checker
+
 
 # =========================
 # PERMISSION CHECK 

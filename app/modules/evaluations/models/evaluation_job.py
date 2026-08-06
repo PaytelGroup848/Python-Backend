@@ -41,7 +41,7 @@ class EvaluationJob(Base):
     dataset_version_id = Column(
         Integer,
         ForeignKey(
-            "dataset_versions.id",
+            "dataset_snapshots.id",
             name="fk_evaluation_job_dataset_version_id",
         ),
         nullable=False,

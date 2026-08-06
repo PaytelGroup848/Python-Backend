@@ -58,7 +58,7 @@ class ModelVersion(Base):
         Integer,
         ForeignKey(
             "model_artifacts.id",
-            name="fk_model_version_training_job_id",
+            name="fk_model_version_artifact_id",
             ondelete="SET NULL",
         ),
         nullable=True,
@@ -130,7 +130,7 @@ class ModelVersion(Base):
         Integer,
         ForeignKey(
             "model_versions.id",
-            name="fk_model_version_training_job_id",
+            name="fk_model_version_parent_id",
             ondelete="SET NULL",
         ),
         nullable=True,

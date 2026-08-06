@@ -180,6 +180,9 @@ from app.modules.storage_registry.models.storage_instance import (
     StorageInstance,
 )
 
-from app.modules.tokenizers.models.tokenizer_version import (
-    TokenizerVersion,
-)
+from app.modules.tokenizers.models.tokenizer import Tokenizer
+from app.modules.tokenizers.models.tokenizer_implementation import TokenizerImplementation
+from app.modules.tokenizers.models.tokenizer_training_configuration import TokenizerTrainingConfiguration
+from app.modules.tokenizers.models.tokenizer_training_job import TokenizerTrainingJob
+from app.modules.tokenizers.models.tokenizer_version import TokenizerVersion
+from app.modules.tokenizers.models.tokenizer_version_artifact import TokenizerVersionArtifact

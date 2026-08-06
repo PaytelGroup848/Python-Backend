@@ -159,6 +159,10 @@ from app.modules.training.routes.training_route import (
     router as training_router
 )
 
+from app.modules.training_providers.routes.training_provider_routes import (
+    router as training_provider_router
+)
+
 from app.modules.corpora.routes.corpus_routes import (
     router as corpus_router
 )
@@ -344,6 +348,55 @@ async def security_headers(
 # schedular
 #=============
 
+async def start_app_response_listener():
+    import asyncio, json
+    from app.shared.redis.stream_service import redis_stream_service
+    from app.shared.redis.client import redis_client
+    from app.shared.constants.streams import CHAT_RESPONSE_STREAM
+    from app.shared.websocket.websocket_manager import websocket_manager
+
+    group_name = "app_response_listeners"
+    consumer_name = "app_listener_1"
+
+    while True:
+        try:
+            response = await redis_stream_service.consume(
+                CHAT_RESPONSE_STREAM,
+                group_name,
+                consumer_name,
+            )
+            if not response:
+                await asyncio.sleep(0.1)
+                continue
+
+            for stream in response:
+                messages = stream[1]
+                for message in messages:
+                    message_id = message[0]
+                    payload = message[1]
+                    data = json.loads(payload.get("data", "{}"))
+                    request_id = data.get("request_id")
+
+                    websocket = websocket_manager.get_connection(request_id)
+                    if websocket:
+                        res_text = data.get("response") or data.get("content") or ""
+                        try:
+                            await websocket.send_json({"type": "start"})
+                            await websocket.send_json({"type": "chunk", "content": res_text, "response": res_text})
+                            await websocket.send_json({"type": "message", "content": res_text, "response": res_text})
+                            await websocket.send_json({"type": "done"})
+                        except Exception as e:
+                            logger.warning(f"WS Send Error: {e}")
+
+                    await redis_client.xack(
+                        CHAT_RESPONSE_STREAM,
+                        group_name,
+                        message_id,
+                    )
+        except Exception as e:
+            await asyncio.sleep(1)
+
+
 @app.on_event("startup")
 async def startup_event():
 
@@ -353,10 +406,14 @@ async def startup_event():
 
     scheduler.start()
 
+    import asyncio
+    asyncio.create_task(start_app_response_listener())
+
 @app.on_event("shutdown")
 async def shutdown_event():
 
     scheduler.shutdown()
+
 
 
 # =========================
@@ -501,6 +558,10 @@ app.include_router(
 
 app.include_router(
     training_router
+)
+
+app.include_router(
+    training_provider_router
 )
 
 app.include_router(

@@ -238,6 +238,11 @@ async def delete_dataset(
     )
 
 
+from app.modules.datasets.schemas.dataset_snapshot_create import (
+    DatasetSnapshotCreate,
+)
+
+
 @router.get(
     "/{dataset_id}/snapshots",
     response_model=list[DatasetSnapshotResponse],
@@ -251,3 +256,22 @@ async def list_dataset_snapshots(
         db=db,
         dataset_id=dataset_id,
     )
+
+
+@router.post(
+    "/{dataset_id}/snapshots",
+    response_model=DatasetSnapshotResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_dataset_snapshot(
+    dataset_id: int,
+    data: DatasetSnapshotCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    return await dataset_snapshot_service.create_snapshot(
+        db=db,
+        dataset_id=dataset_id,
+        snapshot_code=data.snapshot_code,
+        batch_size=data.batch_size,
+        snapshot_metadata=data.snapshot_metadata,
+    )

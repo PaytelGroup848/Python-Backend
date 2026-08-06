@@ -32,6 +32,13 @@ class ConversationSession(Base):
         default="New Chat"
     )
 
+    assistant_id = Column(
+        Integer,
+        ForeignKey("assistants.id", name="fk_conversation_sessions_assistant_id"),
+        nullable=True,
+        index=True
+    )
+
     created_at = Column(
         DateTime,
         default=datetime.utcnow

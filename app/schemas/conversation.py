@@ -7,6 +7,7 @@ class ConversationCreate(
     BaseModel
 ):
     title: str = "New Chat"
+    assistant_id: int | None = None
 
 
 class ConversationResponse(
@@ -14,6 +15,7 @@ class ConversationResponse(
 ):
     id: int
     title: str
+    assistant_id: int | None = None
     created_at: datetime
 
     class Config:

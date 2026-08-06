@@ -143,11 +143,14 @@ class UsageLimitService:
             return False
 
         if (
+            subscription
+            and
             subscription.end_date
             and
             subscription.end_date < datetime.utcnow()
         ):
             return False
+
 
         limits = await (
             self.get_user_plan_version(

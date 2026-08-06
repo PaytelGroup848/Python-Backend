@@ -128,14 +128,21 @@ async def update_user_plan(
     db: AsyncSession = Depends(get_db)
 ):
 
-    subscription = await (
-        subscription_service
-        .change_user_plan(
-            db,
-            user_id,
-            payload.plan_name
+    try:
+        subscription = await (
+            subscription_service
+            .change_user_plan(
+                db,
+                user_id,
+                payload.plan_name
+            )
         )
-    )
+    except ValueError as err:
+        raise HTTPException(
+            status_code=400,
+            detail=str(err)
+        )
+
 
     return {
 

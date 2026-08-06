@@ -36,6 +36,9 @@ from app.modules.ingestion.parsers.xml_parser import (
 from app.modules.ingestion.parsers.epub_parser import (
     epub_parser
 )
+from app.modules.ingestion.parsers.json_parser import (
+    json_parser
+)
 
 class ParserRegistry:
 
@@ -72,6 +75,9 @@ class ParserRegistry:
         )
         self.register(
             epub_parser
+        )
+        self.register(
+            json_parser
         )
 
     def register(
