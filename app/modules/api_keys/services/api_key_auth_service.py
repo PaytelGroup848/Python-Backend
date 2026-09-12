@@ -72,8 +72,9 @@ class ApiKeyAuthService:
             return None
 
         if not user.is_active:
-
             return None
+
+        user.current_api_key = key_record
 
         return user
 

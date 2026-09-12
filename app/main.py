@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from fastapi import (
@@ -29,9 +30,9 @@ from app.modules.auth.routes import (
  #   router as vector_router
 #)
 
-#from app.routes.pdf_routes import (
- #   router as pdf_router
-#)
+from app.routes.pdf_routes import (
+    router as pdf_router
+)
 
 #from app.routes.voice_routes import (
  #   router as voice_router
@@ -79,6 +80,10 @@ from app.modules.public_api.routes.ai_api_routes import (
     router as public_api_router
 )
 
+from app.modules.media.routes.media_routes import (
+    router as media_studio_router
+)
+
 from app.modules.models.routes.model_routes import (
     router as model_router
 )
@@ -116,6 +121,10 @@ from app.modules.billing.routes.razorpay_webhook_routes import (
 
 from app.modules.admin.routes.plan_admin_routes import (
     router as plan_admin_router
+)
+
+from app.modules.billing.routes.plan_routes import (
+    router as public_plan_router
 )
 
 from app.modules.billing.routes.admin_subscription_routes import (
@@ -229,6 +238,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+
+# Mount media directory for generated images & persistent assets
+import os
+from fastapi.staticfiles import StaticFiles
+
+media_root = os.path.join(os.getcwd(), "media")
+os.makedirs(os.path.join(media_root, "generated", "images"), exist_ok=True)
+app.mount("/media", StaticFiles(directory=media_root), name="media")
 
 register_pipeline_executors()
 # =========================
@@ -344,9 +361,76 @@ async def security_headers(
     return response
 
 
-#=============
-# schedular
-#=============
+# =========================
+# Distributed Redis Pub/Sub WebSocket Listener (Singleton)
+# =========================
+
+_pubsub_listener_task: asyncio.Task | None = None
+
+
+async def start_app_pubsub_listener():
+    """
+    Subscribes to pattern ws:req:* on Redis Pub/Sub.
+    Routes real-time streaming chunks, stages, and completion events to
+    the WebSocket connected to this application instance.
+    Guarded to ensure exactly one listener runs per process.
+    """
+    import json
+    from app.shared.redis.client import redis_client
+    from app.shared.websocket.websocket_manager import websocket_manager
+
+    logger.info("Initializing background Redis Pub/Sub WebSocket listener...")
+    while True:
+        pubsub = None
+        try:
+            pubsub = redis_client.pubsub()
+            await pubsub.psubscribe("ws:req:*")
+            logger.info("Redis Pub/Sub listener successfully subscribed to pattern 'ws:req:*'")
+
+            async for message in pubsub.listen():
+                if not message:
+                    continue
+                msg_type = message.get("type")
+                if msg_type in ("pmessage", "message"):
+                    channel = message.get("channel", "")
+                    if isinstance(channel, bytes):
+                        channel = channel.decode("utf-8")
+
+                    # Channel format: ws:req:<request_id>
+                    request_id = channel.replace("ws:req:", "")
+                    data_raw = message.get("data")
+                    if data_raw and request_id:
+                        try:
+                            if isinstance(data_raw, (bytes, bytearray)):
+                                data = json.loads(data_raw.decode("utf-8"))
+                            elif isinstance(data_raw, str):
+                                data = json.loads(data_raw)
+                            else:
+                                data = data_raw
+
+                            ws = websocket_manager.get_connection(request_id)
+                            if ws:
+                                await ws.send_json(data)
+
+                            # Free request registry on completion
+                            if isinstance(data, dict) and data.get("type") in ("done", "error", "stopped"):
+                                websocket_manager.unregister_request(request_id)
+                        except Exception as parse_err:
+                            logger.warning(f"Error handling pubsub message for req {request_id}: {parse_err}")
+
+        except asyncio.CancelledError:
+            logger.info("Redis Pub/Sub listener task cancelled cleanly.")
+            break
+        except Exception as e:
+            logger.error(f"Redis Pub/Sub listener connection lost: {e}. Reconnecting in 2s...")
+            await asyncio.sleep(2)
+        finally:
+            if pubsub:
+                try:
+                    await pubsub.close()
+                except Exception:
+                    pass
+
 
 async def start_app_response_listener():
     import asyncio, json
@@ -380,11 +464,11 @@ async def start_app_response_listener():
                     websocket = websocket_manager.get_connection(request_id)
                     if websocket:
                         res_text = data.get("response") or data.get("content") or ""
+                        conv_id = data.get("conversation_id")
                         try:
-                            await websocket.send_json({"type": "start"})
-                            await websocket.send_json({"type": "chunk", "content": res_text, "response": res_text})
-                            await websocket.send_json({"type": "message", "content": res_text, "response": res_text})
-                            await websocket.send_json({"type": "done"})
+                            await websocket.send_json({"type": "start", "conversation_id": conv_id})
+                            await websocket.send_json({"type": "chunk", "content": res_text, "response": res_text, "conversation_id": conv_id})
+                            await websocket.send_json({"type": "done", "conversation_id": conv_id})
                         except Exception as e:
                             logger.warning(f"WS Send Error: {e}")
 
@@ -399,6 +483,7 @@ async def start_app_response_listener():
 
 @app.on_event("startup")
 async def startup_event():
+    global _pubsub_listener_task
 
     register_storage_runtime_factories()
 
@@ -406,13 +491,25 @@ async def startup_event():
 
     scheduler.start()
 
-    import asyncio
+    # Singleton spawn: Ensure exactly one listener task runs across the instance
+    if _pubsub_listener_task is None or _pubsub_listener_task.done():
+        _pubsub_listener_task = asyncio.create_task(start_app_pubsub_listener())
+
     asyncio.create_task(start_app_response_listener())
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    global _pubsub_listener_task
 
     scheduler.shutdown()
+
+    if _pubsub_listener_task and not _pubsub_listener_task.done():
+        _pubsub_listener_task.cancel()
+        try:
+            await _pubsub_listener_task
+        except asyncio.CancelledError:
+            pass
 
 
 
@@ -428,9 +525,9 @@ app.include_router(
  #   vector_router
 #)
 
-#app.include_router(
- #   pdf_router
-#)
+app.include_router(
+    pdf_router
+)
 
 #app.include_router(
  #   voice_router
@@ -481,6 +578,10 @@ app.include_router(
 )
 
 app.include_router(
+    media_studio_router
+)
+
+app.include_router(
     model_router
 )
 
@@ -518,6 +619,10 @@ app.include_router(
 
 app.include_router(
     plan_admin_router
+)
+
+app.include_router(
+    public_plan_router
 )
 
 app.include_router(
@@ -626,3 +731,4 @@ async def home():
         "message":
         "AI LLM System Running"
     }
+

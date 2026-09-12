@@ -176,6 +176,7 @@ class DatasetBuilderService:
 
         await dataset_repository.update(
             db=db,
+            # pyrefly: ignore [unexpected-keyword]
             entity=dataset,
         )
 

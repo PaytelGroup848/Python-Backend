@@ -16,11 +16,14 @@ from app.modules.api_requests.services.api_request_service import (
 
 from fastapi import (
     APIRouter,
-    Depends
+    Depends,
+    Request,
+    HTTPException
 )
 
 from app.modules.public_api.schemas.ai_api_schema import (
-    ChatCompletionRequest
+    ChatCompletionRequest,
+    ImageGenerationAPIRequest
 )
 
 from app.modules.api_keys.dependencies.api_key_auth import (
@@ -142,7 +145,8 @@ async def chat_completions(
 
     response = await (
         provider_instance.generate(
-            messages
+            messages,
+            model=payload.model
         )
     )
 
@@ -192,7 +196,7 @@ async def chat_completions(
 
             user_id=current_user.id,
 
-            api_key_id=None,
+            api_key_id=getattr(getattr(current_user, "current_api_key", None), "id", None),
 
             model_name=response.get(
                 "model",
@@ -285,5 +289,57 @@ async def get_models(
             }
 
             for model in models
+        ]
+    }
+
+
+@router.post(
+    "/images/generations"
+)
+async def create_image_generation(
+    payload: ImageGenerationAPIRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(validate_api_key),
+):
+    from app.services.image_generation_service import image_generation_service
+    from app.services.image_providers.base import (
+        ContentPolicyViolationError,
+        ProviderAPIError,
+        ProviderTimeoutError
+    )
+
+    if not payload.prompt or not payload.prompt.strip():
+        raise HTTPException(status_code=400, detail="Prompt is required.")
+
+    user_id = current_user.id if hasattr(current_user, "id") else 1
+
+    try:
+        result = await image_generation_service.generate_and_persist(
+            user_id=user_id,
+            conversation_id=None,
+            prompt=payload.prompt.strip(),
+            aspect_ratio=payload.size or "1024x1024",
+        )
+    except ContentPolicyViolationError as cpv:
+        raise HTTPException(status_code=400, detail=f"Content policy violation: {str(cpv)}")
+    except ProviderTimeoutError as pto:
+        raise HTTPException(status_code=504, detail=f"Image generation timeout: {str(pto)}")
+    except ProviderAPIError as pae:
+        raise HTTPException(status_code=502, detail=f"Image generation provider error: {str(pae)}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Image generation failed: {str(exc)}")
+
+    base_url = str(request.base_url).rstrip("/")
+    file_url = result["file_url"]
+    full_url = f"{base_url}{file_url}" if not file_url.startswith("http") else file_url
+
+    return {
+        "created": int(time.time()),
+        "data": [
+            {
+                "url": full_url,
+                "revised_prompt": result.get("enhanced_prompt") or payload.prompt,
+            }
         ]
     }

@@ -299,15 +299,25 @@ def parse_pptx(file_path: str):
 
 
 # -----------------------------
-# IMAGE OCR
+# IMAGE MULTIMODAL VISION + OCR
 # -----------------------------
 
 async def parse_image(
     file_path: str
 ):
+    # Attempt Multimodal Vision analysis (Pixtral)
+    try:
+        from app.services.vision_service import VisionService
+        vision_text = await VisionService.analyze_image(file_path)
+        if vision_text and vision_text.strip():
+            return [{
+                "page_number": 1,
+                "text": vision_text.strip()
+            }]
+    except Exception as v_err:
+        logger.warning(f"Vision analysis in parse_image fallback to OCR: {v_err}")
 
     try:
-
         text = (
             await extract_text_from_image(
                 file_path
@@ -316,14 +326,15 @@ async def parse_image(
 
         return [{
             "page_number": 1,
-            "text": text
+            "text": text or ""
         }]
 
     except Exception:
-
         logger.exception(
             f"Image parse failed: "
             f"{file_path}"
         )
-
-        raise
+        return [{
+            "page_number": 1,
+            "text": ""
+        }]

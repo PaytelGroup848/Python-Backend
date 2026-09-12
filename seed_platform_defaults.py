@@ -14,6 +14,7 @@ from app.models.provider import Provider
 from app.models.assistant import Assistant
 from app.modules.billing.models.plan import Plan
 from app.modules.billing.models.plan_version import PlanVersion
+from app.modules.billing.models.plan_price import PlanPrice
 from app.modules.corpora.models.corpus import Corpus
 from app.modules.storage_registry.models.storage_implementation import StorageImplementation
 from app.modules.storage_registry.models.storage_instance import StorageInstance
@@ -54,14 +55,14 @@ async def seed_defaults():
                 scope_type=StorageScopeType.PLATFORM.value,
                 instance_code="PLATFORM_PIPELINE_STORAGE",
                 display_name="Platform Pipeline Dataset Storage",
-                configuration_json={"root_directory": "/tmp/platform_storage"},
+                configuration_json={"root_directory": "/data/platform_storage"},
                 is_active=True
             )
             db.add(inst)
             await db.flush()
             print("[SEED] Added Storage Instance: PLATFORM_PIPELINE_STORAGE")
         else:
-            inst.configuration_json = {"root_directory": "/tmp/platform_storage"}
+            setattr(inst, "configuration_json", {"root_directory": "/data/platform_storage"})
             await db.flush()
 
         # -2. Seed Default Knowledge Corpora
@@ -174,31 +175,31 @@ async def seed_defaults():
                 "code": "general",
                 "name": "General Chat",
                 "description": "Universal AI Assistant for general knowledge and multi-domain tasks",
-                "system_prompt": "You are a helpful, versatile AI assistant."
+                "system_prompt": "You are General Chat, a helpful, versatile universal AI assistant. You can answer general knowledge and multi-domain questions in a helpful and friendly manner."
             },
             {
                 "code": "lawgpt",
                 "name": "LawGPT",
                 "description": "Indian Legal Advisor, IPC 1860, Constitution & Statutory Legal Assistant",
-                "system_prompt": "You are LawGPT, an expert Indian legal AI assistant. You answer queries strictly regarding Indian Penal Code, Constitution of India, Supreme Court precedents, and legal procedures."
+                "system_prompt": "You are LawGPT, an expert Indian legal AI assistant. You answer queries strictly regarding Indian Penal Code, Constitution of India, Supreme Court precedents, and legal procedures. You MUST ONLY answer legal questions. If the user asks ANY question outside the legal domain (e.g. coding, cooking, astrology, entertainment, medical, casual topics), you MUST politely refuse by stating: 'Main LawGPT hoon aur sirf kanoon (Law) sambandhit sawalon ke jawab de sakta hoon. Kripya kanoon se juda sawal puchein.' Do not answer non-legal queries."
             },
             {
                 "code": "astrology",
                 "name": "Astrology AI",
                 "description": "Vedic Astrology, Kundli Analysis & Horoscope Insights Specialist",
-                "system_prompt": "You are Astrology AI, an expert in Vedic astrology, planetary transits, and horoscope calculations."
+                "system_prompt": "You are Astrology AI, an expert in Vedic astrology, planetary transits, and horoscope calculations. You MUST ONLY answer questions regarding Vedic astrology, kundli, horoscopes, and planetary positions. If the user asks ANY question outside astrology (e.g. law, medical, coding, cooking), you MUST politely refuse by stating: 'Main Astrology AI hoon aur sirf jyotish evam kundli sambandhit sawalon ke jawab de sakta hoon. Kripya jyotish se juda sawal puchein.' Do not answer non-astrology queries."
             },
             {
                 "code": "coder",
                 "name": "Code Architect",
                 "description": "Fullstack Software Engineering, System Architecture & Code Debugging Specialist",
-                "system_prompt": "You are Code Architect, an elite software engineering AI specializing in production web applications, system design, and clean code."
+                "system_prompt": "You are Code Architect, an elite software engineering AI specializing in production web applications, system design, and clean code. You MUST ONLY answer programming, software engineering, and technical architecture questions. If the user asks ANY question outside technology and programming (e.g. law, medical, astrology), you MUST politely refuse by stating: 'Main Code Architect hoon aur sirf coding evam software engineering sambandhit sawalon ke jawab de sakta hoon. Kripya programming se juda sawal puchein.' Do not answer non-programming queries."
             },
             {
                 "code": "medical",
                 "name": "MedAssist AI",
                 "description": "Clinical Knowledge, Symptom Pre-screening & Healthcare Information Specialist",
-                "system_prompt": "You are MedAssist AI, a clinical information assistant."
+                "system_prompt": "You are MedAssist AI, a clinical and healthcare information specialist. You MUST ONLY answer healthcare, medical, clinical, and wellness queries. If the user asks ANY question outside healthcare (e.g. law, astrology, coding, recipes), you MUST politely refuse by stating: 'Main MedAssist AI hoon aur sirf medical evam health sambandhit sawalon ke jawab de sakta hoon. Kripya health se juda sawal puchein.' Do not answer non-medical queries."
             }
         ]
 
@@ -304,12 +305,21 @@ async def seed_defaults():
                 display_name="Standard SFT Configuration",
                 description="Default Supervised Fine-Tuning Hyperparameters",
                 configuration_json={
-                    "learning_rate": 0.0002,
-                    "batch_size": 4,
-                    "epochs": 3,
-                    "optimizer": "adamw",
+                    "training": {
+                        "data_batch_size": 4,
+                        "epochs": 3,
+                        "learning_rate": 0.0002,
+                        "optimizer": "adamw"
+                    },
                     "formatter": {"type": "prompt_completion"},
                     "tokenizer": {"type": "auto"},
+                    "training_strategy": {
+                        "strategy_class": "app.modules.training_runtime.strategies.causal_language_model_strategy.CausalLanguageModelStrategy",
+                        "configuration": {
+                            "learning_rate": 0.0002,
+                            "epochs": 3
+                        }
+                    },
                     "checkpoint": {"enabled": False}
                 },
                 version=1,
@@ -352,6 +362,130 @@ async def seed_defaults():
             db.add(tok_ver)
             await db.flush()
             print("[SEED] Added Tokenizer Version")
+
+        # 6. Seed Default Billing Plans (Idempotent: Free, Pro, Enterprise)
+        plans_seed_data = [
+            {
+                "code": "free",
+                "name": "Free Tier",
+                "description": "Essential AI features for personal exploration & experimentation",
+                "is_public": True,
+                "token_limit": 20000,
+                "request_limit": 100,
+                "cost_limit": 0.0,
+                "prices": [
+                    {"cycle": "monthly", "amount": 0.0, "currency": "INR", "provider": "razorpay"},
+                ]
+            },
+            {
+                "code": "pro",
+                "name": "Pro Plan",
+                "description": "Full access to frontier models, developer keys, and priority generation",
+                "is_public": True,
+                "token_limit": 1000000,
+                "request_limit": 5000,
+                "cost_limit": 0.0,
+                "prices": [
+                    {"cycle": "monthly", "amount": 799.0, "currency": "INR", "provider": "razorpay"},
+                    {"cycle": "yearly", "amount": 7990.0, "currency": "INR", "provider": "razorpay"},
+                ]
+            },
+            {
+                "code": "enterprise",
+                "name": "Enterprise",
+                "description": "Maximum scale, dedicated capacity & custom pipeline integration",
+                "is_public": True,
+                "token_limit": 5000000,
+                "request_limit": 25000,
+                "cost_limit": 0.0,
+                "prices": [
+                    {"cycle": "monthly", "amount": 2499.0, "currency": "INR", "provider": "razorpay"},
+                    {"cycle": "yearly", "amount": 24990.0, "currency": "INR", "provider": "razorpay"},
+                ]
+            }
+        ]
+
+        for pdata in plans_seed_data:
+            p_res = await db.execute(select(Plan).where(Plan.plan_code == pdata["code"]))
+            p_obj = p_res.scalars().first()
+            if not p_obj:
+                now = datetime.utcnow()
+                p_obj = Plan(
+                    plan_code=pdata["code"],
+                    plan_name=pdata["name"],
+                    description=pdata["description"],
+                    is_public=pdata["is_public"],
+                    is_active=True,
+                    created_at=now
+                )
+                db.add(p_obj)
+                await db.flush()
+
+                v_obj = PlanVersion(
+                    plan_id=p_obj.id,
+                    version_number=1,
+                    monthly_token_limit=pdata["token_limit"],
+                    monthly_request_limit=pdata["request_limit"],
+                    monthly_cost_limit=pdata["cost_limit"],
+                    is_active=True,
+                    created_at=now
+                )
+                db.add(v_obj)
+                await db.flush()
+
+                for pr in pdata["prices"]:
+                    price_obj = PlanPrice(
+                        plan_version_id=v_obj.id,
+                        provider=pr["provider"],
+                        billing_cycle=pr["cycle"],
+                        currency=pr["currency"],
+                        amount=pr["amount"],
+                        is_active=True,
+                        created_at=now
+                    )
+                    db.add(price_obj)
+                await db.flush()
+                print(f"[SEED] Added Plan: {pdata['name']} (v1) with prices")
+            else:
+                v_res = await db.execute(
+                    select(PlanVersion)
+                    .where(PlanVersion.plan_id == p_obj.id, PlanVersion.is_active == True)
+                    .order_by(PlanVersion.version_number.desc())
+                )
+                v_obj = v_res.scalars().first()
+                if not v_obj:
+                    v_obj = PlanVersion(
+                        plan_id=p_obj.id,
+                        version_number=1,
+                        monthly_token_limit=pdata["token_limit"],
+                        monthly_request_limit=pdata["request_limit"],
+                        monthly_cost_limit=pdata["cost_limit"],
+                        is_active=True,
+                        created_at=datetime.utcnow()
+                    )
+                    db.add(v_obj)
+                    await db.flush()
+
+                for pr in pdata["prices"]:
+                    pr_res = await db.execute(
+                        select(PlanPrice).where(
+                            PlanPrice.plan_version_id == v_obj.id,
+                            PlanPrice.billing_cycle == pr["cycle"],
+                            PlanPrice.is_active == True
+                        )
+                    )
+                    if not pr_res.scalars().first():
+                        db.add(PlanPrice(
+                            plan_version_id=v_obj.id,
+                            provider=pr["provider"],
+                            billing_cycle=pr["cycle"],
+                            currency=pr["currency"],
+                            amount=pr["amount"],
+                            is_active=True,
+                            created_at=datetime.utcnow()
+                        ))
+                        print(f"[SEED] Added missing price {pr['cycle']} (INR {pr['amount']}) for {pdata['name']}")
+                await db.flush()
 
         await db.commit()
         print("[SEED] Seeding completed successfully! All dropdowns are now database-populated.")

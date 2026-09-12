@@ -39,9 +39,9 @@ class ProviderRuntimeManager:
 
             "openai": OpenAIProvider(),
 
-            "groq": GroqProvider(),
-
             "mistral": MistralProvider(),
+
+            "groq": GroqProvider(),
 
             "gemini": GeminiProvider(),
         }

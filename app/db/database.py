@@ -22,7 +22,12 @@ DATABASE_URL = settings.DATABASE_URL.replace(
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
-    future=True
+    future=True,
+    pool_size=15,
+    max_overflow=10,
+    pool_timeout=30,
+    pool_recycle=1800,
+    pool_pre_ping=True
 )
 
 

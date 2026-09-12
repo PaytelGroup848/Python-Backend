@@ -95,17 +95,19 @@ async def process_events():
 
                 if websocket:
 
+                    conv_id = data.get("conversation_id")
                     try:
 
                         await websocket.send_json({
 
-                            "type": "start"
+                            "type": "start",
+                            "conversation_id": conv_id
                         })
 
                         await websocket.send_json({
 
                             "type": "chunk",
-
+                            "conversation_id": conv_id,
                             "content":
                                 data.get(
                                     "response",
@@ -115,7 +117,8 @@ async def process_events():
 
                         await websocket.send_json({
 
-                            "type": "done"
+                            "type": "done",
+                            "conversation_id": conv_id
                         })
 
                     except Exception as e:

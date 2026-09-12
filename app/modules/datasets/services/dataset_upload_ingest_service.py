@@ -72,9 +72,14 @@ class DatasetUploadIngestService:
 
         try:
             # ── 1. Resolve storage & materialize file to temp path ───────────
+            from app.modules.storage_runtime.bootstrap.storage_runtime_bootstrap import (
+                register_storage_runtime_factories,
+            )
+            register_storage_runtime_factories()
+
             resolved = await dataset_storage_service.resolve_platform_storage(db=db)
 
-            import tempfile, os
+            import tempfile
             suffix = Path(upload.original_file_name).suffix or ".bin"
             tmp_dir = Path(tempfile.mkdtemp())
             tmp_path = tmp_dir / f"upload_{upload_id}{suffix}"
@@ -154,6 +159,7 @@ class DatasetUploadIngestService:
     ) -> int:
         from datetime import datetime
         import json
+        from app.modules.retrieval_runtime.services.embedding_service import generate_embedding
 
         now = datetime.utcnow()
         inserted = 0
@@ -168,8 +174,9 @@ class DatasetUploadIngestService:
             if not text_content or not text_content.strip():
                 continue
 
+            cleaned_text = text_content.strip()
             record_hash = hashlib.sha256(
-                f"{dataset_id}:{text_content}".encode()
+                f"{dataset_id}:{cleaned_text}".encode()
             ).hexdigest()
 
             meta = json.dumps({
@@ -177,26 +184,60 @@ class DatasetUploadIngestService:
                 "upload_id": upload_id,
             })
 
-            await db.execute(
-                text("""
-                    INSERT INTO dataset_records
-                        (dataset_id, corpus_source_id, record_type, status,
-                         record_hash, input_text, output_text, metadata_json,
-                         created_at, updated_at)
-                    VALUES
-                        (:dataset_id, NULL, 'DOCUMENT_CHUNK', 'ACTIVE',
-                         :record_hash, :input_text, NULL,
-                         CAST(:metadata_json AS jsonb), :now, :now)
-                    ON CONFLICT (dataset_id, record_hash) DO NOTHING
-                """),
-                {
-                    "dataset_id": dataset_id,
-                    "record_hash": record_hash,
-                    "input_text": text_content.strip(),
-                    "metadata_json": meta,
-                    "now": now,
-                },
-            )
+            embedding_str = None
+            try:
+                emb = await generate_embedding(cleaned_text)
+                if emb:
+                    embedding_str = str(emb)
+            except Exception:
+                pass
+
+            if embedding_str:
+                await db.execute(
+                    text("""
+                        INSERT INTO dataset_records
+                            (dataset_id, corpus_source_id, record_type, status,
+                             record_hash, input_text, output_text, metadata_json,
+                             embedding, created_at, updated_at)
+                        VALUES
+                            (:dataset_id, NULL, 'DOCUMENT_CHUNK', 'ACTIVE',
+                             :record_hash, :input_text, NULL,
+                             CAST(:metadata_json AS jsonb),
+                             CAST(:embedding AS vector), :now, :now)
+                        ON CONFLICT (dataset_id, record_hash) DO UPDATE
+                            SET embedding = EXCLUDED.embedding
+                            WHERE dataset_records.embedding IS NULL
+                    """),
+                    {
+                        "dataset_id": dataset_id,
+                        "record_hash": record_hash,
+                        "input_text": cleaned_text,
+                        "metadata_json": meta,
+                        "embedding": embedding_str,
+                        "now": now,
+                    },
+                )
+            else:
+                await db.execute(
+                    text("""
+                        INSERT INTO dataset_records
+                            (dataset_id, corpus_source_id, record_type, status,
+                             record_hash, input_text, output_text, metadata_json,
+                             created_at, updated_at)
+                        VALUES
+                            (:dataset_id, NULL, 'DOCUMENT_CHUNK', 'ACTIVE',
+                             :record_hash, :input_text, NULL,
+                             CAST(:metadata_json AS jsonb), :now, :now)
+                        ON CONFLICT (dataset_id, record_hash) DO NOTHING
+                    """),
+                    {
+                        "dataset_id": dataset_id,
+                        "record_hash": record_hash,
+                        "input_text": cleaned_text,
+                        "metadata_json": meta,
+                        "now": now,
+                    },
+                )
             inserted += 1
 
             if inserted % 200 == 0:

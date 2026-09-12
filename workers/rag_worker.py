@@ -1,25 +1,11 @@
 import asyncio
 import json
 
-from app.shared.redis.stream_service import (
-    redis_stream_service
-)
-
-from app.shared.redis.client import (
-    redis_client
-)
-
-from app.shared.constants.streams import (
-    RAG_STREAM
-)
-
-from app.modules.chat.services.rag_service import (
-    retrieve_context
-)
-
-from app.db.database import (
-    AsyncSessionLocal
-)
+from app.shared.redis.stream_service import redis_stream_service
+from app.shared.redis.client import redis_client
+from app.shared.constants.streams import RAG_STREAM
+from app.modules.retrieval_runtime.services.rag_service import retrieve_context
+from app.db.database import AsyncSessionLocal
 
 
 GROUP_NAME = (
@@ -128,6 +114,7 @@ async def process_events():
                 )
 
 
-asyncio.run(
-    process_events()
-)
+if __name__ == "__main__":
+    asyncio.run(
+        process_events()
+    )

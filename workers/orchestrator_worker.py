@@ -93,6 +93,7 @@ async def process_events():
                 )
 
 
-asyncio.run(
-    process_events()
-)
+if __name__ == "__main__":
+    asyncio.run(
+        process_events()
+    )

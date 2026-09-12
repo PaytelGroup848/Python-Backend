@@ -17,3 +17,11 @@ class SubscriptionPurchaseRequest(
     auto_renew: bool = False
 
     payment_metadata: Optional[dict] = None
+
+
+class VerifyPaymentRequest(
+    BaseModel
+):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str

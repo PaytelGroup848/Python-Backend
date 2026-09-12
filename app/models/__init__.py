@@ -186,3 +186,4 @@ from app.modules.tokenizers.models.tokenizer_training_configuration import Token
 from app.modules.tokenizers.models.tokenizer_training_job import TokenizerTrainingJob
 from app.modules.tokenizers.models.tokenizer_version import TokenizerVersion
 from app.modules.tokenizers.models.tokenizer_version_artifact import TokenizerVersionArtifact
+from app.models.generated_image import GeneratedImage

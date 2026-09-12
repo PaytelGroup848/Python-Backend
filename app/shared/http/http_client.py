@@ -3,7 +3,7 @@ import httpx
 
 http_client = httpx.AsyncClient(
 
-    timeout=30.0,
+    timeout=httpx.Timeout(120.0, connect=10.0),
 
     limits=httpx.Limits(
 

@@ -6,9 +6,6 @@ import tempfile
 
 import fitz
 
-from paddleocr import PaddleOCR
-
-
 logger = logging.getLogger(__name__)
 
 
@@ -24,6 +21,8 @@ def get_ocr():
         logger.info(
             "Initializing PaddleOCR..."
         )
+
+        from paddleocr import PaddleOCR
 
         ocr = PaddleOCR(
             use_angle_cls=True,

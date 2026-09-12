@@ -32,8 +32,10 @@ class ApiKeyRepository:
             select(ApiKey)
 
             .where(
-                ApiKey.user_id == user_id
+                ApiKey.user_id == user_id,
+                ApiKey.is_active == True
             )
+            .order_by(ApiKey.id.desc())
         )
 
         return result.scalars().all()
@@ -61,7 +63,7 @@ class ApiKeyRepository:
         api_key: ApiKey
     ):
 
-        api_key.is_active = True
+        setattr(api_key, "is_active", True)
 
         await db.commit()
 
@@ -75,10 +77,22 @@ class ApiKeyRepository:
         api_key: ApiKey
     ):
 
-        api_key.is_active = False
+        setattr(api_key, "is_active", False)
 
         await db.commit()
 
         await db.refresh(api_key)
 
         return api_key
+
+    async def delete(
+        self,
+        db: AsyncSession,
+        api_key: ApiKey
+    ):
+
+        await db.delete(api_key)
+
+        await db.commit()
+
+        return True

@@ -484,6 +484,15 @@ async def cancel_subscription(
             detail="No active subscription found"
         )
 
+    try:
+        from app.db.redis import get_redis
+        r = await get_redis()
+        if r:
+            await r.delete(f"user:{user['user_id']}:subscription")
+            await r.delete(f"billing:user:{user['user_id']}:usage")
+    except Exception:
+        pass
+
     return {
 
         "message":

@@ -1,3 +1,5 @@
+import json
+import asyncio
 import uuid
 import logging
 
@@ -158,6 +160,38 @@ async def agent_chat(
         "response":
             response
     }
+
+
+async def stream_agent_words(response_text: str):
+    words = response_text.split(" ")
+    for i, word in enumerate(words):
+        chunk = word + (" " if i < len(words) - 1 else "")
+        yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+        await asyncio.sleep(0.012)
+    yield "data: [DONE]\n\n"
+
+
+@router.post("/agent-chat/stream")
+async def agent_chat_stream(
+    req: ChatRequest,
+    user=Depends(verify_token)
+):
+    if not req.session_id:
+        req.session_id = str(uuid.uuid4())
+
+    response = await run_agent(
+        assistant_id=req.assistant_id,
+        query=req.message,
+        session_id=req.session_id,
+        user_id=user["user_id"],
+        user_role=user["role"],
+        user_department=user.get("department", "general")
+    )
+
+    return StreamingResponse(
+        stream_agent_words(str(response)),
+        media_type="text/event-stream"
+    )
 
 
 @router.post("/chat-stream")

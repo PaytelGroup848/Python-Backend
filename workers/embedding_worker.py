@@ -3,29 +3,12 @@ import json
 import logging
 import uuid
 
-from app.db.redis_client import (
-    redis_client
-)
-
-from app.db.database import (
-    AsyncSessionLocal
-)
-
-from app.shared.constants.streams import (
-    EMBEDDING_STREAM
-)
-
-from app.core.config import (
-    EMBEDDING_WORKER_BATCH_SIZE
-)
-
-from app.modules.retrieval_runtime.services.embedding_service import (
-    generate_embedding,
-)
-
-from app.services.vector_service import (
-    store_document
-)
+from app.db.redis_client import redis_client
+from app.db.database import AsyncSessionLocal
+from app.shared.constants.streams import EMBEDDING_STREAM
+from app.core.config import settings
+from app.modules.retrieval_runtime.services.embedding_service import generate_embedding
+from app.services.vector_service import store_document
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +59,7 @@ async def process_embedding_jobs():
 
             block=5000,
 
-            count=EMBEDDING_WORKER_BATCH_SIZE,
+            count=settings.EMBEDDING_WORKER_BATCH_SIZE,
         )
 
         if not response:

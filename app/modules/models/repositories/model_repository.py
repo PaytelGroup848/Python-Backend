@@ -80,6 +80,40 @@ class ModelRepository:
         return (
             result.scalar_one_or_none()
         )
+
+    async def get_by_name(
+        self,
+        db: AsyncSession,
+        name: str
+    ):
+        result = await db.execute(
+            select(ModelRegistry)
+            .where(
+                (ModelRegistry.code == name) | (ModelRegistry.display_name == name)
+            )
+        )
+        model = result.scalar_one_or_none()
+        if model:
+            if not hasattr(model, "provider") or not getattr(model, "provider", None):
+                setattr(model, "provider", "groq")
+            return model
+
+        provider_name = "groq"
+        if "gpt" in name.lower():
+            provider_name = "openai"
+        elif "mistral" in name.lower():
+            provider_name = "mistral"
+        elif "gemini" in name.lower():
+            provider_name = "gemini"
+
+        class ResolvedModel:
+            code = name
+            display_name = name
+            is_active = True
+            provider = provider_name
+
+        return ResolvedModel()
+
     
     async def update(
         self,

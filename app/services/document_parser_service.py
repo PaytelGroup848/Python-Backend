@@ -44,7 +44,8 @@ async def parse_document(file_path: str):
     elif extension in [
         ".png",
         ".jpg",
-        ".jpeg"
+        ".jpeg",
+        ".webp"
     ]:
 
         return await parse_image(file_path)

@@ -1,18 +1,15 @@
-from fastapi import APIRouter
-from fastapi import Depends
-
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
-
-from app.modules.api_keys.services.api_key_service import (
-    api_key_service
-)
-
+from app.core.security import get_current_user
+from app.modules.api_keys.services.api_key_service import api_key_service
 from app.modules.api_keys.schemas.api_key_schema import (
-    CreateApiKeyRequest
+    CreateApiKeyRequest,
+    CreateApiKeyResponse,
+    ApiKeyListResponse,
+    UserApiKeyUsageResponse,
 )
-
 
 router = APIRouter(
     prefix="/api-keys",
@@ -20,67 +17,68 @@ router = APIRouter(
 )
 
 
-@router.post("")
+@router.post("", response_model=CreateApiKeyResponse)
 async def create_api_key(
     payload: CreateApiKeyRequest,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
-
-    # temporary hardcoded user
-    user_id = 7
-
-    return await (
-        api_key_service.create_api_key(
-            db=db,
-            user_id=user_id,
-            name=payload.name
-        )
+    return await api_key_service.create_api_key(
+        db=db,
+        user_id=current_user.id,
+        name=payload.name
     )
 
 
-@router.get("")
+@router.get("", response_model=ApiKeyListResponse)
 async def get_api_keys(
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
-
-    # temporary hardcoded user
-    user_id = 7
-
-    return await (
-        api_key_service.get_user_keys(
-            db=db,
-            user_id=user_id
-        )
+    return await api_key_service.get_user_keys(
+        db=db,
+        user_id=current_user.id
     )
 
-@router.patch(
-    "/{api_key_id}/disable"
-)
+
+@router.get("/usage", response_model=UserApiKeyUsageResponse)
+async def get_api_key_usage(
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    return await api_key_service.get_user_api_key_usage(
+        db=db,
+        user_id=current_user.id
+    )
+
+
+@router.patch("/{api_key_id}/disable")
 async def disable_api_key(
     api_key_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
-
-    return await (
-        api_key_service
-        .disable_api_key(
+    try:
+        return await api_key_service.disable_api_key(
             db=db,
+            user_id=current_user.id,
             api_key_id=api_key_id
         )
-    )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
-@router.patch(
-    "/{api_key_id}/enable"
-)
-async def enable_api_key(
+
+@router.delete("/{api_key_id}")
+async def delete_api_key(
     api_key_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
-
-    return await (
-        api_key_service
-        .enable_api_key(
+    try:
+        return await api_key_service.delete_api_key(
             db=db,
+            user_id=current_user.id,
             api_key_id=api_key_id
         )
-    )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))

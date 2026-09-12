@@ -125,10 +125,7 @@ async def websocket_chat(
         )
 
         await websocket.accept()
-
-       
-
-       
+        await websocket_manager.connect(user_id, websocket)
 
         logger.info(
             "WebSocket connection accepted"
@@ -207,6 +204,27 @@ async def websocket_chat(
                 continue
 
             # =========================
+            # STOP / CANCEL SIGNAL
+            # =========================
+            if (
+                queued_data.get("type")
+                ==
+                "stop"
+            ):
+                stop_conv_id = queued_data.get("conversation_id")
+                logger.info(
+                    f"Stop generation signal received from user={user_id} conv={stop_conv_id}"
+                )
+                if stop_conv_id:
+                    from app.shared.redis.client import redis_client
+                    await redis_client.set(f"chat:stopped:{stop_conv_id}", "1", ex=60)
+
+                await websocket.send_json({
+                    "type": "stopped"
+                })
+                continue
+
+            # =========================
             # VALIDATE MESSAGE
             # =========================
 
@@ -278,6 +296,18 @@ async def websocket_chat(
                 f"user={user_id} "
                 f"conversation={conversation_id}"
             )
+
+            # Store attached documents in Redis for this conversation
+            attached_docs = queued_data.get("documents")
+            if attached_docs and isinstance(attached_docs, list):
+                try:
+                    import json
+                    from app.shared.redis.client import redis_client
+                    await redis_client.set(f"conversation_pdf:{conversation_id}", json.dumps(attached_docs), ex=7200)
+                    if len(attached_docs) > 0:
+                        await redis_client.set(f"latest_pdf:{user_id}", str(attached_docs[0]), ex=7200)
+                except Exception as _doc_err:
+                    logger.warning(f"Failed to cache attached documents: {_doc_err}")
 
             # =========================
             # RATE LIMIT
@@ -388,9 +418,10 @@ async def websocket_chat(
                 )
 
                 
-                websocket_manager.connections[
-                    request_id
-                ] = websocket
+                websocket_manager.register_request(
+                    request_id,
+                    websocket
+                )
 
 
 
@@ -406,6 +437,9 @@ async def websocket_chat(
                     assistant_id=assistant_id,
 
                     message=data.get("message"),
+
+                    aspect_ratio=data.get("aspect_ratio") or "1024x1024",
+                    web_search=bool(data.get("web_search", False)),
                 )
 
 
@@ -484,5 +518,11 @@ async def websocket_chat(
 
             f"Client disconnected "
             f"user={user_id}"
+        )
+
+    finally:
+        await websocket_manager.disconnect(user_id, websocket)
+        logger.info(
+            f"Cleaned up WS connection for user={user_id}"
         )
 

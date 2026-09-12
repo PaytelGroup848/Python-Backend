@@ -75,6 +75,30 @@ class GeminiProvider(
             usage
         }
 
+    async def stream_chat(
+        self,
+        messages: list | str,
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+    ):
+        resolved_model = model or MODEL_NAME
+        prompt = messages[-1]["content"] if isinstance(messages, list) and messages else str(messages)
+
+        try:
+            stream = self.client.models.generate_content_stream(
+                model=resolved_model,
+                contents=prompt
+            )
+            for chunk in stream:
+                text_part = chunk.text
+                if text_part:
+                    yield text_part
+        except Exception:
+            msg_list = messages if isinstance(messages, list) else [{"role": "user", "content": str(messages)}]
+            gen = await self.generate(msg_list, model=resolved_model, temperature=temperature, max_tokens=max_tokens)
+            yield gen["response"]
+
     async def health_check(
         self
     ):

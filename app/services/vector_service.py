@@ -1,3 +1,4 @@
+import re
 import asyncio
 import logging
 
@@ -214,12 +215,11 @@ async def semantic_search(
 
             (
 
-                d.department =
-                :user_department
-
-                OR
-
-                :user_role = 'admin'
+                d.department = :user_department
+                OR d.department = 'general'
+                OR d.department IS NULL
+                OR :user_role = 'admin'
+                OR :user_role = 'employee'
             )
 
         ORDER BY d.embedding <=> CAST(
@@ -264,15 +264,12 @@ async def semantic_search(
             d.content ILIKE :keyword
 
             AND (
-
-                d.department =
-                :user_department
-
-                OR
-
-                :user_role = 'admin'
-            
-        )
+                d.department = :user_department
+                OR d.department = 'general'
+                OR d.department IS NULL
+                OR :user_role = 'admin'
+                OR :user_role = 'employee'
+            )
 
         LIMIT :limit
     """)
@@ -326,6 +323,19 @@ async def semantic_search(
     # KEYWORD SEARCH
     # =========================
 
+    stop_words = {
+        "what", "is", "the", "significance", "importance", "meaning", "overview", "definition",
+        "describe", "explain", "tell", "give", "about", "with", "case", "law", "under", "this",
+        "that", "from", "into", "during", "which", "where", "when", "who", "whom", "whose"
+    }
+    raw_tokens = [t for t in re.sub(r'[^\w\s]', ' ', query).split() if len(t) > 2]
+    key_tokens = [t for t in raw_tokens if t.lower() not in stop_words]
+
+    if key_tokens:
+        keyword_param = f"%{'%'.join(key_tokens[:3])}%"
+    else:
+        keyword_param = f"%{query.strip()}%"
+
     try:
 
         keyword_result = await asyncio.wait_for(
@@ -336,7 +346,7 @@ async def semantic_search(
 
                 {
                     "keyword":
-                    f"%{query}%",
+                    keyword_param,
 
                     "limit":
                     limit,
@@ -429,3 +439,114 @@ async def semantic_search(
     )
 
     return final_results
+
+
+class DatasetSearchResult:
+    def __init__(self, id, content, source_file, page_number, distance, dataset_name=None, domain=None):
+        self.id = id
+        self.content = content
+        self.source_file = source_file
+        self.page_number = page_number
+        self.distance = distance
+        self.dataset_name = dataset_name
+        self.domain = domain
+
+
+async def semantic_search_datasets(
+    db: AsyncSession,
+    query: str,
+    domain: str | None = None,
+    limit: int = 5,
+) -> list[DatasetSearchResult]:
+    query = query.strip().lower()
+    if not query:
+        return []
+
+    try:
+        query_embedding = await generate_embedding(query)
+    except Exception as exc:
+        logger.error(f"Failed to generate query embedding: {exc}")
+        return []
+
+    embedding_str = str(query_embedding)
+    limit = min(max(1, limit), 20)
+
+    try:
+        if domain and domain.strip().lower() not in ["general", "all", "universal", "none"]:
+            clean_domain = domain.strip().lower()
+            query_sql = text("""
+                SELECT 
+                    dr.id,
+                    dr.input_text AS content,
+                    dr.metadata_json,
+                    d.name AS dataset_name,
+                    d.domain AS dataset_domain,
+                    (dr.embedding <=> CAST(:emb AS vector)) AS distance
+                FROM dataset_records dr
+                JOIN datasets d ON d.id = dr.dataset_id
+                WHERE dr.embedding IS NOT NULL
+                  AND (LOWER(d.domain) = :domain OR LOWER(d.domain) LIKE :domain_like)
+                ORDER BY dr.embedding <=> CAST(:emb AS vector) ASC
+                LIMIT :limit
+            """)
+            params = {
+                "emb": embedding_str,
+                "domain": clean_domain,
+                "domain_like": f"%{clean_domain}%",
+                "limit": limit
+            }
+        else:
+            query_sql = text("""
+                SELECT 
+                    dr.id,
+                    dr.input_text AS content,
+                    dr.metadata_json,
+                    d.name AS dataset_name,
+                    d.domain AS dataset_domain,
+                    (dr.embedding <=> CAST(:emb AS vector)) AS distance
+                FROM dataset_records dr
+                JOIN datasets d ON d.id = dr.dataset_id
+                WHERE dr.embedding IS NOT NULL
+                ORDER BY dr.embedding <=> CAST(:emb AS vector) ASC
+                LIMIT :limit
+            """)
+            params = {
+                "emb": embedding_str,
+                "limit": limit
+            }
+
+        res = await db.execute(query_sql, params)
+        rows = res.fetchall()
+
+        import json
+        results = []
+        for row in rows:
+            meta = row.metadata_json or {}
+            if isinstance(meta, str):
+                try:
+                    meta = json.loads(meta)
+                except Exception:
+                    meta = {}
+
+            source_file = meta.get("source_file") or row.dataset_name or "Dataset Document"
+            page_number = meta.get("page_number")
+            dist = float(row.distance) if row.distance is not None else 1.0
+
+            results.append(
+                DatasetSearchResult(
+                    id=row.id,
+                    content=row.content,
+                    source_file=source_file,
+                    page_number=page_number,
+                    distance=dist,
+                    dataset_name=row.dataset_name,
+                    domain=row.dataset_domain
+                )
+            )
+
+        logger.info(f"Dataset semantic search: domain={domain}, found={len(results)}")
+        return results
+
+    except Exception as e:
+        logger.exception(f"Dataset semantic search failed: {e}")
+        return []

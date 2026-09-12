@@ -10,6 +10,7 @@ from app.modules.providers.base_provider import (
 
 MODEL_NAME = (
     "llama-3.1-8b-instant"
+    "qwen/qwen3.8-27b"
 )
 
 
@@ -40,6 +41,13 @@ class GroqProvider(
 
         resolved_model = model or MODEL_NAME
 
+        truncated_messages = []
+        for msg in messages:
+            content = msg.get("content", "")
+            if isinstance(content, str) and len(content) > 2000:
+                content = content[:2000] + "\n...[truncated for length]"
+            truncated_messages.append({**msg, "content": content})
+
         response = await http_client.post(
 
             "https://api.groq.com/openai/v1/chat/completions",
@@ -57,7 +65,7 @@ class GroqProvider(
 
                 "model": resolved_model,
 
-                "messages": messages,
+                "messages": truncated_messages,
 
                 "temperature": temperature,
 
@@ -100,6 +108,70 @@ class GroqProvider(
                 {}
             ),
         }
+
+    async def stream_chat(
+        self,
+        messages: list | str,
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+    ):
+        import json
+        resolved_model = model or MODEL_NAME
+        msg_list = messages if isinstance(messages, list) else [{"role": "user", "content": str(messages)}]
+
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise Exception("GROQ_API_KEY is not configured")
+
+        truncated_messages = []
+        for msg in msg_list:
+            content = msg.get("content", "")
+            if isinstance(content, str) and len(content) > 4000:
+                content = content[:4000] + "\n...[truncated for length]"
+            truncated_messages.append({**msg, "content": content})
+
+        try:
+            async with http_client.stream(
+                "POST",
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": resolved_model,
+                    "messages": truncated_messages,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "stream": True,
+                },
+            ) as response:
+                if response.status_code != 200:
+                    gen = await self.generate(truncated_messages, model=resolved_model, temperature=temperature, max_tokens=max_tokens)
+                    yield gen["response"]
+                    return
+
+                async for line in response.aiter_lines():
+                    if not line:
+                        continue
+                    line_str = line.strip()
+                    if line_str.startswith("data: "):
+                        data_part = line_str[6:].strip()
+                        if data_part == "[DONE]":
+                            break
+                        try:
+                            chunk_json = json.loads(data_part)
+                            delta = chunk_json.get("choices", [{}])[0].get("delta", {})
+                            content = delta.get("content", "")
+                            if content:
+                                yield content
+                        except Exception:
+                            continue
+        except Exception:
+            gen = await self.generate(truncated_messages, model=resolved_model, temperature=temperature, max_tokens=max_tokens)
+            yield gen["response"]
+
     async def health_check(
         self
     ):

@@ -87,21 +87,25 @@ async def get_conversations(
 async def get_conversation_messages(
     conversation_id: int,
     db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
 ):
 
-    result = await db.execute(
-
+    stmt = (
         select(Message)
-
-        .where(
-            Message.conversation_id
-            == conversation_id
+        .join(
+            ConversationSession,
+            Message.conversation_id == ConversationSession.id
         )
-
+        .where(
+            Message.conversation_id == conversation_id,
+            ConversationSession.user_id == current_user.id
+        )
         .order_by(
             Message.created_at.asc()
         )
     )
+
+    result = await db.execute(stmt)
 
     messages = (
         result.scalars().all()

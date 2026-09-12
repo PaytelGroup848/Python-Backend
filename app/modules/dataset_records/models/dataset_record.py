@@ -12,6 +12,7 @@ from sqlalchemy import (
 
 from app.db.database import Base
 from sqlalchemy.dialects.postgresql import JSONB
+from pgvector.sqlalchemy import Vector
 
 
 class DatasetRecord(Base):
@@ -92,6 +93,11 @@ class DatasetRecord(Base):
 
     metadata_json = Column(
         JSONB,
+        nullable=True
+    )
+
+    embedding = Column(
+        Vector(384),
         nullable=True
     )
 

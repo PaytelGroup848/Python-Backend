@@ -18,22 +18,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 
+from datetime import datetime
+
 from app.db.database import AsyncSessionLocal
-
-from app.services.job_service import (
-    create_job
-)
-
+from app.services.job_service import create_job, complete_job, fail_job
 from app.models.document_job import DocumentJob
-from app.services.document_parser_service import (
-    parse_document
-)
-
-
-
+from app.models.knowledge_base import KnowledgeBase
+from app.models.knowledge_base_document import KnowledgeBaseDocument
+from app.services.document_parser_service import parse_document
 from app.core.security import verify_token
 
 logger = logging.getLogger(__name__)
+
+
+async def _process_uploaded_document(file_path: str, job_id: int):
+    try:
+        parsed = await parse_document(file_path)
+        chunks_count = len(parsed) if isinstance(parsed, list) else 1
+        async with AsyncSessionLocal() as session:
+            await complete_job(db=session, job_id=job_id, chunks_stored=chunks_count)
+    except Exception as e:
+        logger.exception(f"Background parsing failed for job {job_id}: {e}")
+        try:
+            async with AsyncSessionLocal() as session:
+                await fail_job(db=session, job_id=job_id, error=str(e))
+        except Exception:
+            pass
 
 
 router = APIRouter(
@@ -75,7 +85,8 @@ SUPPORTED_EXTENSIONS = [
     ".pptx",
     ".png",
     ".jpg",
-    ".jpeg"
+    ".jpeg",
+    ".webp"
 ]
 
 # -----------------------------
@@ -136,15 +147,53 @@ async def upload_pdf(
 
             f.write(content)
 
+        # Ensure active knowledge base exists
+        kb_result = await db.execute(
+            select(KnowledgeBase).filter(KnowledgeBase.is_active == True).limit(1)
+        )
+        kb = kb_result.scalar_one_or_none()
+
+        if not kb:
+            kb = KnowledgeBase(
+                name="Default Knowledge Base",
+                code="DEFAULT_KB",
+                description="Default Knowledge Base for document uploads",
+                is_active=True,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+            db.add(kb)
+            await db.flush()
+            await db.refresh(kb)
+
+        # Create knowledge base document entry
+        kb_doc = KnowledgeBaseDocument(
+            knowledge_base_id=kb.id,
+            file_name=file.filename,
+            file_path=file_path,
+            mime_type=file.content_type or "application/pdf",
+            file_size=len(content),
+            is_active=True,
+            status="processing",
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        db.add(kb_doc)
+        await db.flush()
+        await db.refresh(kb_doc)
+
         # Create ingestion job
         job = await create_job(
             db=db,
-            filename=file.filename
+            filename=file.filename,
+            knowledge_base_document_id=kb_doc.id
         )
+
+        await db.commit()
 
         # Background ingestion
         background_tasks.add_task(
-            parse_document,
+            _process_uploaded_document,
             file_path,
             job.id
         )

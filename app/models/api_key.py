@@ -39,6 +39,11 @@ class ApiKey(Base):
         nullable=False
     )
 
+    prefix = Column(
+        String(32),
+        nullable=True
+    )
+
     is_active = Column(
         Boolean,
         default=True

@@ -78,13 +78,24 @@ async def upload_dataset(
 
     )
 
-    return await (
+    upload_record = await (
         dataset_upload_service
         .upload(
             db=db,
             request=request,
         )
     )
+
+    try:
+        await dataset_upload_ingest_service.ingest(
+            db=db,
+            upload_id=getattr(upload_record, "id"),
+        )
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning(f"Auto-ingestion deferred or failed: {exc}")
+
+    return upload_record
 
 @router.get("")
 async def list_dataset_uploads(
