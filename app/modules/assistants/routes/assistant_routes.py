@@ -62,6 +62,12 @@ async def create_assistant(
 
 
 @router.get(
+    "",
+    response_model=list[
+        AssistantResponse
+    ]
+)
+@router.get(
     "/",
     response_model=list[
         AssistantResponse
