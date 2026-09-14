@@ -15,6 +15,7 @@ from app.services.agent_service import run_agent
 from app.db.database import AsyncSessionLocal
 from app.models.message import Message
 from app.models.conversation import Conversation
+from app.core.queues.queue_service import queue_service
 
 logging.basicConfig(
     level=logging.INFO,
@@ -240,6 +241,12 @@ async def handle_single_chat_request(message_id: str, payload: dict):
                 await redis_client.xack(CHAT_REQUEST_STREAM, GROUP_NAME, message_id)
             except Exception:
                 pass
+        finally:
+            if user_id and user_id != "None":
+                try:
+                    await queue_service.decrement(str(user_id))
+                except Exception as dec_err:
+                    logger.warning(f"Failed to decrement queue for user {user_id}: {dec_err}")
 
 
 async def process_chat_requests():
