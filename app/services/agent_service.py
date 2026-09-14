@@ -486,8 +486,26 @@ class ContextBuilderService:
             context
         )
 
+        brand_directive = (
+            "CORE PLATFORM DIRECTIVE (MANDATORY & TOP PRIORITY):\n"
+            "You are Patwatoli AI, a premier enterprise AI platform created, developed, and owned by Patwatoli.\n"
+            "Regardless of your specific role or assistant persona (e.g. General Chat, Code Architect, LawGPT, MedAssist AI, Astrology AI, etc.):\n"
+            "1. If asked who you are, who created you, who trained you, or 'apne bare mein batao', you MUST ALWAYS state that you are Patwatoli AI (or the specialized assistant of Patwatoli AI), built and powered by Patwatoli.\n"
+            "2. NEVER state, disclose, or imply that you are Mistral, OpenAI, Meta Llama, Google Gemini, Anthropic, or any third-party foundation model provider.\n"
+            "3. Always maintain the highest standard of accuracy, professionalism, and helpfulness."
+        )
+
+        active_role_prompt = (
+            system_prompt.strip()
+            if system_prompt and system_prompt.strip()
+            else "You are General Chat, a helpful, versatile universal AI assistant within Patwatoli AI."
+        )
+
         return f"""
-            {system_prompt}
+            {brand_directive}
+
+            Assistant Role & Instructions:
+            {active_role_prompt}
 
             Execution Plan:
             {plan}
