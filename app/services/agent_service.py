@@ -35,9 +35,7 @@ from app.modules.memory.services.cag_service import (
 )
 
 from app.services.language_service import (
-    detect_language,
-    translate_response,
-    translate_to_english
+    detect_language
 )
 
 from app.services.tool_service import (
@@ -501,8 +499,29 @@ class ContextBuilderService:
             else "You are General Chat, a helpful, versatile universal AI assistant within Patwatoli AI."
         )
 
+        central_language_directive = (
+            "CENTRAL LANGUAGE & SCRIPT DIRECTIVE (STRICT 4-TIER HIERARCHY):\n"
+            "You are a native multilingual enterprise AI. You MUST determine your response language and script using this strict priority hierarchy:\n\n"
+            "1. HIGHEST PRIORITY - EXPLICIT USER INSTRUCTION:\n"
+            "   If the user explicitly requests a language (e.g. 'Explain this in Hindi', 'Reply in English', 'इसे हिंदी में बताओ', 'translate to English', 'answer in Hinglish'), "
+            "you MUST honor this explicit instruction above all else, overriding all other signals and conversation history.\n\n"
+            "2. SECOND PRIORITY - CURRENT QUERY LANGUAGE & SCRIPT MIRRORING:\n"
+            "   Mirror the exact language and script of the user's latest query:\n"
+            "   - Pure English query -> Respond in natural, fluent, professional English.\n"
+            "   - Devanagari Hindi query (e.g. 'नमस्ते, यह कैसे काम करता है?') -> Respond in natural, grammatically correct Hindi in Devanagari script.\n"
+            "   - Romanized Hinglish query (e.g. 'bhai ye API kaise kaam karti hai?') -> Respond in natural, modern Romanized Hinglish (e.g. 'Bhai, API basically frontend aur backend ke beech communication ka tareeqa hai...'). NEVER convert Romanized Hinglish into Devanagari script.\n"
+            "   - Mixed-Script query (e.g. 'bhai मुझे API समझा do') -> Respond naturally in conversational Roman Hinglish or mixed natural phrasing as appropriate.\n"
+            "   - Other languages (Bengali, Tamil, Telugu, Marathi, Spanish, etc.) -> Respond directly in that language.\n\n"
+            "3. THIRD PRIORITY - CONVERSATION MEMORY IS CONTEXTUAL ONLY:\n"
+            "   Prior messages in Conversation Memory provide factual context only. Prior messages MUST NEVER lock or dictate the response language if the user writes in a different language in their latest query.\n\n"
+            "4. FOURTH PRIORITY - ASSISTANT INSTRUCTIONS DO NOT OVERRIDE LANGUAGE:\n"
+            "   Assistant instructions define your persona, domain, and boundaries, but the language used in those prompt descriptions must NEVER force the user to receive a response in a language other than their query language."
+        )
+
         return f"""
             {brand_directive}
+
+            {central_language_directive}
 
             Assistant Role & Instructions:
             {active_role_prompt}
@@ -510,7 +529,7 @@ class ContextBuilderService:
             Execution Plan:
             {plan}
 
-            Conversation Memory:
+            Conversation Memory (Historical factual context only; response language MUST follow the user's latest query):
             {memory}
 
             Retrieved Context:
@@ -618,39 +637,31 @@ class RetrievalService:
     
 
 # =========================================================
-# LANGUAGE SERVICE
+# LANGUAGE SERVICE (NATIVE MULTILINGUAL PIPELINE)
 # =========================================================
 
 class LanguagePipeline:
+    """
+    Enterprise Native Multilingual Pipeline:
+    Zero external translation overhead. The LLM natively reasons and responds
+    directly in the language and script requested by the user, governed by the
+    authoritative central ContextBuilderService language directive.
+    """
 
     @staticmethod
     async def process_input(
         query: str
     ):
-
-        language = detect_language(query)
-
-        translated_query = query
-
-        if language != "en":
-
-            translated_query = translate_to_english(query)
-
-        return translated_query, language
+        # Raw query is preserved 100% untouched for native LLM reasoning
+        return query, "auto"
 
     @staticmethod
     async def process_output(
         response: str,
-        language: str
+        language: str = "auto"
     ):
-
-        if language == "en":
-            return response
-
-        return translate_response(
-            response,
-            language
-        )
+        # Direct pass-through: zero translation delay, zero code/markdown breakage
+        return response
 
 
 # =========================================================
@@ -1096,6 +1107,9 @@ async def generation_node(state: AgentState):
     {web_citation_instr}
     USER QUESTION:
     {state["query"]}
+
+    LANGUAGE DIRECTIVE REMINDER:
+    Respond strictly in the same language and script as the USER QUESTION above (English -> English, Devanagari Hindi -> Devanagari Hindi, Roman Hinglish -> Roman Hinglish) unless the user explicitly requested a different language.
 
     ANSWER:
     """

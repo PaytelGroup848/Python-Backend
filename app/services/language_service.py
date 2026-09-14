@@ -20,9 +20,14 @@ SUPPORTED_LANGUAGES = {
 }
 
 
-# -----------------------------
-# LANGUAGE DETECTION
-# -----------------------------
+# -----------------------------------------------------------------------------
+# LANGUAGE UTILITIES (OFFLINE / OUT-OF-BAND UTILITY MODULE)
+# -----------------------------------------------------------------------------
+# IMPORTANT: These helper utilities are strictly for offline tasks, analytics,
+# or telemetry. They must NEVER be called from the live request/streaming
+# inference path. Core inference is 100% LLM-native.
+# -----------------------------------------------------------------------------
+
 
 def detect_language(text: str):
 
