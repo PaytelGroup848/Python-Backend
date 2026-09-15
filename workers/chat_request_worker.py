@@ -249,6 +249,28 @@ async def handle_single_chat_request(message_id: str, payload: dict):
                     logger.warning(f"Failed to decrement queue for user {user_id}: {dec_err}")
 
 
+async def ensure_consumer_group(stream_name: str, group_name: str, start_id: str = "$"):
+    """
+    Idempotently ensures a Redis Stream consumer group exists.
+    Tolerates BUSYGROUP across concurrent worker instances.
+    Uses '$' to prevent accidental replay of ancient message backlogs during online recovery.
+    """
+    try:
+        await redis_client.xgroup_create(
+            stream_name,
+            group_name,
+            id=start_id,
+            mkstream=True
+        )
+        logger.info(f"Initialized stream group '{group_name}' on '{stream_name}' (start_id={start_id})")
+    except Exception as exc:
+        err_msg = str(exc)
+        if "BUSYGROUP" in err_msg:
+            logger.debug(f"Consumer group '{group_name}' already exists.")
+        else:
+            logger.warning(f"Consumer group creation returned: {exc}")
+
+
 async def process_chat_requests():
     """
     Continuous consumer loop reading from Redis Stream and dispatching to
@@ -256,17 +278,8 @@ async def process_chat_requests():
     """
     logger.info(f"Chat request worker started. Concurrency limit={CONCURRENCY_LIMIT}")
 
-    # Ensure stream group exists
-    try:
-        await redis_client.xgroup_create(
-            CHAT_REQUEST_STREAM,
-            GROUP_NAME,
-            id="0",
-            mkstream=True
-        )
-        logger.info(f"Initialized stream group {GROUP_NAME}")
-    except Exception:
-        pass
+    # Ensure stream group exists on startup (id="$" avoids reprocessing historical backlogs)
+    await ensure_consumer_group(CHAT_REQUEST_STREAM, GROUP_NAME, start_id="$")
 
     while not SHUTDOWN_EVENT.is_set():
         try:
@@ -300,7 +313,12 @@ async def process_chat_requests():
             logger.info("Main worker loop cancelled.")
             break
         except Exception as loop_err:
-            logger.exception(f"Worker loop error: {loop_err}")
+            err_str = str(loop_err)
+            if "NOGROUP" in err_str:
+                logger.warning(f"Detected NOGROUP error in loop: {err_str}. Self-healing consumer group...")
+                await ensure_consumer_group(CHAT_REQUEST_STREAM, GROUP_NAME, start_id="$")
+            else:
+                logger.exception(f"Worker loop error: {loop_err}")
             await asyncio.sleep(1)
 
     logger.info(f"Worker shutting down. Awaiting {len(ACTIVE_TASKS)} active tasks...")
