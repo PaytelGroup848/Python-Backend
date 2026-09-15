@@ -9,8 +9,6 @@ services:
 
     restart: always
 
-    gpus: all
-
     depends_on:
       postgres:
         condition: service_healthy
@@ -91,8 +89,6 @@ services:
     container_name: training-worker
 
     restart: always
-
-    gpus: all
 
     depends_on:
       redis:
