@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.database import AsyncSessionLocal
+from app.db.database import get_db
 
 from app.services.vector_service import (
     store_document,
@@ -14,20 +14,6 @@ router = APIRouter(
     prefix="/vectors",
     tags=["Vector Search"]
 )
-
-
-# -----------------------------
-# DATABASE DEPENDENCY
-# -----------------------------
-async def get_db():
-
-    db = AsyncSessionLocal()
-
-    try:
-        yield db
-
-    finally:
-        await db.close()
 
 
 # -----------------------------

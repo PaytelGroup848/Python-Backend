@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from datetime import datetime
 
-from app.db.database import AsyncSessionLocal
+from app.db.database import AsyncSessionLocal, get_db
 from app.services.job_service import create_job, complete_job, fail_job
 from app.models.document_job import DocumentJob
 from app.models.knowledge_base import KnowledgeBase
@@ -61,16 +61,6 @@ os.makedirs(
     UPLOAD_DIR,
     exist_ok=True
 )
-
-# -----------------------------
-# DATABASE DEPENDENCY
-# -----------------------------
-
-async def get_db():
-
-    async with AsyncSessionLocal() as db:
-
-        yield db
 
 # -----------------------------
 # SUPPORTED FILE TYPES

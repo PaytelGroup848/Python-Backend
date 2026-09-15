@@ -12,8 +12,10 @@ services:
     gpus: all
 
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
     env_file:
       - .env
@@ -45,7 +47,7 @@ services:
         condition: service_healthy
 
       postgres:
-        condition: service_started
+        condition: service_healthy
 
     env_file:
       - .env
@@ -97,7 +99,7 @@ services:
         condition: service_healthy
 
       postgres:
-        condition: service_started
+        condition: service_healthy
 
     env_file:
       - .env
@@ -123,6 +125,12 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: ai_llm_db
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_llm_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
     ports:
       - "5433:5432"

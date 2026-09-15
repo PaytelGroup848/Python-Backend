@@ -28,25 +28,17 @@ from app.schemas.common_schema import MessageResponse
 
 from app.modules.auth.services.auth_service import AuthService
 
-from app.db.database import AsyncSessionLocal
+from app.db.database import get_db
 
 from app.core.security import (
-
     create_access_token,
-
     create_refresh_token,
-
     SECRET_KEY,
-
     ALGORITHM
 )
 
 from app.models.session import Session as UserSession
-
 from jose import jwt
-
-
-
 from fastapi import Request
 
 from app.services.security_service import (
@@ -57,9 +49,7 @@ from app.services.security_service import (
 
 from app.db.redis_client import redis_client
 
-
 logger = logging.getLogger(__name__)
-
 
 router = APIRouter(
     prefix="/auth",
@@ -67,18 +57,6 @@ router = APIRouter(
 )
 
 auth_service = AuthService()
-
-# DB dependency
-async def get_db():
-
-    async with AsyncSessionLocal() as db:
-       yield db
-
-   
-
-
-
-#  SIGNUP
 @router.post(
     "/signup",
     status_code=201,
@@ -175,40 +153,31 @@ async def login(
         )
 
     except asyncio.TimeoutError:
-
-        await record_failed_attempt(
-            req.email,
-            ip
+        logger.warning(
+            f"Authentication timeout for email: {req.email} from IP {ip}"
         )
-
         raise HTTPException(
             status_code=504,
-            detail="Authentication timeout"
+            detail="Authentication service timed out. Please try again."
         )
 
-    except Exception:
-
-        await record_failed_attempt(
-            req.email,
-            ip
+    except Exception as e:
+        logger.exception(
+            f"Database or infrastructure error during login for {req.email} from IP {ip}: {e}"
         )
-
         raise HTTPException(
             status_code=500,
-            detail="Authentication failed"
+            detail="Authentication service temporarily unavailable. Please try again."
         )
     
     if not user:
-
         await record_failed_attempt(
             req.email,
             ip
         )
-
         logger.warning(
-            f"Login failed for email: {req.email}"
+            f"Login failed: invalid credentials for email: {req.email}"
         )
-
         raise HTTPException(
             status_code=401,
             detail="Invalid credentials"
