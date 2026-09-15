@@ -1,6 +1,9 @@
 import asyncio
 import logging
+import os
 
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +16,9 @@ from app.modules.auth.schemas.auth_schema import (
 
     LoginRequest,
 
-    RefreshTokenResponse
+    RefreshTokenResponse,
+
+    GoogleAuthRequest
 )
 
 
@@ -244,6 +249,152 @@ async def login(
 
         await db.rollback()
 
+        raise HTTPException(
+            status_code=500,
+            detail="Session creation failed"
+        )
+
+    user_display_name = getattr(user, "name", None) or user.email.split("@")[0].capitalize()
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user_display_name,
+            "role": user.role or "MEMBER",
+        }
+    }
+
+
+# =========================
+# GOOGLE AUTHENTICATION
+# =========================
+
+GOOGLE_CLIENT_ID = os.getenv(
+    "GOOGLE_CLIENT_ID",
+    "647663692578-u0q685v87qoqjabksdlul3t92g3mlguo.apps.googleusercontent.com"
+)
+
+@router.post(
+    "/google",
+    status_code=200,
+    response_model=TokenResponse
+)
+async def google_auth(
+    request: Request,
+    req: GoogleAuthRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    ip = request.client.host if request.client else "unknown"
+
+    # Strict IP-based rate limiting (avoids locking legitimate users on untrusted token inputs)
+    rate_limit_key = f"google_auth_ip:{ip}"
+    if await is_locked(rate_limit_key, ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many attempts from this IP. Try again later."
+        )
+
+    # 1. Cryptographic token verification (zero-logging of raw credential or claims)
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            req.credential,
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID
+        )
+    except Exception:
+        logger.warning(f"Google token verification failed from IP {ip}")
+        await record_failed_attempt(rate_limit_key, ip)
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Google token"
+        )
+
+    # 2. Strict OIDC claims validation
+    if idinfo.get("iss") not in ["accounts.google.com", "https://accounts.google.com"]:
+        logger.warning(f"Google token rejected: invalid issuer from IP {ip}")
+        await record_failed_attempt(rate_limit_key, ip)
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Google token issuer"
+        )
+
+    if idinfo.get("aud") != GOOGLE_CLIENT_ID:
+        logger.warning(f"Google token rejected: audience mismatch from IP {ip}")
+        await record_failed_attempt(rate_limit_key, ip)
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Google token audience"
+        )
+
+    if not idinfo.get("email_verified", False):
+        logger.warning(f"Google token rejected: unverified email from IP {ip}")
+        raise HTTPException(
+            status_code=401,
+            detail="Google account email is not verified"
+        )
+
+    raw_email = idinfo.get("email")
+    if not raw_email:
+        raise HTTPException(
+            status_code=401,
+            detail="Email claim missing from Google token"
+        )
+
+    email = raw_email.strip().lower()
+    name = (idinfo.get("name") or email.split("@")[0]).strip()
+    google_sub = str(idinfo.get("sub", "")).strip()
+
+    # Clear rate-limit counter on successful verification
+    await clear_failed_attempts(rate_limit_key, ip)
+
+    # 3. Authenticate or create user under verified-email policy (password hash untouched)
+    try:
+        user = await auth_service.authenticate_or_create_google_user(
+            db=db,
+            email=email,
+            name=name,
+            google_sub=google_sub
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=403 if "inactive" in str(e).lower() else 400,
+            detail=str(e)
+        )
+    except Exception:
+        logger.exception("Google user resolution failed")
+        raise HTTPException(
+            status_code=500,
+            detail="Authentication failed"
+        )
+
+    logger.info(f"Google auth success: user_id={user.id}")
+
+    # 4. Issue application access token & refresh token
+    access_token = create_access_token({
+        "sub": str(user.id),
+        "role": user.role
+    })
+
+    refresh_token = create_refresh_token({
+        "sub": str(user.id),
+        "role": user.role
+    })
+
+    # 5. Persist user session
+    session = UserSession(
+        user_id=user.id,
+        refresh_token=refresh_token
+    )
+
+    try:
+        db.add(session)
+        await db.commit()
+        await db.refresh(session)
+    except Exception:
+        await db.rollback()
         raise HTTPException(
             status_code=500,
             detail="Session creation failed"

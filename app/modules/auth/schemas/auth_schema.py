@@ -67,3 +67,12 @@ class ChatRequest(BaseModel):
 
     message: str
 
+
+# =========================
+# GOOGLE AUTH
+# =========================
+
+class GoogleAuthRequest(BaseModel):
+
+    credential: str
+

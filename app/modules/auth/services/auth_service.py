@@ -93,7 +93,7 @@ class AuthService:
             email=email
         )
 
-        if not user:
+        if not user or not user.password:
             return None
 
         is_valid = self.verify_password(
@@ -105,3 +105,50 @@ class AuthService:
             return None
 
         return user
+
+    async def authenticate_or_create_google_user(
+        self,
+        db: AsyncSession,
+        email: str,
+        name: str,
+        google_sub: str
+    ) -> User:
+
+        user = await self.user_repository.get_by_email(
+            db=db,
+            email=email
+        )
+
+        if user:
+            if not user.is_active:
+                raise ValueError("Account is inactive")
+            return user
+
+        # First-time Google user creation
+        new_user = User(
+            name=name,
+            email=email,
+            password=None,
+            role="employee",
+            is_active=True
+        )
+
+        try:
+            return await self.user_repository.create(
+                db=db,
+                obj=new_user
+            )
+        except Exception:
+            await db.rollback()
+            # Handle potential concurrent race condition on email uniqueness
+            existing_user = await self.user_repository.get_by_email(
+                db=db,
+                email=email
+            )
+            if existing_user:
+                if not existing_user.is_active:
+                    raise ValueError("Account is inactive")
+                return existing_user
+
+            # If not an email collision, re-raise the true database exception
+            raise
