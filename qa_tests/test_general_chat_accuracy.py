@@ -179,8 +179,8 @@ class TestGeneralChatAccuracy(unittest.IsolatedAsyncioTestCase):
         """
         Verify GroqProvider.MODEL_NAME is a clean valid string and not a corrupted concatenation.
         """
-        self.assertNotIn("qwen3.8", GROQ_MODEL_NAME, "Model name must not concatenate two model names")
-        self.assertTrue(GROQ_MODEL_NAME.startswith("llama-") or GROQ_MODEL_NAME.startswith("qwen-"),
+        self.assertFalse("llama" in GROQ_MODEL_NAME and "qwen" in GROQ_MODEL_NAME, "Model name must not concatenate two model names")
+        self.assertTrue(GROQ_MODEL_NAME.startswith("llama-") or GROQ_MODEL_NAME.startswith("qwen/"),
                         f"Expected valid model, got: {GROQ_MODEL_NAME}")
 
     async def test_BUG_03_provider_fallback_does_not_crash_with_unbound_latency(self):

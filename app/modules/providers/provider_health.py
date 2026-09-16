@@ -18,48 +18,28 @@ class ProviderHealthService:
     def __init__(self):
 
         self.providers = {
-
-            "openai": {
-
-                "healthy": True,
-
-                "failures": 0,
-
-                "cooldown_until": 0,
-
-                "latency_ms": float("inf"),
-            },
-
-            "mistral": {
-
-                "healthy": True,
-
-                "failures": 0,
-
-                "cooldown_until": 0,
-
-                "latency_ms": float("inf"),
-            },
-
             "groq": {
-
                 "healthy": True,
-
                 "failures": 0,
-
                 "cooldown_until": 0,
-
                 "latency_ms": float("inf"),
             },
-
-            "gemini": {
-
+            "mistral": {
                 "healthy": True,
-
                 "failures": 0,
-
                 "cooldown_until": 0,
-
+                "latency_ms": float("inf"),
+            },
+            "openai": {
+                "healthy": True,
+                "failures": 0,
+                "cooldown_until": 0,
+                "latency_ms": float("inf"),
+            },
+            "gemini": {
+                "healthy": True,
+                "failures": 0,
+                "cooldown_until": 0,
                 "latency_ms": float("inf"),
             },
         }

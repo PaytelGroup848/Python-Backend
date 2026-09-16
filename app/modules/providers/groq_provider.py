@@ -8,7 +8,7 @@ from app.modules.providers.base_provider import (
     BaseProvider
 )
 
-MODEL_NAME = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+MODEL_NAME = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
 
 
 class GroqProvider(
@@ -164,7 +164,7 @@ class GroqProvider(
                         except Exception:
                             continue
         except Exception:
-            gen = await self.generate(truncated_messages, model=resolved_model, temperature=temperature, max_tokens=max_tokens)
+            gen = await self.generate(safe_messages, model=resolved_model, temperature=temperature, max_tokens=max_tokens)
             yield gen["response"]
 
     async def health_check(
