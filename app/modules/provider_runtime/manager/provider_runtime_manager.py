@@ -50,10 +50,10 @@ class ProviderRuntimeManager:
 
 
     async def stream_response(
-
         self,
-
         message: str,
+        temperature: float = 0.2,
+        model: str | None = None,
     ):
         await metrics_service.increment_requests()
 
@@ -67,8 +67,7 @@ class ProviderRuntimeManager:
         )
 
         if not provider_name:
-
-            raise Exception(
+            raise RuntimeError(
                 "No healthy providers available"
             )
 
@@ -88,13 +87,13 @@ class ProviderRuntimeManager:
         )
 
         try:
-
             async for chunk in (
                 provider.stream_chat(
-                    message
+                    message,
+                    model=model,
+                    temperature=temperature
                 )
             ):
-
                 yield chunk
 
             latency = (
@@ -112,9 +111,12 @@ class ProviderRuntimeManager:
                     latency,
                 )
             )
+            await metrics_service.record_provider_latency(
+                provider_name,
+                latency,
+            )
 
         except Exception as e:
-
             logger.exception(
                 f"Provider failed: "
                 f"{provider_name}"
@@ -130,14 +132,22 @@ class ProviderRuntimeManager:
                provider_name
             )
 
+            failed_latency = (
+                (
+                    time.perf_counter()
+                    -
+                    start_time
+                ) * 1000
+            )
+            await metrics_service.record_provider_latency(
+                provider_name,
+                failed_latency,
+            )
+
             fallback_providers = [
-
-                provider
-
-                for provider
-                in self.providers.keys()
-
-                if provider != provider_name
+                p
+                for p in self.providers.keys()
+                if p != provider_name
             ]
 
             fallback_provider_name = await (
@@ -150,8 +160,7 @@ class ProviderRuntimeManager:
             await metrics_service.increment_failures()
 
             if not fallback_provider_name:
-
-                raise e
+                raise RuntimeError(f"Primary provider {provider_name} failed and no fallback available") from e
 
             logger.warning(
                 f"Fallback provider used: "
@@ -168,37 +177,40 @@ class ProviderRuntimeManager:
                 time.perf_counter()
             )
 
-            async for chunk in (
-                fallback_provider.stream_chat(
-                    message
+            try:
+                async for chunk in (
+                    fallback_provider.stream_chat(
+                        message,
+                        model=model,
+                        temperature=temperature
+                    )
+                ):
+                    yield chunk
+
+                fallback_latency = (
+                    (
+                        time.perf_counter()
+                        -
+                        fallback_start
+                    ) * 1000
                 )
-            ):
 
-                yield chunk
-
-            fallback_latency = (
-                (
-                    time.perf_counter()
-                    -
-                    fallback_start
-                ) * 1000
-            )
-
-            await (
-                provider_health_service
-                .record_success(
-
+                await (
+                    provider_health_service
+                    .record_success(
+                        fallback_provider_name,
+                        fallback_latency,
+                    )
+                )
+                await metrics_service.record_provider_latency(
                     fallback_provider_name,
-
                     fallback_latency,
                 )
-            )
-            await metrics_service.record_provider_latency(
-
-               provider_name,
-
-               latency,
-            )
+            except Exception as fallback_err:
+                logger.exception(f"Fallback provider {fallback_provider_name} failed: {fallback_err}")
+                await provider_health_service.record_failure(fallback_provider_name)
+                await metrics_service.record_provider_failure(fallback_provider_name)
+                raise RuntimeError("All AI providers are currently unavailable. Please try again shortly.") from fallback_err
 
     async def generate_response(
 
@@ -356,11 +368,17 @@ class ProviderRuntimeManager:
                 time.perf_counter()
             )
 
-            result = await (
-                fallback_provider.generate(
-                    messages=messages
+            try:
+                result = await (
+                    fallback_provider.generate(
+                        messages=messages,
+                        temperature=temperature,
+                    )
                 )
-            )
+            except Exception as fallback_err:
+                logger.exception(f"Fallback provider {fallback_provider_name} failed: {fallback_err}")
+                await provider_health_service.record_failure(fallback_provider_name)
+                raise RuntimeError("All AI providers are currently unavailable. Please try again shortly.") from fallback_err
 
             fallback_latency_ms = int(
                 (

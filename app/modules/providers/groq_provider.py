@@ -8,12 +8,7 @@ from app.modules.providers.base_provider import (
     BaseProvider
 )
 
-MODEL_NAME = (
-    "llama-3.1-8b-instant"
-    "qwen/qwen3.8-27b"
-)
-
-
+MODEL_NAME = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
 
 class GroqProvider(
@@ -41,12 +36,12 @@ class GroqProvider(
 
         resolved_model = model or MODEL_NAME
 
-        truncated_messages = []
+        safe_messages = []
         for msg in messages:
             content = msg.get("content", "")
-            if isinstance(content, str) and len(content) > 2000:
-                content = content[:2000] + "\n...[truncated for length]"
-            truncated_messages.append({**msg, "content": content})
+            if isinstance(content, str) and len(content) > 100000:
+                content = content[:100000] + "\n...[truncated for length]"
+            safe_messages.append({**msg, "content": content})
 
         response = await http_client.post(
 
@@ -65,7 +60,7 @@ class GroqProvider(
 
                 "model": resolved_model,
 
-                "messages": truncated_messages,
+                "messages": safe_messages,
 
                 "temperature": temperature,
 
@@ -124,12 +119,12 @@ class GroqProvider(
         if not api_key:
             raise Exception("GROQ_API_KEY is not configured")
 
-        truncated_messages = []
+        safe_messages = []
         for msg in msg_list:
             content = msg.get("content", "")
-            if isinstance(content, str) and len(content) > 4000:
-                content = content[:4000] + "\n...[truncated for length]"
-            truncated_messages.append({**msg, "content": content})
+            if isinstance(content, str) and len(content) > 100000:
+                content = content[:100000] + "\n...[truncated for length]"
+            safe_messages.append({**msg, "content": content})
 
         try:
             async with http_client.stream(
@@ -141,14 +136,14 @@ class GroqProvider(
                 },
                 json={
                     "model": resolved_model,
-                    "messages": truncated_messages,
+                    "messages": safe_messages,
                     "temperature": temperature,
                     "max_tokens": max_tokens,
                     "stream": True,
                 },
             ) as response:
                 if response.status_code != 200:
-                    gen = await self.generate(truncated_messages, model=resolved_model, temperature=temperature, max_tokens=max_tokens)
+                    gen = await self.generate(safe_messages, model=resolved_model, temperature=temperature, max_tokens=max_tokens)
                     yield gen["response"]
                     return
 

@@ -35,6 +35,7 @@ from qa_tests.test_bug_09_api_key_refresh import TestBug09ApiKeyRefresh
 from qa_tests.test_security_regression import TestSecurityRegression
 from qa_tests.test_concurrency_regression import TestConcurrencyRegression
 from qa_tests.test_case_insensitive_auth import TestCaseInsensitiveAuth
+from qa_tests.test_general_chat_accuracy import TestGeneralChatAccuracy
 
 
 def run_suites():
@@ -60,6 +61,7 @@ def run_suites():
     suite.addTests(loader.loadTestsFromTestCase(TestSecurityRegression))
     suite.addTests(loader.loadTestsFromTestCase(TestConcurrencyRegression))
     suite.addTests(loader.loadTestsFromTestCase(TestCaseInsensitiveAuth))
+    suite.addTests(loader.loadTestsFromTestCase(TestGeneralChatAccuracy))
 
     def flatten_tests(suite_or_test):
         tests = []

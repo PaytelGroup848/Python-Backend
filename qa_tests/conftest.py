@@ -139,4 +139,58 @@ for mod_name in ["pandas", "docx", "pptx", "pypdf", "fitz", "paddleocr"]:
             m.PaddleOCR = lambda *a, **k: None
         sys.modules[mod_name] = m
 
+# Prometheus Client shim
+try:
+    import prometheus_client
+except ImportError:
+    pc = types.ModuleType("prometheus_client")
+    class MockMetric:
+        def __init__(self, *a, **k): pass
+        def inc(self, *a, **k): pass
+        def set(self, *a, **k): pass
+        def observe(self, *a, **k): pass
+        def labels(self, *a, **k): return self
+    pc.Counter = MockMetric
+    pc.Gauge = MockMetric
+    pc.Histogram = MockMetric
+    pc.Summary = MockMetric
+    pc.generate_latest = lambda *a, **k: b""
+    pc.CONTENT_TYPE_LATEST = "text/plain"
+    sys.modules["prometheus_client"] = pc
+
+# Sentence Transformers shim
+try:
+    import sentence_transformers
+except ImportError:
+    st = types.ModuleType("sentence_transformers")
+    class MockST:
+        def __init__(self, *a, **k): pass
+        def encode(self, text, *a, **k):
+            if isinstance(text, list):
+                return [[0.1] * 384 for _ in text]
+            return [0.1] * 384
+    st.SentenceTransformer = MockST
+    st.CrossEncoder = MockST
+    sys.modules["sentence_transformers"] = st
+
+# langdetect shim
+try:
+    import langdetect
+except ImportError:
+    ld = types.ModuleType("langdetect")
+    ld.detect = lambda text: "en"
+    ld.DetectorFactory = type("DetectorFactory", (), {"seed": 0})
+    sys.modules["langdetect"] = ld
+
+# deep_translator shim
+try:
+    import deep_translator
+except ImportError:
+    dt = types.ModuleType("deep_translator")
+    class MockGT:
+        def __init__(self, *a, **k): pass
+        def translate(self, text, *a, **k): return text
+    dt.GoogleTranslator = MockGT
+    sys.modules["deep_translator"] = dt
+
 

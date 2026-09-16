@@ -63,6 +63,7 @@ async def handle_single_chat_request(message_id: str, payload: dict):
             assistant_id = data.get("assistant_id")
             aspect_ratio = data.get("aspect_ratio") or "1024x1024"
             web_search = bool(data.get("web_search", False))
+            attached_docs = data.get("documents") or data.get("attached_docs")
 
             if not query:
                 raise ValueError("Query is required")
@@ -118,6 +119,7 @@ async def handle_single_chat_request(message_id: str, payload: dict):
                 aspect_ratio=aspect_ratio,
                 web_search=web_search,
                 stream_handler=stream_callback,
+                attached_docs=attached_docs,
             )
 
             response_text = response["response"] if isinstance(response, dict) else str(response)

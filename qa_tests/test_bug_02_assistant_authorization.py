@@ -48,3 +48,4 @@ class TestBug02AssistantAuthorization(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

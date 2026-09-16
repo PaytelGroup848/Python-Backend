@@ -41,3 +41,4 @@ class TestBug01JwtLogging(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -51,6 +51,17 @@ class ProviderHealthService:
 
                 "latency_ms": float("inf"),
             },
+
+            "gemini": {
+
+                "healthy": True,
+
+                "failures": 0,
+
+                "cooldown_until": 0,
+
+                "latency_ms": float("inf"),
+            },
         }
 
         self.lock = asyncio.Lock()

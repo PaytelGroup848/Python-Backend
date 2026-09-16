@@ -92,3 +92,4 @@
   - `npm run build` (Next.js production build with TypeScript check and page compilation)
   - `npm run start` (starts Next.js production server)
   - `npm run lint` (ESLint static analysis)
+

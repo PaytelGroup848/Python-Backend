@@ -96,3 +96,4 @@ while True:
 | **Client Ping Interval** | `30,000 ms` | Keeps NAT tables open across aggressive mobile 4G/5G firewalls. |
 | **Server Receive Timeout** | `180 seconds` | Tolerates Chrome background tab throttling while bounding dead socket lifetime. |
 | **Queue Backpressure** | `10 messages` | Prevents denial-of-service spam over a single WebSocket connection. |
+

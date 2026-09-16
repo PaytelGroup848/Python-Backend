@@ -162,6 +162,7 @@ class AgentState(TypedDict):
     web_sources: Optional[list]
     web_search: Optional[bool]
     stream_handler: Optional[Any]
+    attached_docs: Optional[list]
 
     # metadata
     needs_general_knowledge: bool
@@ -218,58 +219,18 @@ class IntentClassifierService:
     @staticmethod
     async def classify(query: str) -> IntentType:
 
-        q = query.lower()
+        q = query.lower().strip()
 
-        # lightweight deterministic routing first
-
-        analytics_terms = [
-            "analytics",
-            "stats",
-            "metrics",
-            "dashboard",
-            "usage"
-        ]
-
-        search_terms = [
-            "find",
-            "search",
-            "lookup"
-        ]
-
-        rag_terms = [
-            "document",
-            "policy",
-            "pdf",
-            "report",
-            "contract"
-        ]
-
-        multistep_terms = [
-            "analyze",
-            "compare",
-            "review",
-            "generate plan",
-            "summarize all"
-        ]
-
-        # Image generation intent detection (typo-tolerant, flexible phrasing, Hindi/Hinglish)
+        # 1. Image generation intent detection (typo-tolerant, flexible phrasing, Hindi/Hinglish)
         negative_image_phrases = [
             "draw a conclusion", "draw conclusions",
             "draw comparison", "draw comparisons",
             "draw inspiration", "draw from"
         ]
         if not any(neg in q for neg in negative_image_phrases):
-            # Pattern 1: Action verb (with typo tolerance e.g. genrate) + words + visual noun
-            # Matches: "genrate the image of cat", "generate an image of...", "create a picture of...", "make photo of..."
             image_verb_noun_regex = r"\b(gen[e]?r[a]?te|creat[e]?|make|draw|paint|render|produce|show\s+me|give\s+me)\b.{0,30}\b(image|images|picture|pictures|photo|photos|pic|pics|artwork|illustration|portrait|wallpaper|tasveer)\b"
-
-            # Pattern 2: Visual noun + preposition ("image of a cat", "picture for my banner", "photo showing ...")
             image_direct_noun_regex = r"\b(image|images|picture|pictures|photo|photos|pic|pics|artwork|illustration|tasveer)\s+(of|for|showing|depicting)\b"
-
-            # Pattern 3: Direct creative action ("draw a cat", "paint an astronaut", "sketch me a lion")
             image_direct_draw_regex = r"\b(draw|paint|sketch|illustrate)\s+(a|an|the|me\s+a|me\s+an)\b"
-
-            # Pattern 4: Common Hindi/Hinglish phrasing
             hinglish_image_terms = [
                 "tasveer banao", "photo banao", "image banao", "pic banao",
                 "tasveer bana", "photo bana", "image bana", "pic bana",
@@ -307,12 +268,18 @@ class IntentClassifierService:
             ):
                 return IntentType.IMAGE_EDIT
 
-        if any(x in q for x in analytics_terms):
+        # 2. Analytics intent detection (whole-word / structural patterns)
+        analytics_patterns = [
+            r"\banalyze\s+(the\s+|this\s+)?(dataset|data|table|csv|metrics|statistics)\b",
+            r"\b(system\s+stats|dashboard\s+metrics|platform\s+usage|user\s+metrics|system\s+analytics)\b",
+            r"^(show\s+)?(analytics|stats|metrics|dashboard|usage)\b"
+        ]
+        if any(re.search(p, q) for p in analytics_patterns):
             return IntentType.ANALYTICS
 
-        # Web Search / Real-time live info detection
-        web_search_terms = [
-            "search the web", "search online", "search internet", "browse the web", "google", "web search",
+        # 3. Explicit Web Search / Real-time live info detection
+        web_search_explicit_terms = [
+            "search the web", "search online", "search internet", "browse the web", "google this", "web search",
             "latest news", "current news", "recent news", "today's news",
             "latest updates", "recent developments", "current price", "today's price",
             "who won the", "match score", "current weather", "who is the current"
@@ -321,25 +288,37 @@ class IntentClassifierService:
             r"\b(search\s+(the\s+)?web|search\s+online|search\s+internet|google\s+this|browse\s+the\s+web)\b",
             r"\b(latest|current|recent|today's|today|yesterday|upcoming)\b.{0,30}\b(news|update|updates|version|release|price|score|weather|event|events|election|status)\b",
             r"\b(who\s+is\s+the\s+current|what\s+is\s+the\s+latest|what\s+is\s+the\s+current)\b",
+            r"\b(weather|temperature)\s+(in|at|today|now)\b",
+            r"\bfind\s+(today'?s|the\s+latest|current)\s+(weather|price|news|score|temperature)\b",
             r"^(\/search|search:|\?)\s*",
             r"\[web search\]",
             r"--search",
         ]
         if (
-            any(t in q for t in web_search_terms)
+            any(t in q for t in web_search_explicit_terms)
             or any(re.search(p, q) for p in web_search_patterns)
         ):
             return IntentType.SEARCH
 
-        if any(x in q for x in search_terms):
-            return IntentType.SEARCH
-
-        if any(x in q for x in multistep_terms):
-            return IntentType.MULTISTEP
-
-        if any(x in q for x in rag_terms):
+        # 4. Explicit Document / RAG intent (only when referring to an actual attached/uploaded doc)
+        rag_patterns = [
+            r"\b(summarize|explain|review|read|check)\s+(this|the|attached|uploaded)\s+(pdf|document|file|report|policy|contract)\b",
+            r"\b(this|the|attached|uploaded|given)\s+(pdf|document|file)\s+(says?|states?|contains?|mentions?)\b",
+            r"\b(in\s+this\s+|from\s+this\s+|according\s+to\s+this\s+)(pdf|document|doc|report|file)\b",
+            r"\b(attached|uploaded)\s+(pdf|document|doc|report|policy|contract)\b",
+        ]
+        if any(re.search(p, q) for p in rag_patterns):
             return IntentType.RAG
 
+        # 5. Multi-step Execution Planning intent (explicit workflow plans)
+        multistep_patterns = [
+            r"\b(generate|create|build|make|give\s+me)\s+(an?\s+)?(execution\s+plan|step[- ]by[- ]step\s+plan|action\s+plan|detailed\s+project\s+plan)\b",
+            r"\bbreak\s+(this\s+)?down\s+into\s+execution\s+steps\b",
+        ]
+        if any(re.search(p, q) for p in multistep_patterns):
+            return IntentType.MULTISTEP
+
+        # Default: General Chat (explanations, coding, questions, comparisons, chat)
         return IntentType.GENERAL
 
 
@@ -456,33 +435,31 @@ class ContextBuilderService:
 
     @staticmethod
     def sanitize_context(context: str) -> str:
-
+        if not context:
+            return ""
         blocked = [
-            "ignore previous instructions",
-            "reveal system prompt",
-            "bypass security"
+            r"ignore\s+previous\s+instructions",
+            r"reveal\s+system\s+prompt",
+            r"bypass\s+security"
         ]
-
-        lower = context.lower()
-
+        sanitized = str(context)
         for item in blocked:
-
-            lower = lower.replace(item, "")
-
-        return lower
+            sanitized = re.sub(item, "", sanitized, flags=re.IGNORECASE)
+        return sanitized
 
     @staticmethod
-    def build(
-        system_prompt: str,
-        memory: str,
-        context: str,
-        tool_result: dict,
-        plan: str
+    def build_prompt(
+        query: str,
+        system_prompt: str = "",
+        memory: str = "",
+        context: str = "",
+        tool_result: dict | None = None,
+        plan: str = "",
+        web_citation_instr: str = "",
+        max_total_chars: int = 36000
     ) -> str:
-
-        context = ContextBuilderService.sanitize_context(
-            context
-        )
+        context = ContextBuilderService.sanitize_context(context or "")
+        tool_result_str = json.dumps(tool_result, ensure_ascii=False) if tool_result and isinstance(tool_result, dict) and tool_result else ""
 
         brand_directive = (
             "CORE PLATFORM DIRECTIVE (MANDATORY & TOP PRIORITY):\n"
@@ -518,26 +495,76 @@ class ContextBuilderService:
             "   Assistant instructions define your persona, domain, and boundaries, but the language used in those prompt descriptions must NEVER force the user to receive a response in a language other than their query language."
         )
 
-        return f"""
-            {brand_directive}
+        # Priority 1: System Instructions (Guaranteed)
+        system_section = f"{brand_directive}\n\n{central_language_directive}\n\nAssistant Role & Instructions:\n{active_role_prompt}"
 
-            {central_language_directive}
+        # Priority 2: User Question Block (Guaranteed 100% intact, NEVER truncated)
+        user_section = (
+            f"USER QUESTION:\n{query}\n\n"
+            f"LANGUAGE DIRECTIVE REMINDER:\n"
+            f"Respond strictly in the same language and script as the USER QUESTION above unless the user explicitly requested a different language.\n\n"
+            f"ANSWER:\n"
+        )
+        if web_citation_instr:
+            user_section = f"{web_citation_instr}\n\n{user_section}"
 
-            Assistant Role & Instructions:
-            {active_role_prompt}
+        # Calculate budget remaining for lower-priority context materials
+        fixed_overhead = len(system_section) + len(user_section) + 500
+        budget_remaining = max(0, max_total_chars - fixed_overhead)
 
-            Execution Plan:
-            {plan}
+        # Priority 5: Optional metadata (plan, tool_result)
+        plan_budget = min(len(plan), 1000) if plan else 0
+        plan_str = plan[:plan_budget] if plan else ""
 
-            Conversation Memory (Historical factual context only; response language MUST follow the user's latest query):
-            {memory}
+        tool_budget = min(len(tool_result_str), 1000) if tool_result_str else 0
+        tool_str = tool_result_str[:tool_budget] if tool_result_str else ""
 
-            Retrieved Context:
-            {context}
+        budget_remaining = max(0, budget_remaining - plan_budget - tool_budget)
 
-            Tool Result:
-            {tool_result}
-        """
+        # Priority 3: Memory (up to 4000 chars of recent history)
+        memory_budget = min(len(memory), 4000) if memory else 0
+        safe_memory = memory[-memory_budget:] if memory else ""
+        budget_remaining = max(0, budget_remaining - len(safe_memory))
+
+        # Priority 4: Retrieved Context (takes remaining budget, preserving top chunks)
+        if context:
+            if len(context) > budget_remaining:
+                safe_context = context[:budget_remaining] + "\n\n[... Remaining context omitted for budget ...]"
+            else:
+                safe_context = context
+        else:
+            safe_context = ""
+
+        parts = [system_section]
+        if plan_str:
+            parts.append(f"Execution Plan:\n{plan_str}")
+        if safe_memory:
+            parts.append(f"Conversation Memory:\n{safe_memory}")
+        if safe_context:
+            parts.append(f"Retrieved Context:\n{safe_context}")
+        if tool_str:
+            parts.append(f"Tool Result:\n{tool_str}")
+        parts.append(user_section)
+
+        return "\n\n".join(parts)
+
+    @staticmethod
+    def build(
+        system_prompt: str,
+        memory: str,
+        context: str,
+        tool_result: dict,
+        plan: str
+    ) -> str:
+        # Backward compatibility wrapper
+        return ContextBuilderService.build_prompt(
+            query="",
+            system_prompt=system_prompt,
+            memory=memory,
+            context=context,
+            tool_result=tool_result,
+            plan=plan
+        )
 
 
 # =========================================================
@@ -839,15 +866,26 @@ async def preprocessing_node(state: AgentState):
         clean_query = re.sub(r"^\/search\s*", "", clean_query, flags=re.IGNORECASE)
         clean_query = re.sub(r"--search", "", clean_query, flags=re.IGNORECASE).strip()
 
-    rewrite_task = QueryRewriteService.rewrite(
-        query=clean_query,
-        user_id=state["user_id"]
+    # Conditional Query Rewrite (BUG-07 Fix):
+    # Only rewrite query into search keywords if web search or RAG retrieval is actually needed!
+    needs_rewrite = (
+        is_web_search
+        or bool(state.get("rag_enabled", False))
+        or state.get("intent") in (IntentType.SEARCH.value, IntentType.RAG.value)
     )
 
-    memory, rewritten = await asyncio.gather(
-        memory_task,
-        rewrite_task
-    )
+    if needs_rewrite:
+        rewrite_task = QueryRewriteService.rewrite(
+            query=clean_query,
+            user_id=state["user_id"]
+        )
+        memory, rewritten = await asyncio.gather(
+            memory_task,
+            rewrite_task
+        )
+    else:
+        memory = await memory_task
+        rewritten = clean_query
 
     return {
         **state,
@@ -924,7 +962,16 @@ async def retrieval_node(state: AgentState):
         user_id = state.get("user_id")
 
         filename = None
-        if session_id:
+        # Priority 1: explicitly passed in request state
+        attached = state.get("attached_docs") or state.get("documents")
+        if attached:
+            if isinstance(attached, list) and attached:
+                filename = str(attached[0])
+            elif isinstance(attached, str):
+                filename = attached
+
+        # Priority 2: documents bound to this active conversation session
+        if not filename and session_id:
             raw_conv = await redis_client.get(f"conversation_pdf:{session_id}")
             if raw_conv:
                 try:
@@ -936,8 +983,8 @@ async def retrieval_node(state: AgentState):
                 except Exception:
                     filename = raw_conv
 
-        if not filename and user_id:
-            filename = await redis_client.get(f"latest_pdf:{user_id}")
+        # BUG-01 FIX: NEVER fall back to latest_pdf:{user_id} in General Chat!
+        # Unrelated historical uploads must never contaminate new general chat queries.
 
         if filename:
             async with AsyncSessionLocal() as db:
@@ -1089,30 +1136,22 @@ async def generation_node(state: AgentState):
     if state.get("needs_general_knowledge") and not allow_external_fallback:
         return state
 
-    prompt = ContextBuilderService.build(
+    web_sources = state.get("web_sources", [])
+    web_citation_instr = ""
+    if web_sources or "REAL-TIME LIVE WEB SEARCH RESULTS" in state.get("context", ""):
+        web_citation_instr = "INSTRUCTION: You have real-time live web search results above. Use them to provide an accurate, up-to-date answer. Cite your factual statements with inline citation numbers like [1], [2] corresponding to the search results above."
+
+    # BUG-02 Fix: Token-budget-aware prompt building (Priority: System -> User Question -> Memory -> Context -> Tools)
+    final_prompt = ContextBuilderService.build_prompt(
+        query=state["query"],
         system_prompt=state.get("system_prompt", ""),
         memory=state.get("memory_context", ""),
         context=state.get("context", ""),
         tool_result=state.get("tool_result", {}),
-        plan=state.get("plan", "")
+        plan=state.get("plan", ""),
+        web_citation_instr=web_citation_instr,
+        max_total_chars=36000
     )
-
-    web_sources = state.get("web_sources", [])
-    web_citation_instr = ""
-    if web_sources or "REAL-TIME LIVE WEB SEARCH RESULTS" in state.get("context", ""):
-        web_citation_instr = "\nINSTRUCTION: You have real-time live web search results above. Use them to provide an accurate, up-to-date answer. Cite your factual statements with inline citation numbers like [1], [2] corresponding to the search results above.\n"
-
-    final_prompt = f"""
-    {prompt}
-    {web_citation_instr}
-    USER QUESTION:
-    {state["query"]}
-
-    LANGUAGE DIRECTIVE REMINDER:
-    Respond strictly in the same language and script as the USER QUESTION above (English -> English, Devanagari Hindi -> Devanagari Hindi, Roman Hinglish -> Roman Hinglish) unless the user explicitly requested a different language.
-
-    ANSWER:
-    """
 
     async with AsyncSessionLocal() as db:
         allowed = await usage_limit_service.check_usage_limit(
@@ -1123,11 +1162,14 @@ async def generation_node(state: AgentState):
         if not allowed:
             raise Exception("Plan limit exceeded")
 
+        # BUG-08 Fix: Propagate configured temperature from state to runtime manager
+        configured_temp = float(state.get("temperature", 0.2))
+
         stream_handler = state.get("stream_handler")
         collected_chunks = []
         if stream_handler and callable(stream_handler):
             try:
-                async for chunk in provider_runtime_manager.stream_response(final_prompt):
+                async for chunk in provider_runtime_manager.stream_response(final_prompt, temperature=configured_temp):
                     if chunk:
                         collected_chunks.append(chunk)
                         try:
@@ -1137,16 +1179,19 @@ async def generation_node(state: AgentState):
                 final_response = "".join(collected_chunks)
             except Exception as exc:
                 logger.warning(f"Streaming provider error, falling back to batch: {exc}")
-                if state.get("context"):
-                    final_response = f"Based on retrieved context:\n\n{state['context']}"
-                else:
+                # BUG-04 Fix: NEVER return raw internal context as final response. Use fallback provider or sanitized error.
+                try:
                     response = await provider_runtime_manager.generate_response(
                         prompt=final_prompt,
                         user_id=state["user_id"],
-                        temperature=state.get("temperature", 0.3),
+                        temperature=configured_temp,
                         stream=False
                     )
-                    final_response = response["response"]
+                    final_response = response.get("response", "") if isinstance(response, dict) else str(response)
+                except Exception as batch_err:
+                    logger.error(f"Batch fallback failed as well: {batch_err}")
+                    final_response = "I am temporarily unable to process your request. Please try again shortly."
+
                 if not collected_chunks:
                     try:
                         await stream_handler({"type": "chunk", "content": final_response})
@@ -1157,16 +1202,14 @@ async def generation_node(state: AgentState):
                 response = await provider_runtime_manager.generate_response(
                     prompt=final_prompt,
                     user_id=state["user_id"],
-                    temperature=state.get("temperature", 0.3),
+                    temperature=configured_temp,
                     stream=False
                 )
-                final_response = response["response"]
+                final_response = response.get("response", "") if isinstance(response, dict) else str(response)
             except Exception as exc:
-                if state.get("context"):
-                    logger.info("External provider unavailable, returning dataset context directly.")
-                    final_response = f"Based on retrieved context:\n\n{state['context']}"
-                else:
-                    raise exc
+                logger.error(f"Direct generation failed: {exc}")
+                # BUG-04 Fix: NEVER return raw internal context as final response.
+                final_response = "I am temporarily unable to process your request. Please try again shortly."
 
     # Cleanly append web sources (Perplexity style)
     if web_sources and isinstance(web_sources, list):
@@ -1425,7 +1468,7 @@ async def image_gen_node(state: AgentState):
 
 def router(state: AgentState):
 
-    intent = state["intent"]
+    intent = state.get("intent")
 
     if intent in (IntentType.IMAGE_GEN.value, IntentType.IMAGE_EDIT.value):
         return "image_gen"
@@ -1436,7 +1479,15 @@ def router(state: AgentState):
     if intent == IntentType.SEARCH.value or state.get("web_search"):
         return "search"
 
-    return "retrieve"
+    has_doc = bool(state.get("attached_docs") or state.get("documents"))
+    is_rag = bool(state.get("rag_enabled", False)) or intent == IntentType.RAG.value
+
+    # Only route to retrieve if RAG is explicitly enabled or a document is attached to this request
+    if is_rag or has_doc:
+        return "retrieve"
+
+    # BUG-05 Fix: General Chat routes directly to generate without entering retrieval!
+    return "generate"
 
 
 # =========================================================
@@ -1571,7 +1622,8 @@ class AgentRuntime:
         user_department: str,
         aspect_ratio: str = "1024x1024",
         web_search: bool = False,
-        stream_handler: Optional[Any] = None
+        stream_handler: Optional[Any] = None,
+        attached_docs: Optional[list] = None
     ) -> AgentResponse:
 
         request_id = str(uuid.uuid4())
@@ -1652,7 +1704,9 @@ class AgentRuntime:
 
             "needs_general_knowledge": False,
 
-            "stream_handler": stream_handler
+            "stream_handler": stream_handler,
+
+            "attached_docs": attached_docs or []
         }
 
         result = await execute_with_retry(
@@ -1691,7 +1745,8 @@ async def run_agent(
     user_department: str,
     aspect_ratio: str = "1024x1024",
     web_search: bool = False,
-    stream_handler: Optional[Any] = None
+    stream_handler: Optional[Any] = None,
+    attached_docs: Optional[list] = None
 ):
 
     result = await AgentRuntime.execute(
@@ -1703,7 +1758,8 @@ async def run_agent(
         user_department=user_department,
         aspect_ratio=aspect_ratio,
         web_search=web_search,
-        stream_handler=stream_handler
+        stream_handler=stream_handler,
+        attached_docs=attached_docs
     )
 
     return result.response

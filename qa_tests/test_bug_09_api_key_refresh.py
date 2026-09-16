@@ -39,3 +39,4 @@ class TestBug09ApiKeyRefresh(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

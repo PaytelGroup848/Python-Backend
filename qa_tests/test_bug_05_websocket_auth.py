@@ -43,3 +43,4 @@ class TestBug05WebSocketAuth(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-09-16T11:30:18Z",
-  "duration_seconds": 0.869,
-  "total_tests": 47,
-  "passed": 47,
+  "timestamp": "2026-09-16T12:50:58Z",
+  "duration_seconds": 0.839,
+  "total_tests": 62,
+  "passed": 62,
   "failed": 0,
   "skipped": 0,
   "blocked": 0,
@@ -239,6 +239,81 @@
     },
     {
       "test_id": "qa_tests.test_case_insensitive_auth.TestCaseInsensitiveAuth.test_get_by_email_with_empty_or_none",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_general_chat_accuracy.TestGeneralChatAccuracy.test_BUG_01_explicit_document_attachment_is_preserved",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_general_chat_accuracy.TestGeneralChatAccuracy.test_BUG_01_general_chat_does_not_inherit_historical_pdf",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_general_chat_accuracy.TestGeneralChatAccuracy.test_BUG_02_groq_provider_does_not_truncate_prompts_under_100k",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_general_chat_accuracy.TestGeneralChatAccuracy.test_BUG_02_user_question_is_never_truncated_in_long_prompt",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_general_chat_accuracy.TestGeneralChatAccuracy.test_BUG_03_both_providers_fail_returns_sanitized_error",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_general_chat_accuracy.TestGeneralChatAccuracy.test_BUG_03_groq_model_name_syntax_validity",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_general_chat_accuracy.TestGeneralChatAccuracy.test_BUG_03_provider_fallback_does_not_crash_with_unbound_latency",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_general_chat_accuracy.TestGeneralChatAccuracy.test_BUG_04_raw_context_never_exposed_on_failure",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_general_chat_accuracy.TestGeneralChatAccuracy.test_BUG_05_document_and_search_queries_route_correctly",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_general_chat_accuracy.TestGeneralChatAccuracy.test_BUG_05_general_queries_route_directly_to_generate",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_general_chat_accuracy.TestGeneralChatAccuracy.test_BUG_06_mandatory_intent_matrix",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_general_chat_accuracy.TestGeneralChatAccuracy.test_BUG_07_general_chat_does_not_invoke_query_rewrite",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_general_chat_accuracy.TestGeneralChatAccuracy.test_BUG_07_search_and_rag_do_invoke_query_rewrite",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_general_chat_accuracy.TestGeneralChatAccuracy.test_BUG_08_temperature_propagates_to_provider",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_general_chat_accuracy.TestGeneralChatAccuracy.test_BUG_10_gemini_registered_in_health_and_valid_model",
       "status": "PASSED",
       "error": null
     }
