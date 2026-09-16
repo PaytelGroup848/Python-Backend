@@ -57,9 +57,12 @@ class AuthService:
         password: str
     ) -> User:
 
+        clean_email = email.strip().lower() if email else ""
+        clean_name = name.strip() if name else ""
+
         existing_user = await self.user_repository.get_by_email(
             db=db,
-            email=email
+            email=clean_email
         )
 
         if existing_user:
@@ -70,8 +73,8 @@ class AuthService:
         hashed_password = self.hash_password(password)
 
         user = User(
-            name=name,
-            email=email,
+            name=clean_name,
+            email=clean_email,
             password=hashed_password,
             role="employee"
         )
@@ -96,9 +99,11 @@ class AuthService:
         password: str
     ) -> User | None:
 
+        clean_email = email.strip().lower() if email else ""
+
         user = await self.user_repository.get_by_email(
             db=db,
-            email=email
+            email=clean_email
         )
 
         if not user or not user.password:

@@ -72,12 +72,15 @@ async def signup(
     db: AsyncSession = Depends(get_db)
 ):
 
+    clean_email = req.email.strip().lower()
+    clean_name = req.name.strip()
+
     try:
 
         user = await auth_service.create_user(
             db=db,
-            name=req.name,
-            email=req.email,
+            name=clean_name,
+            email=clean_email,
             password=req.password
         )
 
@@ -129,15 +132,17 @@ async def login(
     req: LoginRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    ip = (
+    clean_email = req.email.strip().lower()
 
-        request.client.host
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        ip = forwarded_for.split(",")[0].strip()
+    elif request.client:
+        ip = request.client.host
+    else:
+        ip = "unknown"
 
-        if request.client
-
-        else "unknown"
-    )
-    if await is_locked(req.email, ip):
+    if await is_locked(clean_email, ip):
        raise HTTPException(
            status_code=403,
            detail="Too many failed attempts. Try again later."
@@ -150,7 +155,7 @@ async def login(
 
             auth_service.authenticate_user(
                 db,
-                req.email,
+                clean_email,
                 req.password
             ),
 
@@ -159,7 +164,7 @@ async def login(
 
     except asyncio.TimeoutError:
         logger.warning(
-            f"Authentication timeout for email: {req.email} from IP {ip}"
+            f"Authentication timeout for email: {clean_email} from IP {ip}"
         )
         raise HTTPException(
             status_code=504,
@@ -168,7 +173,7 @@ async def login(
 
     except Exception as e:
         logger.exception(
-            f"Database or infrastructure error during login for {req.email} from IP {ip}: {e}"
+            f"Database or infrastructure error during login for {clean_email} from IP {ip}: {e}"
         )
         raise HTTPException(
             status_code=500,
@@ -177,18 +182,18 @@ async def login(
     
     if not user:
         await record_failed_attempt(
-            req.email,
+            clean_email,
             ip
         )
         logger.warning(
-            f"Login failed: invalid credentials for email: {req.email}"
+            f"Login failed: invalid credentials for email: {clean_email}"
         )
         raise HTTPException(
             status_code=401,
             detail="Invalid credentials"
         )
     
-    await clear_failed_attempts(req.email, ip)
+    await clear_failed_attempts(clean_email, ip)
     logger.info(
         f"Login success: {user.id}"
     )

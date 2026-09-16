@@ -1,5 +1,5 @@
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -21,13 +21,15 @@ class UserRepository(
         db: AsyncSession,
         email: str
     ):
+        if not email:
+            return None
+
+        clean_email = email.strip().lower()
 
         result = await db.execute(
-
             select(User)
-
             .where(
-                User.email == email
+                func.lower(User.email) == clean_email
             )
         )
 
