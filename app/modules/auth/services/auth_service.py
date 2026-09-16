@@ -1,8 +1,11 @@
+import logging
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
 from app.modules.auth.repositories.user_repository import UserRepository
+
+logger = logging.getLogger(__name__)
 
 pwd_context = CryptContext(
     schemes=["bcrypt"],
@@ -35,11 +38,16 @@ class AuthService:
         password: str,
         hashed_password: str
     ) -> bool:
-
-        return pwd_context.verify(
-            password,
-            hashed_password
-        )
+        if not password or not hashed_password:
+            return False
+        try:
+            return pwd_context.verify(
+                password,
+                hashed_password
+            )
+        except Exception:
+            logger.warning("Password verification failed due to invalid or malformed hash format.")
+            return False
 
     async def create_user(
         self,

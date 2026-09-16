@@ -78,18 +78,8 @@ async def websocket_chat(
     )
 
     if not token:
-
-        await websocket.send_json({
-
-            "type": "error",
-
-            "message": "Missing token"
-        })
-
-        await websocket.close(
-            code=1008
-        )
-
+        logger.warning("WebSocket authentication rejected: Missing token")
+        await websocket.close(code=1008)
         return
 
     # =========================
@@ -97,31 +87,19 @@ async def websocket_chat(
     # =========================
 
     try:
-
-        print("WS TOKEN =", token)
-
         payload = jwt.decode(
-
             token,
-
             SECRET_KEY,
-
             algorithms=[ALGORITHM]
         )
-
-        print(payload)
 
         user_id = payload.get("sub")
 
         if not user_id:
-
-            raise JWTError(
-                "Missing sub claim"
-            )
+            raise JWTError("Missing sub claim")
 
         logger.info(
-            f"Authenticated websocket "
-            f"user={user_id}"
+            f"Authenticated websocket user={user_id}"
         )
 
         await websocket.accept()
@@ -132,17 +110,12 @@ async def websocket_chat(
         )
 
     except JWTError as e:
-
-        print("JWT ERROR =", e)
-
         logger.warning(
-            f"JWT verification failed: {str(e)}"
+            f"WebSocket JWT verification failed: {type(e).__name__}"
         )
-
         await websocket.close(
             code=1008
         )
-
         return
 
     # =========================
@@ -158,10 +131,8 @@ async def websocket_chat(
         while True:
 
             data = await asyncio.wait_for(
-
                 websocket.receive_json(),
-
-                timeout=60,
+                timeout=180,
             )
 
             # =========================
@@ -349,36 +320,19 @@ async def websocket_chat(
                 )
 
                 if (
-
                     not conversation
-
                     or
-
                     conversation.user_id
                     !=
                     int(user_id)
                 ):
-                    
-                    print(
-                        "DB CONVERSATION USER:",
-                        conversation.user_id
-                        if conversation
-                        else None
+                    logger.warning(
+                        f"Conversation access mismatch: user={user_id} requested conv={conversation_id}"
                     )
-
-                    print(
-                        "JWT USER:",
-                        user_id
-                    )
-
                     await websocket.send_json({
-
                         "type": "error",
-
-                        "message":
-                        "Invalid conversation"
+                        "message": "Invalid conversation"
                     })
-
                     continue
 
                 # =========================

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ChatMessage(BaseModel):
@@ -14,7 +14,7 @@ class ChatCompletionRequest(
 
     model: str
 
-    messages: list[ChatMessage]
+    messages: list[ChatMessage] = Field(..., min_length=1, description="List of conversation messages")
 
 
 class ChatCompletionResponse(

@@ -1,0 +1,236 @@
+{
+  "timestamp": "2026-09-16T09:20:46Z",
+  "duration_seconds": 0.65,
+  "total_tests": 45,
+  "passed": 45,
+  "failed": 0,
+  "skipped": 0,
+  "blocked": 0,
+  "results": [
+    {
+      "test_id": "qa_tests.test_auth_unit.TestAuthAndTokens.test_AUTH_01_token_generation_claims",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_auth_unit.TestAuthAndTokens.test_AUTH_04_defensive_password_verification_malformed_hashes",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_auth_unit.TestAuthAndTokens.test_AUTH_05_schema_validation_empty_and_types",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_auth_unit.TestAuthAndTokens.test_TOK_03_expired_token_handling",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_auth_unit.TestAuthAndTokens.test_TOK_04_tampered_token_handling",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_refresh_contracts.TestRefreshContracts.test_REF_01_refresh_token_request_body_schema",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_refresh_contracts.TestRefreshContracts.test_REF_02_dual_mode_precedence_resolution",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_refresh_contracts.TestRefreshContracts.test_REF_03_missing_token_detection",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_refresh_contracts.TestRefreshContracts.test_REF_05_expired_refresh_token_rejected",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_logout_and_isolation.TestLogoutAndIsolation.test_LOG_01_logout_request_schema",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_logout_and_isolation.TestLogoutAndIsolation.test_LOG_04_multi_device_session_isolation_logic",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_logout_and_isolation.TestLogoutAndIsolation.test_LOG_05_quota_and_cache_preservation_on_logout",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_resilience_and_failures.TestResilienceAndFailures.test_DB_03_engine_keepalive_configuration",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_resilience_and_failures.TestResilienceAndFailures.test_DOCK_01_docker_compose_authenticated_healthcheck",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_resilience_and_failures.TestResilienceAndFailures.test_RED_01_redis_fail_open_resilience",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_session_cleanup.TestSessionCleanup.test_SESS_01_cleanup_cutoff_calculation",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_session_cleanup.TestSessionCleanup.test_SESS_02_scheduler_job_registration",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_concurrency_load.TestConcurrencyLoad.test_REF_06_concurrent_refresh_token_decoding",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_frontend_contracts.TestFrontendContracts.test_FE_01_interceptor_sends_json_body_refresh",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_frontend_contracts.TestFrontendContracts.test_FE_02_sequential_logout_with_guaranteed_cleanup",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_01_jwt_logging.TestBug01JwtLogging.test_no_raw_jwt_prints_in_source",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_01_jwt_logging.TestBug01JwtLogging.test_runtime_websocket_auth_does_not_leak_token_to_stdout",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_02_assistant_authorization.TestBug02AssistantAuthorization.test_create_assistant_requires_authentication_dependency",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_02_assistant_authorization.TestBug02AssistantAuthorization.test_tenant_workspace_assistant_model_integrity",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_02_assistant_authorization.TestBug02AssistantAuthorization.test_unauthenticated_request_blocked",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_03_public_api.TestBug03PublicApi.test_multi_turn_history_preservation",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_03_public_api.TestBug03PublicApi.test_openai_standard_usage_structure",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_03_public_api.TestBug03PublicApi.test_provider_failure_returns_sanitized_502",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_03_public_api.TestBug03PublicApi.test_schema_rejects_empty_messages_list",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_04_upload_limits.TestBug04UploadLimits.test_background_parsing_uses_worker_thread",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_04_upload_limits.TestBug04UploadLimits.test_oversized_file_rejected_with_400_and_no_orphan_files",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_05_websocket_auth.TestBug05WebSocketAuth.test_idle_timeout_is_180s",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_05_websocket_auth.TestBug05WebSocketAuth.test_missing_token_closes_with_1008_without_send_json",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_06_python_snippet.TestBug06PythonSnippet.test_python_snippet_syntax_validity",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_07_reupload.TestBug07Reupload.test_client_side_size_limit_check",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_07_reupload.TestBug07Reupload.test_file_input_resets_value_in_onchange",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_08_ingestion_status.TestBug08IngestionStatus.test_document_service_implements_get_job_status",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_08_ingestion_status.TestBug08IngestionStatus.test_upload_button_polls_status_and_handles_terminal_states",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_bug_09_api_key_refresh.TestBug09ApiKeyRefresh.test_api_key_service_uses_central_api_client",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_security_regression.TestSecurityRegression.test_no_sensitive_logging_in_critical_modules",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_security_regression.TestSecurityRegression.test_verify_token_invalid_sub_format",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_security_regression.TestSecurityRegression.test_verify_token_missing_sub",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_security_regression.TestSecurityRegression.test_verify_token_valid_sub",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_concurrency_regression.TestConcurrencyRegression.test_concurrent_public_api_payload_validation",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_concurrency_regression.TestConcurrencyRegression.test_concurrent_token_verifications",
+      "status": "PASSED",
+      "error": null
+    }
+  ]
+}

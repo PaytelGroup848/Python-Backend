@@ -1,6 +1,8 @@
 import uuid
-
 import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession
@@ -74,15 +76,13 @@ async def chat_completions(
     )
 ):
 
-    last_message = (
-        payload.messages[-1]
-        .content
-    )
+    if not payload.messages:
+        raise HTTPException(
+            status_code=400,
+            detail="Messages list cannot be empty"
+        )
 
-    session_id = str(
-        uuid.uuid4()
-    )
-
+    session_id = str(uuid.uuid4())
     start_time = time.time()
 
     model = await (
@@ -93,165 +93,100 @@ async def chat_completions(
     )
 
     if not model:
-
         raise HTTPException(
-
             status_code=404,
-
             detail="Model not found"
         )
 
     if not model.is_active:
-
         raise HTTPException(
-
             status_code=400,
-
             detail="Model disabled"
         )
 
-    provider = (
-        model.provider
-    )
-
-    provider_instance = (
-        provider_registry.get(
-            provider
-        )
-    )
+    provider = model.provider
+    provider_instance = provider_registry.get(provider)
 
     if not provider_instance:
-
         raise HTTPException(
-
             status_code=500,
-
-            detail=(
-                f"Provider "
-                f"{provider} "
-                f"not configured"
-            )
+            detail=f"Provider {provider} not configured"
         )
 
+    # Preserve complete multi-turn message history with supported roles
     messages = [
-
         {
-
-            "role": "user",
-
-            "content": last_message
+            "role": msg.role,
+            "content": msg.content
         }
+        for msg in payload.messages
     ]
 
-    response = await (
-        provider_instance.generate(
-            messages,
-            model=payload.model
+    try:
+        response = await (
+            provider_instance.generate(
+                messages,
+                model=payload.model
+            )
         )
-    )
+    except HTTPException:
+        raise
+    except Exception as err:
+        logger.exception(f"Upstream provider {provider} error: {err}")
+        raise HTTPException(
+            status_code=502,
+            detail="Upstream AI provider error. Please try again later."
+        )
 
-    print(
-        "PUBLIC API MODEL:",
-        response.get("model")
-    )
+    usage = response.get("usage", {})
+    prompt_tokens = usage.get("prompt_tokens", 0)
+    completion_tokens = usage.get("completion_tokens", 0)
+    total_tokens = usage.get("total_tokens", 0)
 
-    usage = response.get(
-        "usage",
-        {}
-    )
-
-    prompt_tokens = usage.get(
-        "prompt_tokens",
-        0
-    )
-
-    completion_tokens = usage.get(
-        "completion_tokens",
-        0
-    )
-
-    total_tokens = usage.get(
-        "total_tokens",
-        0
-    )
-
-    print(
-        "TOKEN USAGE:",
-        usage
-    )
-
-
-    latency_ms = int(
-        (
-            time.time()
-            - start_time
-        ) * 1000
-    )
+    latency_ms = int((time.time() - start_time) * 1000)
 
     await (
         api_request_service
         .log_request(
-
             db=db,
-
             user_id=current_user.id,
-
             api_key_id=getattr(getattr(current_user, "current_api_key", None), "id", None),
-
             model_name=response.get(
                 "model",
                 payload.model
             ),
-
             provider=provider,
-
             source="api",
-
             prompt_tokens=prompt_tokens,
-
             completion_tokens=completion_tokens,
-
             total_tokens=total_tokens,
-
             latency_ms=latency_ms,
-
             status_code=200
         )
     )
 
     return {
-
-        "id":
-            str(uuid.uuid4()),
-
-        "object":
-            "chat.completion",
-
-        "model":
-            payload.model,
-
+        "id": str(uuid.uuid4()),
+        "object": "chat.completion",
+        "model": payload.model,
         "choices": [
-
             {
-
                 "index": 0,
-
                 "message": {
-
-                    "role":
-                        "assistant",
-
-                    "content":
-                        response.get(
-                            "response",
-                            ""
-                        )
+                    "role": "assistant",
+                    "content": response.get(
+                        "response",
+                        ""
+                    )
                 },
-
-                "finish_reason":
-                    "stop"
+                "finish_reason": "stop"
             }
-        ]
+        ],
+        "usage": {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens
+        }
     }
 
 

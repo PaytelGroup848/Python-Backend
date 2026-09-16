@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
 
+from app.core.security import verify_token
 from app.modules.assistants.schemas.assistant_schema import (
     AssistantCreate,
     AssistantResponse
@@ -28,12 +29,9 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED
 )
 async def create_assistant(
-
     payload: AssistantCreate,
-
-    db: AsyncSession = Depends(
-        get_db
-    )
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(verify_token)
 ):
 
     try:

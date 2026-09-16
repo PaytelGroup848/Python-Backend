@@ -20,6 +20,8 @@ from slowapi.errors import (
 )
 
 from app.core.config import settings
+from sqlalchemy import text
+from app.db.database import AsyncSessionLocal
 
 
 from app.modules.auth.routes import (
@@ -484,6 +486,11 @@ async def start_app_response_listener():
 @app.on_event("startup")
 async def startup_event():
     global _pubsub_listener_task
+
+    # 1. Verify database connectivity immediately on startup (fail-fast on misconfiguration)
+    async with AsyncSessionLocal() as session:
+        await session.execute(text("SELECT 1"))
+    logger.info("Database connectivity verified on application startup.")
 
     register_storage_runtime_factories()
 

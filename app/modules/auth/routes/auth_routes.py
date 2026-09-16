@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from typing import Optional
 
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -16,7 +17,11 @@ from app.modules.auth.schemas.auth_schema import (
 
     LoginRequest,
 
+    RefreshTokenRequest,
+
     RefreshTokenResponse,
+
+    LogoutRequest,
 
     GoogleAuthRequest
 )
@@ -388,19 +393,28 @@ async def google_auth(
     response_model=RefreshTokenResponse
 )
 async def refresh_access_token(
-    refresh_token: str,
+    req: Optional[RefreshTokenRequest] = None,
+    refresh_token: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
+    token = None
+    if req and req.refresh_token:
+        token = req.refresh_token.strip()
+    elif refresh_token:
+        token = refresh_token.strip()
+
+    if not token:
+        raise HTTPException(
+            status_code=422,
+            detail="refresh_token is required in request body or query parameter"
+        )
 
     result = await asyncio.wait_for(
-
         db.execute(
             select(UserSession).where(
-                UserSession.refresh_token
-                == refresh_token
+                UserSession.refresh_token == token
             )
         ),
-
         timeout=30,
     )
 
@@ -414,11 +428,10 @@ async def refresh_access_token(
 
     try:
         payload = jwt.decode(
-            refresh_token,
+            token,
             SECRET_KEY,
             algorithms=[ALGORITHM]
         )
-
     except Exception:
         raise HTTPException(
             status_code=401,
@@ -429,7 +442,7 @@ async def refresh_access_token(
     role = payload.get("role")
 
     new_access_token = create_access_token({
-        "sub": user_id,
+        "sub": str(user_id),
         "role": role
     })
 
@@ -438,66 +451,46 @@ async def refresh_access_token(
         "token_type": "bearer"
     }
 
+
 @router.post(
     "/logout",
     status_code=200,
     response_model=MessageResponse
 )
 async def logout(
-    refresh_token: str,
-    
+    req: Optional[LogoutRequest] = None,
+    refresh_token: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
+    token = None
+    if req and req.refresh_token:
+        token = req.refresh_token.strip()
+    elif refresh_token:
+        token = refresh_token.strip()
 
-    result = await asyncio.wait_for(
-
-        db.execute(
-            select(UserSession).where(
-                UserSession.refresh_token
-                == refresh_token
-            )
-        ),
-
-        timeout=30,
-    )
-
-    session = result.scalar_one_or_none()
-
-    if session:
-
+    if token:
         try:
-
-            user_id = session.user_id
-
-            # delete DB session
-            await db.delete(session)
-
-            await db.commit()
-
-            # clear Redis memory
-
-            # clear usage tracking
-            await redis_client.delete(
-                f"usage:{user_id}"
+            result = await asyncio.wait_for(
+                db.execute(
+                    select(UserSession).where(
+                        UserSession.refresh_token == token
+                    )
+                ),
+                timeout=30,
             )
 
-            # clear chat history
-            await redis_client.delete(
-                f"chat:{user_id}"
-            )
+            session = result.scalar_one_or_none()
 
-            logger.info(
-                f"Logout success: {user_id}"
-            )
+            if session:
+                user_id = session.user_id
+                # Revoke this specific device session
+                await db.delete(session)
+                await db.commit()
+                logger.info(f"Logout session revoked for user_id={user_id}")
 
-        except Exception:
-
+        except Exception as e:
             await db.rollback()
-
-            raise HTTPException(
-                status_code=500,
-                detail="Logout failed"
-            )
+            logger.warning(f"Error revoking session during logout: {e}")
 
     return {
         "message": "Logged out successfully"

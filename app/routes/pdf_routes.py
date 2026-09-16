@@ -1,4 +1,5 @@
 
+import asyncio
 import os
 import uuid
 import logging
@@ -33,7 +34,8 @@ logger = logging.getLogger(__name__)
 
 async def _process_uploaded_document(file_path: str, job_id: int):
     try:
-        parsed = await parse_document(file_path)
+        # Offload synchronous PDF parsing to worker thread to prevent event loop starvation
+        parsed = await asyncio.to_thread(parse_document, file_path)
         chunks_count = len(parsed) if isinstance(parsed, list) else 1
         async with AsyncSessionLocal() as session:
             await complete_job(db=session, job_id=job_id, chunks_stored=chunks_count)
@@ -120,21 +122,18 @@ async def upload_pdf(
     )
 
     try:
+        # Pre-validate file size in memory before allocating disk artifact
+        MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB limit
 
-        # Save uploaded file
+        content = await file.read()
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File too large (maximum {MAX_FILE_SIZE // (1024 * 1024)}MB allowed)"
+            )
+
+        # Write validated content to disk
         with open(file_path, "wb") as f:
-
-            content = await file.read()
-
-            MAX_FILE_SIZE = 20 * 1024 * 1024
-
-            if len(content) > MAX_FILE_SIZE:
-
-                raise HTTPException(
-                    status_code=400,
-                    detail="File too large"
-                )
-
             f.write(content)
 
         # Ensure active knowledge base exists
@@ -206,14 +205,24 @@ async def upload_pdf(
             "filename": file.filename
         }
 
-    except Exception:
-
-        logger.exception(
-            "PDF upload failed"
-        )
-
+    except HTTPException:
+        # Re-raise client validation errors directly; clean up disk artifact
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
         await db.rollback()
+        raise
 
+    except Exception:
+        logger.exception("PDF upload failed")
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
+        await db.rollback()
         raise HTTPException(
             status_code=500,
             detail="Document upload failed"

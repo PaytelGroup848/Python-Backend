@@ -56,11 +56,16 @@ def verify_token(token=Depends(security)):
     try:
         payload = jwt.decode(token.credentials, SECRET_KEY, algorithms=[ALGORITHM])
 
-        user_id = int(payload.get("sub"))
+        sub = payload.get("sub")
         role = payload.get("role")
 
-        if not user_id or not role:
-            raise HTTPException(status_code=401, detail="Invalid token payload")
+        if not sub or not role:
+            raise HTTPException(status_code=401, detail="Invalid token payload: missing sub or role")
+
+        try:
+            user_id = int(sub)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=401, detail="Invalid token payload: sub must be an integer")
 
         department = payload.get("department")
 

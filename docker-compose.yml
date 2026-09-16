@@ -123,7 +123,7 @@ services:
       POSTGRES_DB: ai_llm_db
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_llm_db"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB && PGPASSWORD=$$POSTGRES_PASSWORD psql -U $$POSTGRES_USER -d $$POSTGRES_DB -c 'SELECT 1;'"]
       interval: 5s
       timeout: 3s
       retries: 5

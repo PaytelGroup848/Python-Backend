@@ -47,14 +47,26 @@ class TokenResponse(BaseModel):
 
 
 # =========================
-# REFRESH TOKEN RESPONSE
+# REFRESH TOKEN REQUEST / RESPONSE
 # =========================
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
 
 class RefreshTokenResponse(BaseModel):
 
     access_token: str
 
     token_type: str
+
+
+# =========================
+# LOGOUT REQUEST
+# =========================
+
+class LogoutRequest(BaseModel):
+    refresh_token: Optional[str] = None
 
 
 # =========================

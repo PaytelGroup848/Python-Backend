@@ -30,6 +30,11 @@ engine = create_async_engine(
     pool_pre_ping=True,
     connect_args={
         "command_timeout": 30,
+        "server_settings": {
+            "tcp_keepalives_idle": "60",
+            "tcp_keepalives_interval": "10",
+            "tcp_keepalives_count": "5",
+        },
     }
 )
 
