@@ -756,22 +756,22 @@ async def assistant_runtime_node(
             runtime.model_id,
 
         "temperature":
-            runtime.temperature,
+            float(runtime.temperature) if runtime.temperature is not None else 0.2,
 
         "top_p":
-            runtime.top_p,
+            float(runtime.top_p) if runtime.top_p is not None else 0.95,
 
         "max_tokens":
-            runtime.max_tokens,
+            int(runtime.max_tokens) if runtime.max_tokens is not None else 4000,
 
         "context_window":
-            runtime.context_window,
+            int(runtime.context_window) if runtime.context_window is not None else 8000,
 
         "memory_enabled":
-            runtime.memory_enabled,
+            bool(runtime.memory_enabled) if runtime.memory_enabled is not None else True,
 
         "rag_enabled":
-            runtime.rag_enabled,
+            bool(runtime.rag_enabled) if runtime.rag_enabled is not None else True,
 
         "cag_enabled":
             runtime.cag_enabled,
@@ -1162,8 +1162,12 @@ async def generation_node(state: AgentState):
         if not allowed:
             raise Exception("Plan limit exceeded")
 
-        # BUG-08 Fix: Propagate configured temperature from state to runtime manager
-        configured_temp = float(state.get("temperature", 0.2))
+        # BUG-08 Fix: Propagate configured temperature from state to runtime manager (safely handle None)
+        raw_temp = state.get("temperature")
+        try:
+            configured_temp = float(raw_temp) if raw_temp is not None else 0.2
+        except (ValueError, TypeError):
+            configured_temp = 0.2
 
         stream_handler = state.get("stream_handler")
         collected_chunks = []

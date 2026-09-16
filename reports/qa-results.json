@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-09-16T12:50:58Z",
-  "duration_seconds": 0.839,
-  "total_tests": 62,
-  "passed": 62,
+  "timestamp": "2026-09-16T13:17:05Z",
+  "duration_seconds": 0.87,
+  "total_tests": 63,
+  "passed": 63,
   "failed": 0,
   "skipped": 0,
   "blocked": 0,
@@ -304,6 +304,11 @@
     },
     {
       "test_id": "qa_tests.test_general_chat_accuracy.TestGeneralChatAccuracy.test_BUG_07_search_and_rag_do_invoke_query_rewrite",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_general_chat_accuracy.TestGeneralChatAccuracy.test_BUG_08_none_temperature_does_not_crash_generation_node",
       "status": "PASSED",
       "error": null
     },

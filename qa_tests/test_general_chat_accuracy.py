@@ -432,6 +432,40 @@ class TestGeneralChatAccuracy(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(received_temp, [0.2], "Configured temperature 0.2 must reach provider")
 
+    async def test_BUG_08_none_temperature_does_not_crash_generation_node(self):
+        """
+        Verify that when temperature in state is None (e.g. from DB NULL),
+        generation_node falls back to default 0.2 without raising TypeError.
+        """
+        state = {
+            "query": "Hello",
+            "context": "",
+            "system_prompt": "Assistant",
+            "memory_context": "",
+            "tool_result": {},
+            "plan": "",
+            "user_id": 1,
+            "temperature": None,  # Simulates database NULL
+            "stream_handler": None,
+            "web_sources": [],
+            "language": "en"
+        }
+
+        mock_usage = AsyncMock()
+        mock_usage.check_usage_limit.return_value = True
+
+        mock_mgr = MagicMock()
+        mock_mgr.generate_response = AsyncMock(return_value={"response": "Hello! How can I help you today?"})
+
+        with patch("app.services.agent_service.usage_limit_service", mock_usage), \
+             patch("app.services.agent_service.provider_runtime_manager", mock_mgr):
+            res = await generation_node(state)
+
+        self.assertEqual(res["response"], "Hello! How can I help you today?")
+        mock_mgr.generate_response.assert_called_once()
+        _, kwargs = mock_mgr.generate_response.call_args
+        self.assertEqual(kwargs.get("temperature"), 0.2, "Must fall back to 0.2 when temperature is None")
+
     # =========================================================================
     # BUG-10: PROVIDER CONFIGURATION & HEALTH REGISTRATION
     # =========================================================================
