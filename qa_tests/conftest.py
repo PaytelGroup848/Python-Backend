@@ -161,7 +161,7 @@ except ImportError:
 # Sentence Transformers shim
 try:
     import sentence_transformers
-except ImportError:
+except (ImportError, OSError):
     st = types.ModuleType("sentence_transformers")
     class MockST:
         def __init__(self, *a, **k): pass
@@ -172,6 +172,38 @@ except ImportError:
     st.SentenceTransformer = MockST
     st.CrossEncoder = MockST
     sys.modules["sentence_transformers"] = st
+
+# Deepgram shim
+try:
+    import deepgram
+except ImportError:
+    dg = types.ModuleType("deepgram")
+    class MockLiveTranscriptionEvents:
+        Transcript = "Results"
+        Error = "Error"
+        Open = "Open"
+        Close = "Close"
+    class MockLiveOptions:
+        def __init__(self, *a, **k):
+            for k_name, val in k.items():
+                setattr(self, k_name, val)
+    class MockLiveClient:
+        def start(self, *a, **k): return True
+        def send(self, *a, **k): return True
+        def finish(self, *a, **k): return True
+        def is_connected(self, *a, **k): return True
+        def on(self, *a, **k): pass
+    class MockListen:
+        def __init__(self):
+            self.websocket = types.SimpleNamespace(v=lambda ver: MockLiveClient())
+            self.asynclive = types.SimpleNamespace(v=lambda ver: MockLiveClient())
+    class MockDeepgramClient:
+        def __init__(self, *a, **k):
+            self.listen = MockListen()
+    dg.DeepgramClient = MockDeepgramClient
+    dg.LiveTranscriptionEvents = MockLiveTranscriptionEvents
+    dg.LiveOptions = MockLiveOptions
+    sys.modules["deepgram"] = dg
 
 # langdetect shim
 try:

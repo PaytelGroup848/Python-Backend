@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-09-16T13:27:15Z",
-  "duration_seconds": 0.845,
-  "total_tests": 63,
-  "passed": 63,
+  "timestamp": "2026-09-17T05:56:08Z",
+  "duration_seconds": 0.822,
+  "total_tests": 73,
+  "passed": 73,
   "failed": 0,
   "skipped": 0,
   "blocked": 0,
@@ -319,6 +319,56 @@
     },
     {
       "test_id": "qa_tests.test_general_chat_accuracy.TestGeneralChatAccuracy.test_BUG_10_gemini_registered_in_health_and_valid_model",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_voice_recognition.TestVoiceRecognitionPipeline.test_active_session_lifecycle_states",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_voice_recognition.TestVoiceRecognitionPipeline.test_audio_queue_overflow_controlled_termination",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_voice_recognition.TestVoiceRecognitionPipeline.test_concurrent_voice_session_rejection_1008",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_voice_recognition.TestVoiceRecognitionPipeline.test_deepgram_service_exposes_synchronous_client",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_voice_recognition.TestVoiceRecognitionPipeline.test_disallowed_language_rejected_with_1008",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_voice_recognition.TestVoiceRecognitionPipeline.test_disallowed_model_rejected_with_1008",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_voice_recognition.TestVoiceRecognitionPipeline.test_invalid_token_closes_with_1008_before_accept",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_voice_recognition.TestVoiceRecognitionPipeline.test_missing_sub_claim_closes_with_1008",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_voice_recognition.TestVoiceRecognitionPipeline.test_missing_token_closes_with_1008_before_accept",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test_id": "qa_tests.test_voice_recognition.TestVoiceRecognitionPipeline.test_transcript_monotonic_sequence_invariant",
       "status": "PASSED",
       "error": null
     }

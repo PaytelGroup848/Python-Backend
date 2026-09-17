@@ -36,6 +36,7 @@ from qa_tests.test_security_regression import TestSecurityRegression
 from qa_tests.test_concurrency_regression import TestConcurrencyRegression
 from qa_tests.test_case_insensitive_auth import TestCaseInsensitiveAuth
 from qa_tests.test_general_chat_accuracy import TestGeneralChatAccuracy
+from qa_tests.test_voice_recognition import TestVoiceRecognitionPipeline
 
 
 def run_suites():
@@ -62,6 +63,7 @@ def run_suites():
     suite.addTests(loader.loadTestsFromTestCase(TestConcurrencyRegression))
     suite.addTests(loader.loadTestsFromTestCase(TestCaseInsensitiveAuth))
     suite.addTests(loader.loadTestsFromTestCase(TestGeneralChatAccuracy))
+    suite.addTests(loader.loadTestsFromTestCase(TestVoiceRecognitionPipeline))
 
     def flatten_tests(suite_or_test):
         tests = []
