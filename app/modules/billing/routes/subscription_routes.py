@@ -1,7 +1,8 @@
 import hmac
 import hashlib
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from slowapi import Limiter
 
 from app.db.database import get_db
 from app.core.security import verify_token
@@ -14,6 +15,10 @@ from app.modules.billing.schemas.subscription_schema import (
     VerifyPaymentRequest,
 )
 
+limiter = Limiter(
+    key_func=lambda request: request.headers.get("authorization", "anonymous")
+)
+
 router = APIRouter(
     prefix="/subscriptions",
     tags=["Subscriptions"]
@@ -21,7 +26,9 @@ router = APIRouter(
 
 
 @router.post("/purchase")
+@limiter.limit("5/minute")
 async def purchase_subscription(
+    request: Request,
     payload: SubscriptionPurchaseRequest,
     user=Depends(verify_token),
     db: AsyncSession = Depends(get_db)
@@ -107,7 +114,8 @@ async def verify_subscription_payment(
             db=db,
             gateway_order_id=payload.razorpay_order_id,
             gateway_payment_id=payload.razorpay_payment_id,
-            expected_user_id=user["user_id"]
+            expected_user_id=user["user_id"],
+            expected_provider="razorpay"
         )
 
         return {

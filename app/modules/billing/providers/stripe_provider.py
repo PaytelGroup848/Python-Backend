@@ -9,6 +9,7 @@ from app.modules.billing.providers.base_provider import (
     BasePaymentProvider
 )
 
+from app.modules.billing.utils.money import to_minor_units
 from app.modules.billing.constants.payment_provider import (
     STRIPE
 )
@@ -39,12 +40,9 @@ class StripeProvider(
             intent = (
                 stripe.PaymentIntent.create(
 
-                    amount=int(
-                        Decimal(str(amount))
-                        * 100
-                    ),
+                    amount=to_minor_units(amount, currency),
 
-                    currency=currency,
+                    currency=currency.lower(),
 
                     metadata=
                         metadata or {}

@@ -11,6 +11,7 @@ from app.modules.billing.providers.base_provider import (
     BasePaymentProvider
 )
 
+from app.modules.billing.utils.money import to_minor_units
 from app.modules.billing.constants.payment_provider import (
     RAZORPAY
 )
@@ -47,10 +48,7 @@ class RazorpayProvider(
                 self.client.order.create({
 
                     "amount":
-                        int(
-                            Decimal(str(amount))
-                            * 100
-                        ),
+                        to_minor_units(amount, currency),
 
                     "currency":
                         currency,

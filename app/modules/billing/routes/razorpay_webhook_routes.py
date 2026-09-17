@@ -43,17 +43,29 @@ async def razorpay_webhook(
         payment_entity = event["payload"]["payment"]["entity"]
         order_id = payment_entity["order_id"]
         payment_id = payment_entity["id"]
+        gateway_amount_minor = int(payment_entity.get("amount", 0))
+        gateway_currency = payment_entity.get("currency")
 
-        logger.info(f"RAZORPAY_PAYMENT_SUCCESS order={order_id} payment={payment_id}")
+        logger.info(
+            f"RAZORPAY_PAYMENT_SUCCESS order={order_id} payment={payment_id} "
+            f"minor_amount={gateway_amount_minor} currency={gateway_currency}"
+        )
 
         try:
             await billing_payment_processor.process_successful_payment(
                 db=db,
                 gateway_order_id=order_id,
-                gateway_payment_id=payment_id
+                gateway_payment_id=payment_id,
+                expected_provider="razorpay",
+                gateway_amount_minor=gateway_amount_minor,
+                gateway_currency=gateway_currency
             )
+        except (ValueError, PermissionError) as ve:
+            logger.warning(f"RAZORPAY_WEBHOOK_VALIDATION_REJECTED order={order_id}: {ve}")
+            raise HTTPException(status_code=400, detail=str(ve))
         except Exception as e:
             logger.error(f"RAZORPAY_WEBHOOK_PROCESSING_ERROR order={order_id}: {e}")
+            raise HTTPException(status_code=500, detail="Webhook settlement error")
 
     elif event_type == "payment.failed":
         payment_entity = event["payload"]["payment"]["entity"]

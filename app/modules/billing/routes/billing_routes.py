@@ -1,3 +1,5 @@
+import logging
+from datetime import datetime
 from fastapi import (
     APIRouter,
     Depends,
@@ -5,6 +7,9 @@ from fastapi import (
     HTTPException
 )
 from fastapi.responses import StreamingResponse
+from sqlalchemy import select
+from app.models.user import User
+from app.services.audit_service import log_action
 from app.modules.billing.services.invoice_data_service import invoice_data_service
 from app.modules.billing.services.invoice_pdf_service_v2 import invoice_pdf_service_v2
 
@@ -13,8 +18,11 @@ from slowapi import Limiter
 
 
 from app.core.security import (
-    verify_token
+    verify_token,
+    require_role
 )
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -180,42 +188,57 @@ async def get_transactions(
 @router.post("/wallet/credit")
 @limiter.limit("10/minute")
 async def credit_wallet(
-
     request: Request,
-
     payload: WalletCreditRequest,
-
     user=Depends(
-        verify_token
+        require_role("admin")
     ),
-
     db: AsyncSession = Depends(
         get_db
     )
 ):
+    target_id = payload.target_user_id if payload.target_user_id is not None else user["user_id"]
+
+    # Verify target user exists and is active
+    user_stmt = select(User).where(User.id == target_id)
+    target_user = (await db.execute(user_stmt)).scalar_one_or_none()
+    if not target_user:
+        raise HTTPException(status_code=404, detail=f"Target user {target_id} not found")
+    if not target_user.is_active:
+        raise HTTPException(status_code=400, detail=f"Target user {target_id} is inactive")
+
+    desc = f"Admin credit by user {user['user_id']}: {payload.reason or 'Manual adjustment'}"
+    ref_id = f"ADM-{user['user_id']}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
 
     wallet = await (
         wallet_service.credit_wallet(
-
             db=db,
-
-            user_id=user["user_id"],
-
+            user_id=target_id,
             amount=payload.amount,
-
-            description="Manual credit"
+            description=desc,
+            reference_type="admin_manual_credit",
+            reference_id=ref_id
         )
     )
 
-    return {
+    try:
+        await log_action(
+            user_id=user["user_id"],
+            action="manual_wallet_credit",
+            endpoint=f"/billing/wallet/credit?target={target_id}&amount={payload.amount}"
+        )
+    except Exception as log_err:
+        logger.warning(f"Audit log failed for manual wallet credit: {log_err}")
 
+    return {
         "message":
             "Wallet credited successfully",
-
+        "target_user_id":
+            target_id,
         "balance":
-                float(
-                    wallet.balance
-                )
+            float(
+                wallet.balance
+            )
     }
 
 @router.get(
