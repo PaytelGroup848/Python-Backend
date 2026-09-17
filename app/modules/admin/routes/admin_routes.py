@@ -139,13 +139,19 @@ async def update_user_status(
     current_user: dict = Depends(require_role(SUPER_ADMIN_ROLE)),
     db: AsyncSession = Depends(get_db)
 ):
-    result = await (
-        user_service.update_user_status(
-            db,
-            user_id,
-            payload.is_active
+    try:
+        result = await (
+            user_service.update_user_status(
+                db,
+                user_id,
+                payload.is_active
+            )
         )
-    )
+    except ValueError as err:
+        raise HTTPException(
+            status_code=404,
+            detail=str(err)
+        )
     try:
         action_name = f"user_status_{'active' if payload.is_active else 'blocked'}:{user_id}"
         await log_action(current_user["user_id"], action_name, f"/admin/users/{user_id}/status")
