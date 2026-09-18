@@ -495,8 +495,22 @@ class ContextBuilderService:
             "   Assistant instructions define your persona, domain, and boundaries, but the language used in those prompt descriptions must NEVER force the user to receive a response in a language other than their query language."
         )
 
+        suggestions_directive = (
+            "FOLLOW-UP SUGGESTIONS DIRECTIVE (STRICT 3-5 SHORT ITEMS):\n"
+            "At the very end of your response, output 3 to 5 short, natural follow-up questions or replies (target 4) that the user might want to say or ask next.\n"
+            "Rules:\n"
+            "1. Mirror the user's language and script exactly (e.g. English, Devanagari Hindi, or Romanized Hinglish).\n"
+            "2. Keep each suggestion concise (under 15 words).\n"
+            "3. Format strictly at the very end as:\n"
+            "**💡 Suggestions:**\n"
+            "- <Short follow-up 1>\n"
+            "- <Short follow-up 2>\n"
+            "- <Short follow-up 3>\n"
+            "- <Short follow-up 4>"
+        )
+
         # Priority 1: System Instructions (Guaranteed)
-        system_section = f"{brand_directive}\n\n{central_language_directive}\n\nAssistant Role & Instructions:\n{active_role_prompt}"
+        system_section = f"{brand_directive}\n\n{central_language_directive}\n\n{suggestions_directive}\n\nAssistant Role & Instructions:\n{active_role_prompt}"
 
         # Priority 2: User Question Block (Guaranteed 100% intact, NEVER truncated)
         user_section = (
