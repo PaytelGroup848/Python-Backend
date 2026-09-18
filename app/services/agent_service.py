@@ -517,6 +517,14 @@ class ContextBuilderService:
             f"USER QUESTION:\n{query}\n\n"
             f"LANGUAGE DIRECTIVE REMINDER:\n"
             f"Respond strictly in the same language and script as the USER QUESTION above unless the user explicitly requested a different language.\n\n"
+            f"FOLLOW-UP SUGGESTIONS MANDATE:\n"
+            f"At the very end of your response, you MUST provide 3 to 5 short, natural follow-up questions or replies (normally 4) that the user might say next in the exact same language and script as your answer.\n"
+            f"Format strictly as:\n"
+            f"**💡 Suggestions:**\n"
+            f"- <Suggestion 1>\n"
+            f"- <Suggestion 2>\n"
+            f"- <Suggestion 3>\n"
+            f"- <Suggestion 4>\n\n"
             f"ANSWER:\n"
         )
         if web_citation_instr:
