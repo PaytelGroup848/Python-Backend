@@ -187,3 +187,4 @@ from app.modules.tokenizers.models.tokenizer_training_job import TokenizerTraini
 from app.modules.tokenizers.models.tokenizer_version import TokenizerVersion
 from app.modules.tokenizers.models.tokenizer_version_artifact import TokenizerVersionArtifact
 from app.models.generated_image import GeneratedImage
+from app.models.guest_refund_job import GuestRefundJob

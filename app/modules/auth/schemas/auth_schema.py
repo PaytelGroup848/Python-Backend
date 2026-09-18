@@ -19,6 +19,8 @@ class RegisterRequest(BaseModel):
 
     password: str
 
+    guest_token: Optional[str] = None
+
 
 # =========================
 # LOGIN
@@ -29,6 +31,8 @@ class LoginRequest(BaseModel):
     email: EmailStr
 
     password: str
+
+    guest_token: Optional[str] = None
 
 
 # =========================
@@ -87,4 +91,6 @@ class ChatRequest(BaseModel):
 class GoogleAuthRequest(BaseModel):
 
     credential: str
+
+    guest_token: Optional[str] = None
 

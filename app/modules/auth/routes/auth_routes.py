@@ -53,6 +53,10 @@ from app.services.security_service import (
 )
 
 from app.db.redis_client import redis_client
+from app.services.guest_service import (
+    initialize_guest_user,
+    transfer_guest_data
+)
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +66,42 @@ router = APIRouter(
 )
 
 auth_service = AuthService()
+
+# =========================
+# GUEST SESSION PROVISIONING
+# =========================
+@router.post(
+    "/guest",
+    status_code=200,
+    response_model=TokenResponse
+)
+async def guest_session(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    guest_init_id = request.headers.get("x-guest-init-id") or request.cookies.get("guest_init_id")
+    try:
+        guest_user, access_token, refresh_token = await initialize_guest_user(
+            db=db,
+            guest_init_id=guest_init_id
+        )
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "user": {
+                "id": guest_user.id,
+                "email": guest_user.email,
+                "full_name": "Guest Visitor",
+                "role": "guest",
+            }
+        }
+    except Exception as e:
+        logger.exception(f"Guest session provisioning failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to initialize guest session"
+        )
 @router.post(
     "/signup",
     status_code=201,
@@ -83,6 +123,12 @@ async def signup(
             email=clean_email,
             password=req.password
         )
+
+        if req.guest_token:
+            try:
+                await transfer_guest_data(db, req.guest_token, user.id)
+            except Exception as mig_err:
+                logger.warning(f"Guest migration failed during signup: {mig_err}")
 
         return UserResponse.model_validate(user)
 
@@ -234,6 +280,13 @@ async def login(
         )
 
     user_display_name = getattr(user, "name", None) or user.email.split("@")[0].capitalize()
+
+    if req.guest_token:
+        try:
+            await transfer_guest_data(db, req.guest_token, user.id)
+        except Exception as mig_err:
+            logger.warning(f"Guest migration failed during login: {mig_err}")
+
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -380,6 +433,13 @@ async def google_auth(
         )
 
     user_display_name = getattr(user, "name", None) or user.email.split("@")[0].capitalize()
+
+    if req.guest_token:
+        try:
+            await transfer_guest_data(db, req.guest_token, user.id)
+        except Exception as mig_err:
+            logger.warning(f"Guest migration failed during google_auth: {mig_err}")
+
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,

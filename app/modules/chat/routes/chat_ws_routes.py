@@ -59,6 +59,12 @@ from app.core.security import (
     SECRET_KEY,
     ALGORITHM,
 )
+from app.shared.redis.client import redis_client
+from app.services.guest_service import (
+    reserve_guest_credit,
+    refund_guest_credit,
+    get_guest_credits
+)
 
 router = APIRouter()
 
@@ -94,12 +100,13 @@ async def websocket_chat(
         )
 
         user_id = payload.get("sub")
+        role = payload.get("role", "employee")
 
         if not user_id:
             raise JWTError("Missing sub claim")
 
         logger.info(
-            f"Authenticated websocket user={user_id}"
+            f"Authenticated websocket user={user_id} role={role}"
         )
 
         await websocket.accept()
@@ -108,6 +115,16 @@ async def websocket_chat(
         logger.info(
             "WebSocket connection accepted"
         )
+
+        # Reactive credit broadcast for guest users
+        if role == "guest":
+            credits_left = await get_guest_credits(user_id)
+            rem = credits_left if credits_left is not None else 0
+            await websocket.send_json({
+                "type": "credits_update",
+                "credits_remaining": rem,
+                "remaining": rem,
+            })
 
     except JWTError as e:
         logger.warning(
@@ -336,6 +353,44 @@ async def websocket_chat(
                     continue
 
                 # =========================
+                # ATOMIC GUEST QUOTA RESERVATION
+                # =========================
+                request_id = str(uuid.uuid4())
+
+                if role == "guest":
+                    res_status, remaining_credits = await reserve_guest_credit(user_id)
+                    if res_status == 0:
+                        # 0 free credits remaining
+                        await websocket.send_json({
+                            "type": "error",
+                            "code": "CREDITS_LIMIT_REACHED",
+                            "message": "Your free guest credit limit has been reached. Please sign in or create an account to continue.",
+                            "credits_remaining": 0
+                        })
+                        continue
+                    elif res_status == -1:
+                        # Session / quota expired or missing
+                        await websocket.send_json({
+                            "type": "error",
+                            "code": "GUEST_SESSION_EXPIRED",
+                            "message": "Your guest session has expired. Please sign in or create an account to continue.",
+                            "credits_remaining": 0
+                        })
+                        continue
+                    else:
+                        # Credit reserved: broadcast reactive update immediately
+                        await websocket.send_json({
+                            "type": "credits_update",
+                            "credits_remaining": remaining_credits,
+                            "remaining": remaining_credits,
+                        })
+                        try:
+                            await redis_client.set(f"guest:prompt_state:{request_id}", "RESERVED", ex=3600)
+                            await redis_client.set(f"guest:request_user:{request_id}", str(user_id), ex=3600)
+                        except Exception as tag_err:
+                            logger.warning(f"Failed setting guest prompt state tag: {tag_err}")
+
+                # =========================
                 # SAVE USER MESSAGE
                 # =========================
 
@@ -355,11 +410,29 @@ async def websocket_chat(
 
                     await db.commit()
 
-                except Exception:
+                except Exception as db_err:
 
                     await db.rollback()
+                    logger.exception(f"Failed to persist user message for user={user_id}: {db_err}")
 
-                    raise
+                    if role == "guest":
+                        try:
+                            await refund_guest_credit(user_id, request_id)
+                            cur_val = await get_guest_credits(user_id)
+                            rem = cur_val if cur_val is not None else 0
+                            await websocket.send_json({
+                                "type": "credits_update",
+                                "credits_remaining": rem,
+                                "remaining": rem,
+                            })
+                        except Exception:
+                            pass
+
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "Failed to save message. Please try again."
+                    })
+                    continue
 
             # =========================
             # QUEUE REQUEST
@@ -367,19 +440,11 @@ async def websocket_chat(
 
             try:
 
-                request_id = str(
-                    uuid.uuid4()
-                )
-
-                
                 websocket_manager.register_request(
                     request_id,
                     websocket
                 )
 
-
-
-               
                 event = ChatEvent(
 
                     request_id=request_id,
@@ -396,8 +461,6 @@ async def websocket_chat(
                     web_search=bool(data.get("web_search", False)),
                 )
 
-
-
                 allowed = await (
                     queue_service
                     .can_enqueue(
@@ -406,6 +469,19 @@ async def websocket_chat(
                 )
 
                 if not allowed:
+
+                    if role == "guest":
+                        try:
+                            await refund_guest_credit(user_id, request_id)
+                            cur_val = await get_guest_credits(user_id)
+                            rem = cur_val if cur_val is not None else 0
+                            await websocket.send_json({
+                                "type": "credits_update",
+                                "credits_remaining": rem,
+                                "remaining": rem,
+                            })
+                        except Exception:
+                            pass
 
                     await websocket.send_json({
 
@@ -416,8 +492,6 @@ async def websocket_chat(
                     })
 
                     continue
-
-               
 
                 await redis_stream_service.publish(
 
@@ -452,6 +526,25 @@ async def websocket_chat(
                     f"Streaming disconnected "
                     f"user={user_id}"
                 )
+            except Exception as pub_exc:
+                logger.exception(f"Error publishing chat request for user={user_id} req={request_id}: {pub_exc}")
+                if role == "guest":
+                    try:
+                        await refund_guest_credit(user_id, request_id)
+                        cur_val = await get_guest_credits(user_id)
+                        rem = cur_val if cur_val is not None else 0
+                        await websocket.send_json({
+                            "type": "credits_update",
+                            "credits_remaining": rem,
+                            "remaining": rem,
+                        })
+                    except Exception:
+                        pass
+                await websocket.send_json({
+                    "type": "error",
+                    "message": "Failed to queue message. Please try again."
+                })
+                continue
             
 
     except asyncio.TimeoutError:

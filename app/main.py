@@ -503,6 +503,8 @@ async def startup_event():
         _pubsub_listener_task = asyncio.create_task(start_app_pubsub_listener())
 
     asyncio.create_task(start_app_response_listener())
+    from app.services.guest_refund_worker import start_guest_refund_worker_task
+    start_guest_refund_worker_task(poll_interval=10.0)
 
 
 @app.on_event("shutdown")
@@ -510,6 +512,9 @@ async def shutdown_event():
     global _pubsub_listener_task
 
     scheduler.shutdown()
+
+    from app.services.guest_refund_worker import stop_guest_refund_worker_task
+    await stop_guest_refund_worker_task()
 
     if _pubsub_listener_task and not _pubsub_listener_task.done():
         _pubsub_listener_task.cancel()

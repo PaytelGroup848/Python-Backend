@@ -16,6 +16,7 @@ from app.db.database import AsyncSessionLocal
 from app.models.message import Message
 from app.models.conversation import Conversation
 from app.core.queues.queue_service import queue_service
+from app.services.guest_service import refund_guest_credit
 
 logging.basicConfig(
     level=logging.INFO,
@@ -92,11 +93,23 @@ async def handle_single_chat_request(message_id: str, payload: dict):
                     return
 
             # Token streaming callback for run_agent
+            first_token_emitted = False
+
             async def stream_callback(event: dict):
+                nonlocal first_token_emitted
                 # Check user cancellation mid-stream
                 if conversation_id:
                     if await redis_client.get(f"chat:stopped:{conversation_id}"):
                         raise asyncio.CancelledError(f"User stopped conversation {conversation_id}")
+
+                # Transition to CONSUMED before publishing first token chunk
+                if not first_token_emitted and event.get("type") == "chunk":
+                    first_token_emitted = True
+                    if request_id:
+                        try:
+                            await redis_client.set(f"guest:prompt_state:{request_id}", "CONSUMED", ex=86400)
+                        except Exception as tag_err:
+                            logger.warning(f"Failed to set CONSUMED state for {request_id}: {tag_err}")
 
                 pub_payload = {
                     "request_id": request_id,
@@ -206,6 +219,24 @@ async def handle_single_chat_request(message_id: str, payload: dict):
 
         except asyncio.CancelledError:
             logger.info(f"Chat request {request_id} was cancelled by user.")
+            if request_id and not first_token_emitted:
+                try:
+                    prompt_state = await redis_client.get(f"guest:prompt_state:{request_id}")
+                    if prompt_state == "RESERVED":
+                        await redis_client.set(f"guest:prompt_state:{request_id}", "REFUNDED", ex=86400)
+                        res_status, new_val = await refund_guest_credit(user_id, request_id)
+                        if res_status == 1:
+                            await redis_client.publish(
+                                f"ws:req:{request_id}",
+                                json.dumps({
+                                    "type": "credits_update",
+                                    "credits_remaining": new_val,
+                                    "remaining": new_val,
+                                })
+                            )
+                except Exception as ref_err:
+                    logger.warning(f"Cancelled error refund failed for {request_id}: {ref_err}")
+
             if request_id:
                 try:
                     await redis_client.publish(
@@ -225,6 +256,24 @@ async def handle_single_chat_request(message_id: str, payload: dict):
 
         except Exception as exc:
             logger.exception(f"Chat request processing failed for {request_id}: {exc}")
+            if request_id and not first_token_emitted:
+                try:
+                    prompt_state = await redis_client.get(f"guest:prompt_state:{request_id}")
+                    if prompt_state == "RESERVED":
+                        await redis_client.set(f"guest:prompt_state:{request_id}", "REFUNDED", ex=86400)
+                        res_status, new_val = await refund_guest_credit(user_id, request_id)
+                        if res_status == 1:
+                            await redis_client.publish(
+                                f"ws:req:{request_id}",
+                                json.dumps({
+                                    "type": "credits_update",
+                                    "credits_remaining": new_val,
+                                    "remaining": new_val,
+                                })
+                            )
+                except Exception as ref_err:
+                    logger.warning(f"Worker exception refund failed for {request_id}: {ref_err}")
+
             if request_id:
                 try:
                     await redis_client.publish(
