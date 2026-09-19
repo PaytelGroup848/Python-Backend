@@ -124,13 +124,21 @@ async def signup(
             password=req.password
         )
 
+        user_id = int(user.id)
+        user_email = str(user.email)
+        user_role = str(user.role or "employee")
+
         if req.guest_token:
             try:
-                await transfer_guest_data(db, req.guest_token, user.id)
+                await transfer_guest_data(db, req.guest_token, user_id)
             except Exception as mig_err:
                 logger.warning(f"Guest migration failed during signup: {mig_err}")
 
-        return UserResponse.model_validate(user)
+        return UserResponse(
+            id=user_id,
+            email=user_email,
+            role=user_role
+        )
 
     except ValueError as e:
 
@@ -279,11 +287,14 @@ async def login(
             detail="Session creation failed"
         )
 
-    user_display_name = getattr(user, "name", None) or user.email.split("@")[0].capitalize()
+    user_id = int(user.id)
+    user_email = str(user.email)
+    user_display_name = getattr(user, "name", None) or user_email.split("@")[0].capitalize()
+    user_role = str(getattr(user, "role", "MEMBER") or "MEMBER")
 
     if req.guest_token:
         try:
-            await transfer_guest_data(db, req.guest_token, user.id)
+            await transfer_guest_data(db, req.guest_token, user_id)
         except Exception as mig_err:
             logger.warning(f"Guest migration failed during login: {mig_err}")
 
@@ -292,10 +303,10 @@ async def login(
         "refresh_token": refresh_token,
         "token_type": "bearer",
         "user": {
-            "id": user.id,
-            "email": user.email,
+            "id": user_id,
+            "email": user_email,
             "full_name": user_display_name,
-            "role": user.role or "MEMBER",
+            "role": user_role,
         }
     }
 
@@ -432,11 +443,14 @@ async def google_auth(
             detail="Session creation failed"
         )
 
-    user_display_name = getattr(user, "name", None) or user.email.split("@")[0].capitalize()
+    user_id = int(user.id)
+    user_email = str(user.email)
+    user_display_name = getattr(user, "name", None) or user_email.split("@")[0].capitalize()
+    user_role = str(getattr(user, "role", "MEMBER") or "MEMBER")
 
     if req.guest_token:
         try:
-            await transfer_guest_data(db, req.guest_token, user.id)
+            await transfer_guest_data(db, req.guest_token, user_id)
         except Exception as mig_err:
             logger.warning(f"Guest migration failed during google_auth: {mig_err}")
 
@@ -445,10 +459,10 @@ async def google_auth(
         "refresh_token": refresh_token,
         "token_type": "bearer",
         "user": {
-            "id": user.id,
-            "email": user.email,
+            "id": user_id,
+            "email": user_email,
             "full_name": user_display_name,
-            "role": user.role or "MEMBER",
+            "role": user_role,
         }
     }
 
