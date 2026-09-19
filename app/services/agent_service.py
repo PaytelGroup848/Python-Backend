@@ -35,7 +35,9 @@ from app.modules.memory.services.cag_service import (
 )
 
 from app.services.language_service import (
-    detect_language
+    detect_language,
+    detect_language_and_script,
+    get_language_directive
 )
 
 from app.services.tool_service import (
@@ -476,7 +478,12 @@ class ContextBuilderService:
             else "You are General Chat, a helpful, versatile universal AI assistant within Patwatoli AI."
         )
 
+        detected_lang = detect_language_and_script(query)
+        target_directive = get_language_directive(detected_lang)
+        target_label = detected_lang.get("label", "English")
+
         central_language_directive = (
+            f"{target_directive}\n\n"
             "CENTRAL LANGUAGE & SCRIPT DIRECTIVE (STRICT 4-TIER HIERARCHY):\n"
             "You are a native multilingual enterprise AI. You MUST determine your response language and script using this strict priority hierarchy:\n\n"
             "1. HIGHEST PRIORITY - EXPLICIT USER INSTRUCTION:\n"
@@ -497,9 +504,9 @@ class ContextBuilderService:
 
         suggestions_directive = (
             "FOLLOW-UP SUGGESTIONS DIRECTIVE (STRICT 3-5 SHORT ITEMS):\n"
-            "At the very end of your response, output 3 to 5 short, natural follow-up questions or replies (target 4) that the user might want to say or ask next.\n"
+            f"At the very end of your response, output 3 to 5 short, natural follow-up questions or replies (target 4) that the user might want to say or ask next in {target_label}.\n"
             "Rules:\n"
-            "1. Mirror the user's language and script exactly (e.g. English, Devanagari Hindi, or Romanized Hinglish).\n"
+            f"1. Mirror the user's language and script exactly (target language: {target_label}).\n"
             "2. Keep each suggestion concise (under 15 words).\n"
             "3. Format strictly at the very end as:\n"
             "**💡 Suggestions:**\n"
@@ -516,16 +523,16 @@ class ContextBuilderService:
         user_section = (
             f"USER QUESTION:\n{query}\n\n"
             f"LANGUAGE DIRECTIVE REMINDER:\n"
-            f"Respond strictly in the same language and script as the USER QUESTION above unless the user explicitly requested a different language.\n\n"
+            f"Respond strictly in {target_label} matching the USER QUESTION above unless the user explicitly requested a different language.\n\n"
             f"FOLLOW-UP SUGGESTIONS MANDATE:\n"
-            f"At the very end of your response, you MUST provide 3 to 5 short, natural follow-up questions or replies (normally 4) that the user might say next in the exact same language and script as your answer.\n"
+            f"At the very end of your response, you MUST provide 3 to 5 short, natural follow-up questions or replies (normally 4) that the user might say next in {target_label} (matching your answer language).\n"
             f"Format strictly as:\n"
             f"**💡 Suggestions:**\n"
             f"- <Suggestion 1>\n"
             f"- <Suggestion 2>\n"
             f"- <Suggestion 3>\n"
             f"- <Suggestion 4>\n\n"
-            f"ANSWER:\n"
+            f"ANSWER ({target_label.upper()}):\n"
         )
         if web_citation_instr:
             user_section = f"{web_citation_instr}\n\n{user_section}"
@@ -701,16 +708,22 @@ class LanguagePipeline:
     async def process_input(
         query: str
     ):
-        # Raw query is preserved 100% untouched for native LLM reasoning
-        return query, "auto"
+        # Raw query is preserved 100% untouched for native LLM reasoning,
+        # with high-accuracy sub-millisecond language & script classification
+        detected = detect_language_and_script(query)
+        return query, detected.get("type", "english")
 
     @staticmethod
     async def process_output(
         response: str,
         language: str = "auto"
     ):
+        if not response:
+            return ""
         # Direct pass-through: zero translation delay, zero code/markdown breakage
-        return response
+        # Strip accidental prompt echoing like "ANSWER (ROMANIZED HINGLISH):" if echoed by model
+        cleaned = re.sub(r'^\s*ANSWER\s*\([^)]*\)\s*:\s*', '', response, flags=re.IGNORECASE)
+        return cleaned.strip() if cleaned else response
 
 
 # =========================================================
