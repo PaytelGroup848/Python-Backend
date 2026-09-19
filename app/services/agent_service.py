@@ -40,6 +40,11 @@ from app.services.language_service import (
     get_language_directive
 )
 
+from app.services.suggestion_service import (
+    extract_and_normalize_suggestions,
+    clean_legacy_memory_text
+)
+
 from app.services.tool_service import (
     get_system_stats,
     search_documents_tool
@@ -344,14 +349,14 @@ class SemanticMemoryService:
 
 
 
-        formatted = "\n".join(
-            [
-                f"{m['role']}: {m['content']}"
-                for m in memory
-            ]
-        )
+        formatted_lines = []
+        for m in memory:
+            content = m.get("content", "")
+            if m.get("role") == "assistant":
+                content = clean_legacy_memory_text(content)
+            formatted_lines.append(f"{m['role']}: {content}")
 
-        return formatted
+        return "\n".join(formatted_lines)
 
 
 # =========================================================
@@ -503,17 +508,18 @@ class ContextBuilderService:
         )
 
         suggestions_directive = (
-            "FOLLOW-UP SUGGESTIONS DIRECTIVE (STRICT 3-5 SHORT ITEMS):\n"
-            f"At the very end of your response, output 3 to 5 short, natural follow-up questions or replies (target 4) that the user might want to say or ask next in {target_label}.\n"
+            "FOLLOW-UP SUGGESTIONS DIRECTIVE (STRICT 3-4 SHORT ITEMS):\n"
+            f"At the very end of your response, output 3 to 4 short, natural follow-up questions that the user might want to say or ask next in {target_label}.\n"
             "Rules:\n"
             f"1. Mirror the user's language and script exactly (target language: {target_label}).\n"
             "2. Keep each suggestion concise (under 15 words).\n"
-            "3. Format strictly at the very end as:\n"
+            "3. Output ONLY the direct question text on each bullet point. Do NOT prefix bullets with labels like 'Suggestion:', 'Question:', or 'Follow-up:'.\n"
+            "4. Format strictly at the very end as:\n"
             "**💡 Suggestions:**\n"
-            "- <Short follow-up 1>\n"
-            "- <Short follow-up 2>\n"
-            "- <Short follow-up 3>\n"
-            "- <Short follow-up 4>"
+            "- <Direct question 1>\n"
+            "- <Direct question 2>\n"
+            "- <Direct question 3>\n"
+            "- <Direct question 4>"
         )
 
         # Priority 1: System Instructions (Guaranteed)
@@ -525,13 +531,13 @@ class ContextBuilderService:
             f"LANGUAGE DIRECTIVE REMINDER:\n"
             f"Respond strictly in {target_label} matching the USER QUESTION above unless the user explicitly requested a different language.\n\n"
             f"FOLLOW-UP SUGGESTIONS MANDATE:\n"
-            f"At the very end of your response, you MUST provide 3 to 5 short, natural follow-up questions or replies (normally 4) that the user might say next in {target_label} (matching your answer language).\n"
+            f"At the very end of your response, you MUST provide 3 to 4 short, natural follow-up questions that the user might say next in {target_label} (matching your answer language).\n"
+            f"Rules: Output ONLY the direct question on each bullet point without prefix labels like 'Suggestion:' or 'Follow-up:'.\n"
             f"Format strictly as:\n"
             f"**💡 Suggestions:**\n"
-            f"- <Suggestion 1>\n"
-            f"- <Suggestion 2>\n"
-            f"- <Suggestion 3>\n"
-            f"- <Suggestion 4>\n\n"
+            "- <Direct follow-up question>\n"
+            "- <Direct follow-up question>\n"
+            "- <Direct follow-up question>\n\n"
             f"ANSWER ({target_label.upper()}):\n"
         )
         if web_citation_instr:
@@ -1306,6 +1312,14 @@ async def generation_node(state: AgentState):
         state["language"]
     )
 
+    # Extract clean content for memory isolation (Suggestions strictly excluded from memory)
+    try:
+        clean_content, canonical_suggestions = extract_and_normalize_suggestions(final_response)
+    except Exception as exc:
+        logger.warning(f"suggestion_parser_failed session_id={state.get('session_id')}: {exc}")
+        clean_content = final_response
+        canonical_suggestions = []
+
     if state.get("memory_enabled"):
         await memory_service.save_memory(
             session_id=state["session_id"],
@@ -1315,7 +1329,7 @@ async def generation_node(state: AgentState):
         await memory_service.save_memory(
             session_id=state["session_id"],
             role="assistant",
-            message=final_response
+            message=clean_content
         )
 
     return {
