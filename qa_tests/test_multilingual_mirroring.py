@@ -139,3 +139,4 @@ async def test_language_pipeline_process_output_clean_echo():
 
     normal_response = "Bhai, yeh bilkul sahi chal raha hai."
     assert await LanguagePipeline.process_output(normal_response) == normal_response
+

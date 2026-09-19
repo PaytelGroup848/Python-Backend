@@ -263,4 +263,4 @@ def get_language_directive(detected: dict) -> str:
         "Respond in natural, fluent, professional English.\n"
         "- MANDATORY SUGGESTIONS: The 3 to 5 follow-up suggestions at the very end MUST be in English.\n"
         "======================================================================"
-    )
+    )

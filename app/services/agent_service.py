@@ -1203,46 +1203,28 @@ async def generation_node(state: AgentState):
         if not allowed:
             raise Exception("Plan limit exceeded")
 
-        # BUG-08 Fix: Propagate configured temperature from state to runtime manager (safely handle None)
-        raw_temp = state.get("temperature")
+    # BUG-08 Fix: Propagate configured temperature from state to runtime manager (safely handle None)
+    raw_temp = state.get("temperature")
+    try:
+        configured_temp = float(raw_temp) if raw_temp is not None else 0.2
+    except (ValueError, TypeError):
+        configured_temp = 0.2
+
+    stream_handler = state.get("stream_handler")
+    collected_chunks = []
+    if stream_handler and callable(stream_handler):
         try:
-            configured_temp = float(raw_temp) if raw_temp is not None else 0.2
-        except (ValueError, TypeError):
-            configured_temp = 0.2
-
-        stream_handler = state.get("stream_handler")
-        collected_chunks = []
-        if stream_handler and callable(stream_handler):
-            try:
-                async for chunk in provider_runtime_manager.stream_response(final_prompt, temperature=configured_temp):
-                    if chunk:
-                        collected_chunks.append(chunk)
-                        try:
-                            await stream_handler({"type": "chunk", "content": chunk})
-                        except Exception as cb_err:
-                            logger.warning(f"Stream callback error: {cb_err}")
-                final_response = "".join(collected_chunks)
-            except Exception as exc:
-                logger.warning(f"Streaming provider error, falling back to batch: {exc}")
-                # BUG-04 Fix: NEVER return raw internal context as final response. Use fallback provider or sanitized error.
-                try:
-                    response = await provider_runtime_manager.generate_response(
-                        prompt=final_prompt,
-                        user_id=state["user_id"],
-                        temperature=configured_temp,
-                        stream=False
-                    )
-                    final_response = response.get("response", "") if isinstance(response, dict) else str(response)
-                except Exception as batch_err:
-                    logger.error(f"Batch fallback failed as well: {batch_err}")
-                    final_response = "I am temporarily unable to process your request. Please try again shortly."
-
-                if not collected_chunks:
+            async for chunk in provider_runtime_manager.stream_response(final_prompt, temperature=configured_temp):
+                if chunk:
+                    collected_chunks.append(chunk)
                     try:
-                        await stream_handler({"type": "chunk", "content": final_response})
-                    except Exception:
-                        pass
-        else:
+                        await stream_handler({"type": "chunk", "content": chunk})
+                    except Exception as cb_err:
+                        logger.warning(f"Stream callback error: {cb_err}")
+            final_response = "".join(collected_chunks)
+        except Exception as exc:
+            logger.warning(f"Streaming provider error, falling back to batch: {exc}")
+            # BUG-04 Fix: NEVER return raw internal context as final response. Use fallback provider or sanitized error.
             try:
                 response = await provider_runtime_manager.generate_response(
                     prompt=final_prompt,
@@ -1251,10 +1233,28 @@ async def generation_node(state: AgentState):
                     stream=False
                 )
                 final_response = response.get("response", "") if isinstance(response, dict) else str(response)
-            except Exception as exc:
-                logger.error(f"Direct generation failed: {exc}")
-                # BUG-04 Fix: NEVER return raw internal context as final response.
+            except Exception as batch_err:
+                logger.error(f"Batch fallback failed as well: {batch_err}")
                 final_response = "I am temporarily unable to process your request. Please try again shortly."
+
+            if not collected_chunks:
+                try:
+                    await stream_handler({"type": "chunk", "content": final_response})
+                except Exception:
+                    pass
+    else:
+        try:
+            response = await provider_runtime_manager.generate_response(
+                prompt=final_prompt,
+                user_id=state["user_id"],
+                temperature=configured_temp,
+                stream=False
+            )
+            final_response = response.get("response", "") if isinstance(response, dict) else str(response)
+        except Exception as exc:
+            logger.error(f"Direct generation failed: {exc}")
+            # BUG-04 Fix: NEVER return raw internal context as final response.
+            final_response = "I am temporarily unable to process your request. Please try again shortly."
 
     # Cleanly append web sources (Perplexity style)
     if web_sources and isinstance(web_sources, list):
