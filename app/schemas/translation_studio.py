@@ -76,3 +76,4 @@ class SupportedLanguageItem(BaseModel):
 
 class SupportedLanguagesResponse(BaseModel):
     languages: List[SupportedLanguageItem]
+

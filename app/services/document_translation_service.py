@@ -234,8 +234,66 @@ class DocumentTranslationService:
         return chunks
 
     # =========================================================================
-    # 3. STRUCTURED TRANSLATION VIA GEMINI PROVIDER
+    # 3. STRUCTURED TRANSLATION VIA GEMINI PROVIDER (WITH GROQ/OPENAI FALLBACK)
     # =========================================================================
+
+    async def _generate_with_fallback(self, prompt: str, temperature: float = 0.2) -> Dict[str, Any]:
+        """
+        Attempts generation with the primary provider (Gemini).
+        If Gemini fails with an API key, quota, or service error (e.g. API_KEY_INVALID),
+        gracefully falls back to Groq (llama-3.3-70b-versatile) or OpenAI (gpt-4o-mini)
+        so translation jobs never crash.
+        """
+        messages = [{"role": "user", "content": prompt}]
+
+        # 1. Primary: Gemini
+        try:
+            res = await self.provider.generate(messages=messages, temperature=temperature)
+            if res.get("response"):
+                return res
+        except Exception as p_err:
+            logger.warning(f"Primary Gemini provider failed ({p_err}). Attempting fallback...")
+
+        # 2. Secondary: Groq (ultra-fast LPU inference)
+        groq_key = getattr(settings, "GROQ_API_KEY", "") or os.getenv("GROQ_API_KEY", "")
+        if groq_key:
+            try:
+                from app.modules.providers.groq_provider import GroqProvider
+                groq = GroqProvider()
+                res = await groq.generate(
+                    messages=messages,
+                    model="llama-3.3-70b-versatile",
+                    temperature=temperature
+                )
+                if res.get("response"):
+                    logger.info("Successfully translated chunk using Groq fallback.")
+                    return res
+            except Exception as q_err:
+                logger.warning(f"Groq fallback failed ({q_err}). Attempting OpenAI fallback...")
+
+        # 3. Tertiary: OpenAI (gpt-4o-mini)
+        openai_key = getattr(settings, "OPENAI_API_KEY", "") or os.getenv("OPENAI_API_KEY", "")
+        if openai_key:
+            try:
+                from app.modules.providers.openai_provider import OpenAIProvider
+                oai = OpenAIProvider()
+                res = await oai.generate(
+                    messages=messages,
+                    model="gpt-4o-mini",
+                    temperature=temperature
+                )
+                if res.get("response"):
+                    logger.info("Successfully translated chunk using OpenAI fallback.")
+                    return res
+            except Exception as o_err:
+                logger.error(f"OpenAI fallback failed ({o_err}).")
+
+        # If all providers failed, raise clear descriptive error
+        raise RuntimeError(
+            "Translation provider error: Google Gemini API key is invalid or rejected by Google (API_KEY_INVALID). "
+            "Please update GEMINI_API_KEY in /opt/Python-Backend/.env with a valid key starting with 'AIzaSy' "
+            "from https://aistudio.google.com/app/apikey"
+        )
 
     async def translate_chunk(
         self,
@@ -265,10 +323,7 @@ class DocumentTranslationService:
             f"{json.dumps(payload, ensure_ascii=False)}"
         )
 
-        response = await self.provider.generate(
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.2
-        )
+        response = await self._generate_with_fallback(prompt=prompt, temperature=0.2)
 
         response_text = response.get("response", "").strip()
         usage = response.get("usage", {})
@@ -296,8 +351,8 @@ class DocumentTranslationService:
             for b in chunk:
                 fb = b.model_copy()
                 if fb.text:
-                    sub_res = await self.provider.generate(
-                        messages=[{"role": "user", "content": f"Translate to {target_language}. Output ONLY translated text:\n{fb.text}"}],
+                    sub_res = await self._generate_with_fallback(
+                        prompt=f"Translate to {target_language}. Output ONLY translated text:\n{fb.text}",
                         temperature=0.2
                     )
                     fb.text = sub_res.get("response", fb.text).strip()
@@ -307,8 +362,8 @@ class DocumentTranslationService:
                         new_row = []
                         for cell in row:
                             if any(c.isalpha() for c in cell):
-                                c_res = await self.provider.generate(
-                                    messages=[{"role": "user", "content": f"Translate this table cell to {target_language}. Keep numbers and symbols unchanged:\n{cell}"}],
+                                c_res = await self._generate_with_fallback(
+                                    prompt=f"Translate this table cell to {target_language}. Keep numbers and symbols unchanged:\n{cell}",
                                     temperature=0.2
                                 )
                                 new_row.append(c_res.get("response", cell).strip())
@@ -338,8 +393,8 @@ class DocumentTranslationService:
             f"Output ONLY the translated text without extra commentary.\n\n"
             f"TEXT TO TRANSLATE:\n{text}"
         )
-        response = await self.provider.generate(
-            messages=[{"role": "user", "content": prompt}],
+        response = await self._generate_with_fallback(
+            prompt=prompt,
             temperature=0.3
         )
         usage = response.get("usage", {})
