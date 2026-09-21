@@ -66,3 +66,9 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+import os
+for _k in ["OPENAI_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY", "MISTRAL_API_KEY", "SECRET_KEY"]:
+    _v = getattr(settings, _k, None)
+    if _v and not os.environ.get(_k):
+        os.environ[_k] = str(_v)

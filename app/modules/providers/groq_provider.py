@@ -1,5 +1,6 @@
 import os
 
+from app.core.config import settings
 from app.shared.http.http_client import (
     http_client
 )
@@ -8,7 +9,7 @@ from app.modules.providers.base_provider import (
     BaseProvider
 )
 
-MODEL_NAME = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+MODEL_NAME = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 
 class GroqProvider(
@@ -43,6 +44,8 @@ class GroqProvider(
                 content = content[:100000] + "\n...[truncated for length]"
             safe_messages.append({**msg, "content": content})
 
+        api_key = getattr(settings, "GROQ_API_KEY", "") or os.getenv("GROQ_API_KEY", "")
+
         response = await http_client.post(
 
             "https://api.groq.com/openai/v1/chat/completions",
@@ -50,7 +53,7 @@ class GroqProvider(
             headers={
 
                 "Authorization":
-                f"Bearer {os.getenv('GROQ_API_KEY')}",
+                f"Bearer {api_key}",
 
                 "Content-Type":
                 "application/json",
@@ -115,7 +118,7 @@ class GroqProvider(
         resolved_model = model or MODEL_NAME
         msg_list = messages if isinstance(messages, list) else [{"role": "user", "content": str(messages)}]
 
-        api_key = os.getenv("GROQ_API_KEY")
+        api_key = getattr(settings, "GROQ_API_KEY", "") or os.getenv("GROQ_API_KEY")
         if not api_key:
             raise Exception("GROQ_API_KEY is not configured")
 

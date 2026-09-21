@@ -3,6 +3,7 @@ import logging
 import os
 from typing import AsyncGenerator, Union
 
+from app.core.config import settings
 from app.shared.http.http_client import (
     http_client
 )
@@ -34,6 +35,7 @@ class OpenAIProvider(
     ):
 
         resolved_model = model or MODEL_NAME
+        api_key = getattr(settings, "OPENAI_API_KEY", "") or os.getenv("OPENAI_API_KEY", "")
 
         response = await http_client.post(
 
@@ -41,7 +43,7 @@ class OpenAIProvider(
 
             headers={
                 "Authorization":
-                f"Bearer {os.getenv('OPENAI_API_KEY')}",
+                f"Bearer {api_key}",
 
                 "Content-Type":
                 "application/json",
@@ -91,7 +93,7 @@ class OpenAIProvider(
         resolved_model = model or MODEL_NAME
         msg_list = messages if isinstance(messages, list) else [{"role": "user", "content": str(messages)}]
 
-        api_key = os.getenv("OPENAI_API_KEY")
+        api_key = getattr(settings, "OPENAI_API_KEY", "") or os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise Exception("OPENAI_API_KEY is not configured")
 

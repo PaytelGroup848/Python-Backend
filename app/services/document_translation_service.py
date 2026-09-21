@@ -257,19 +257,20 @@ class DocumentTranslationService:
         # 2. Secondary: Groq (ultra-fast LPU inference)
         groq_key = getattr(settings, "GROQ_API_KEY", "") or os.getenv("GROQ_API_KEY", "")
         if groq_key:
-            try:
-                from app.modules.providers.groq_provider import GroqProvider
-                groq = GroqProvider()
-                res = await groq.generate(
-                    messages=messages,
-                    model="llama-3.3-70b-versatile",
-                    temperature=temperature
-                )
-                if res.get("response"):
-                    logger.info("Successfully translated chunk using Groq fallback.")
-                    return res
-            except Exception as q_err:
-                logger.warning(f"Groq fallback failed ({q_err}). Attempting OpenAI fallback...")
+            for g_model in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]:
+                try:
+                    from app.modules.providers.groq_provider import GroqProvider
+                    groq = GroqProvider()
+                    res = await groq.generate(
+                        messages=messages,
+                        model=g_model,
+                        temperature=temperature
+                    )
+                    if res.get("response"):
+                        logger.info(f"Successfully translated chunk using Groq ({g_model}) fallback.")
+                        return res
+                except Exception as q_err:
+                    logger.warning(f"Groq fallback ({g_model}) failed: {q_err}")
 
         # 3. Tertiary: OpenAI (gpt-4o-mini)
         openai_key = getattr(settings, "OPENAI_API_KEY", "") or os.getenv("OPENAI_API_KEY", "")
@@ -283,10 +284,10 @@ class DocumentTranslationService:
                     temperature=temperature
                 )
                 if res.get("response"):
-                    logger.info("Successfully translated chunk using OpenAI fallback.")
+                    logger.info("Successfully translated chunk using OpenAI (gpt-4o-mini) fallback.")
                     return res
             except Exception as o_err:
-                logger.error(f"OpenAI fallback failed ({o_err}).")
+                logger.error(f"OpenAI fallback failed: {o_err}")
 
         # If all providers failed, raise clear descriptive error
         raise RuntimeError(
