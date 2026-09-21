@@ -103,6 +103,31 @@ async def _save_and_validate_upload(file: UploadFile) -> str:
     return temp_path
 
 
+def _sanitize_user_error_message(exc: Exception) -> str:
+    """
+    Transforms raw backend/provider exceptions into clean, reassuring,
+    user-friendly messages without exposing internal stack traces or API keys.
+    """
+    msg = str(exc).lower()
+
+    if "503" in msg or "high demand" in msg or "unavailable" in msg or "overloaded" in msg:
+        return "AI servers are currently experiencing high demand. Please try again in a few moments."
+
+    if "429" in msg or "quota" in msg or "rate limit" in msg or "resource_exhausted" in msg:
+        return "AI translation capacity limit reached. Please wait a minute before trying again."
+
+    if "api key" in msg or "unauthorized" in msg or "401" in msg or "403" in msg:
+        return "Translation service is momentarily updating. Please try again shortly."
+
+    if "empty" in msg or "no extractable text" in msg or "corrupt" in msg:
+        return "Could not extract text from this document. Please ensure it is not scanned, empty, or password-protected."
+
+    if "timeout" in msg or "timed out" in msg:
+        return "Document translation timed out due to file complexity. Please try again."
+
+    return "Unable to complete document translation at this moment. Please try again."
+
+
 async def _run_translation_job(
     job_id: str,
     temp_file_path: str,
@@ -206,11 +231,12 @@ async def _run_translation_job(
 
     except Exception as exc:
         logger.exception(f"Translation job {job_id} failed: {exc}")
+        user_friendly_error = _sanitize_user_error_message(exc)
         raw_state = await redis_client.get(redis_key)
         state = json.loads(raw_state) if raw_state else {}
         state.update({
             "status": "failed",
-            "error_message": str(exc),
+            "error_message": user_friendly_error,
             "completed_at": datetime.now(timezone.utc).isoformat(),
             "last_heartbeat_at": datetime.now(timezone.utc).isoformat()
         })
