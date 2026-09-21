@@ -8,7 +8,7 @@ from app.modules.providers.base_provider import (
 
 import os
 
-MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
 
 class GeminiProvider(

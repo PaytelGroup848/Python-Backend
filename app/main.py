@@ -56,9 +56,9 @@ from app.routes.chat_routes import (
     router as chat_router
 )
 
-#from app.routes.translation_routes import (
- #   router as translation_router
-#)
+from app.routes.translation_routes import (
+    router as translation_router
+)
 
 #from app.routes.admin_routes import (
  #   router as admin_router
@@ -561,9 +561,11 @@ app.include_router(
     chat_router
 )
 
-#app.include_router(
- #   translation_router
-#)
+app.include_router(
+    translation_router,
+    prefix="/translate",
+    tags=["Translation"]
+)
 
 #app.include_router(
  #   admin_router
