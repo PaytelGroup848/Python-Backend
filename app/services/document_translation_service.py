@@ -261,33 +261,49 @@ class DocumentTranslationService:
         from google import genai
         client = genai.Client(api_key=raw_key)
 
-        model_name = getattr(settings, "GEMINI_MODEL", "") or os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+        primary_model = getattr(settings, "GEMINI_MODEL", "") or os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+        gemini_models = [primary_model]
+        if "gemini-3-flash-preview" not in gemini_models:
+            gemini_models.append("gemini-3-flash-preview")
 
-        try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt
-            )
-        except Exception as g_err:
-            logger.error(f"Google Gemini generation failed: {g_err}")
-            raise RuntimeError(f"Google Gemini Error: {g_err}")
+        last_gemini_error = None
 
-        usage = {}
-        try:
-            if hasattr(response, "usage_metadata") and response.usage_metadata:
-                usage = {
-                    "prompt_tokens": response.usage_metadata.prompt_token_count,
-                    "completion_tokens": response.usage_metadata.candidates_token_count,
-                    "total_tokens": response.usage_metadata.total_token_count
-                }
-        except Exception:
-            usage = {}
+        for model_name in gemini_models:
+            for attempt in range(3):
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt
+                    )
+                    if response and response.text:
+                        usage = {}
+                        try:
+                            if hasattr(response, "usage_metadata") and response.usage_metadata:
+                                usage = {
+                                    "prompt_tokens": response.usage_metadata.prompt_token_count,
+                                    "completion_tokens": response.usage_metadata.candidates_token_count,
+                                    "total_tokens": response.usage_metadata.total_token_count
+                                }
+                        except Exception:
+                            usage = {}
 
-        return {
-            "model": model_name,
-            "response": response.text or "",
-            "usage": usage
-        }
+                        return {
+                            "model": model_name,
+                            "response": response.text,
+                            "usage": usage
+                        }
+                except Exception as g_err:
+                    last_gemini_error = g_err
+                    err_str = str(g_err)
+                    if "503" in err_str or "high demand" in err_str.lower() or "unavailable" in err_str.lower():
+                        logger.warning(f"Gemini {model_name} hit 503 spike (attempt {attempt+1}/3). Retrying in 1.5s...")
+                        await asyncio.sleep(1.5 * (attempt + 1))
+                        continue
+                    else:
+                        logger.warning(f"Gemini {model_name} failed: {g_err}. Trying alternate Gemini model...")
+                        break
+
+        raise RuntimeError(f"Google Gemini Error: {last_gemini_error}")
 
     async def translate_chunk(
         self,
