@@ -16,9 +16,9 @@ class GeminiProvider(
 ):
 
     def __init__(self):
-
+        raw_key = (getattr(settings, "GEMINI_API_KEY", "") or os.getenv("GEMINI_API_KEY", "")).strip("\"' \t\r\n")
         self.client = genai.Client(
-            api_key=settings.GEMINI_API_KEY
+            api_key=raw_key
         )
 
     async def generate(

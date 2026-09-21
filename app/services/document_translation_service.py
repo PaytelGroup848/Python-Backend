@@ -245,6 +245,7 @@ class DocumentTranslationService:
         so translation jobs never crash.
         """
         messages = [{"role": "user", "content": prompt}]
+        last_error = None
 
         # 1. Primary: Gemini
         try:
@@ -252,6 +253,7 @@ class DocumentTranslationService:
             if res.get("response"):
                 return res
         except Exception as p_err:
+            last_error = p_err
             logger.warning(f"Primary Gemini provider failed ({p_err}). Attempting fallback...")
 
         # 2. Secondary: Groq (ultra-fast LPU inference)
@@ -270,6 +272,7 @@ class DocumentTranslationService:
                         logger.info(f"Successfully translated chunk using Groq ({g_model}) fallback.")
                         return res
                 except Exception as q_err:
+                    last_error = q_err
                     logger.warning(f"Groq fallback ({g_model}) failed: {q_err}")
 
         # 3. Tertiary: OpenAI (gpt-4o-mini)
@@ -287,14 +290,11 @@ class DocumentTranslationService:
                     logger.info("Successfully translated chunk using OpenAI (gpt-4o-mini) fallback.")
                     return res
             except Exception as o_err:
+                last_error = o_err
                 logger.error(f"OpenAI fallback failed: {o_err}")
 
-        # If all providers failed, raise clear descriptive error
-        raise RuntimeError(
-            "Translation provider error: Google Gemini API key is invalid or rejected by Google (API_KEY_INVALID). "
-            "Please update GEMINI_API_KEY in /opt/Python-Backend/.env with a valid key starting with 'AIzaSy' "
-            "from https://aistudio.google.com/app/apikey"
-        )
+        # If all providers failed, raise the real error
+        raise RuntimeError(f"Translation provider failed: {last_error}")
 
     async def translate_chunk(
         self,
