@@ -9,16 +9,6 @@ services:
 
     restart: always
 
-    labels:
-      autoheal: "true"
-
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live')\""]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-
     depends_on:
       postgres:
         condition: service_healthy
