@@ -60,6 +60,10 @@ from app.routes.translation_routes import (
     router as translation_router
 )
 
+from app.routes.health_routes import (
+    router as health_router
+)
+
 #from app.routes.admin_routes import (
  #   router as admin_router
 #)
@@ -732,6 +736,11 @@ app.include_router(
 
 app.include_router(
     tokenizer_router,
+)
+
+app.include_router(
+    health_router,
+    prefix="/health"
 )
 
 # =========================

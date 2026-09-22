@@ -9,6 +9,16 @@ services:
 
     restart: always
 
+    labels:
+      autoheal: "true"
+
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
     depends_on:
       postgres:
         condition: service_healthy
@@ -115,6 +125,9 @@ services:
 
     restart: always
 
+    labels:
+      autoheal: "true"
+
     shm_size: 1gb
 
     environment:
@@ -142,6 +155,9 @@ services:
 
     restart: always
 
+    labels:
+      autoheal: "true"
+
     ports:
       - "6379:6379"
 
@@ -159,6 +175,20 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+
+  autoheal:
+    image: willfarrell/autoheal:1.2.0
+    container_name: ai-llm-autoheal
+    restart: always
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=autoheal
+      - AUTOHEAL_INTERVAL=10
+      - AUTOHEAL_START_PERIOD=30
+      - AUTOHEAL_DEFAULT_STOP_TIMEOUT=15
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    network_mode: none
 
 
 volumes:
