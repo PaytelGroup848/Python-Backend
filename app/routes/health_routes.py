@@ -66,3 +66,4 @@ async def readiness_probe(response: Response):
             "status": "degraded",
             "dependencies": checks
         }
+

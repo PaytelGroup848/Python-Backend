@@ -67,3 +67,4 @@ docker exec -i "${TEST_CONTAINER}" psql -U postgres -d "${TEST_DB}" -c "SELECT i
 echo "---------------------------------------------------------"
 echo "RESTORE SMOKE TEST: PASSED! Backup archive is 100% valid."
 echo "---------------------------------------------------------"
+

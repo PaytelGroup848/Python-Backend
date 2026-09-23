@@ -59,3 +59,4 @@ echo "Configured DATABASE_URL for runtime:"
 echo "postgresql://patwatoli_app:${APP_PWD}@postgres:5432/${DB_NAME}"
 echo "--------------------------------------------------"
 echo "Update your .env file with the above DATABASE_URL when ready."
+

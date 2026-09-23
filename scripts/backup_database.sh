@@ -88,3 +88,4 @@ if [ "${REMOTE_SYNC_FAILED}" -eq 1 ]; then
 fi
 
 echo "==> Backup pipeline completed successfully!"
+
