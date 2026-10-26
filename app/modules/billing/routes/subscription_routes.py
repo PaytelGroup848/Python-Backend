@@ -1,3 +1,4 @@
+import json
 import hmac
 import hashlib
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -47,6 +48,14 @@ async def purchase_subscription(
             "billing_cycle": payload.billing_cycle,
             "plan_code": payload.plan_code
         })
+        if payload.billing_details:
+            b_dict = payload.billing_details.model_dump()
+            metadata["billing_details"] = b_dict
+            try:
+                from app.shared.redis.client import redis_client
+                await redis_client.set(f"billing:profile:{user['user_id']}", json.dumps(b_dict), ex=86400 * 365)
+            except Exception:
+                pass
 
         result = await subscription_checkout_service.create_subscription_checkout(
             db=db,
@@ -141,3 +150,24 @@ async def verify_subscription_payment(
             status_code=500,
             detail=f"Payment settlement error: {str(e)}"
         )
+
+@router.get("/billing-profile")
+async def get_user_billing_profile(
+    user=Depends(verify_token)
+):
+    """Fetches saved prefill billing details for the authenticated user."""
+    try:
+        from app.shared.redis.client import redis_client
+        raw = await redis_client.get(f"billing:profile:{user['user_id']}")
+        if raw:
+            return json.loads(raw)
+    except Exception:
+        pass
+    return {
+        "name": user.get("name") or user.get("full_name") or "",
+        "phone": "",
+        "state": "",
+        "postal_code": "",
+        "company_name": "",
+        "gstin": ""
+    }

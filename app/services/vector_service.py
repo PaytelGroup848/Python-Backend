@@ -34,15 +34,15 @@ async def store_document(
 
     knowledge_base_document_id: int,
 
-    original_content: str = None,
+    original_content: str | None = None,
 
     language: str = "en",
 
     is_translated: bool = False,
 
-    source_file: str = None,
+    source_file: str | None = None,
 
-    page_number: int = None,
+    page_number: int | None = None,
 
     department: str = "general",
 

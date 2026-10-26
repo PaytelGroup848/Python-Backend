@@ -46,18 +46,15 @@ class SubscriptionRepository:
     ):
 
         result = await db.execute(
-
             select(Subscription)
-
             .where(
                 Subscription.user_id
                 == user_id
             )
+            .order_by(Subscription.id.desc())
         )
 
-        return (
-            result.scalar_one_or_none()
-        )
+        return result.scalars().first()
 
     async def get_active_subscription(
         self,
@@ -78,11 +75,10 @@ class SubscriptionRepository:
                 Subscription.status
                 == "active"
             )
+            .order_by(Subscription.id.desc())
         )
 
-        return (
-            result.scalar_one_or_none()
-        )
+        return result.scalars().first()
     
     async def get_by_id(
         self,

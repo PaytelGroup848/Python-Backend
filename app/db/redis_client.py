@@ -1,25 +1,17 @@
 import redis.asyncio as redis
+from app.core.config import settings
 
 redis_client = redis.Redis(
-    host="redis",
-    port=6379,
+    host=getattr(settings, "REDIS_HOST", "127.0.0.1"),
+    port=getattr(settings, "REDIS_PORT", 6379),
     db=0,
     decode_responses=True
 )
 
-# Check connection
+
 async def check_redis():
-
     try:
-
         await redis_client.ping()
-
-        print("Redis connected")
-
         return True
-
     except Exception:
-
-        print("Redis not available")
-
         return False

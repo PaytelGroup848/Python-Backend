@@ -212,13 +212,18 @@ async def _run_translation_job(
         await redis_client.set(redis_key, json.dumps(state), ex=86400)
 
         translation_service.export_to_docx(translated_blocks, docx_out_path)
-        translation_service.export_to_pdf(translated_blocks, pdf_out_path)
+        available_downloads = ["docx"]
+        try:
+            translation_service.export_to_pdf(translated_blocks, pdf_out_path)
+            available_downloads.append("pdf")
+        except Exception as pdf_err:
+            logger.warning(f"PDF export warning for job {job_id}: {pdf_err}. DOCX export succeeded.")
 
         # Milestone 4: Completed
         state.update({
             "status": "completed",
             "progress_percent": 100,
-            "available_downloads": ["pdf", "docx"],
+            "available_downloads": available_downloads,
             "artifacts": {
                 "pdf": pdf_out_path,
                 "docx": docx_out_path
