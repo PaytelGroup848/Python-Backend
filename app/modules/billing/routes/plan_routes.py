@@ -162,11 +162,19 @@ async def get_public_plans(
         sub_stmt = (
             select(Subscription)
             .where(Subscription.user_id == user_id, Subscription.status == "active")
+            .order_by(Subscription.id.desc())
         )
         sub_res = await db.execute(sub_stmt)
         active_sub = sub_res.scalars().first()
         if active_sub:
-            active_plan_code = active_sub.plan_name
+            if active_sub.plan_id:
+                plan_stmt = select(Plan).where(Plan.id == active_sub.plan_id)
+                plan_res = await db.execute(plan_stmt)
+                plan_obj = plan_res.scalar_one_or_none()
+                active_plan_code = (plan_obj.plan_code if plan_obj else active_sub.plan_name).lower()
+            else:
+                active_plan_code = str(active_sub.plan_name).lower()
+
             if active_sub.start_date and active_sub.end_date:
                 diff_days = (active_sub.end_date - active_sub.start_date).days
                 if diff_days > 60:
