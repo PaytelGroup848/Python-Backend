@@ -34,6 +34,12 @@ async def purchase_subscription(
     user=Depends(verify_token),
     db: AsyncSession = Depends(get_db)
 ):
+    if user.get('role') == 'guest':
+        raise HTTPException(
+            status_code=403,
+            detail='Guest users cannot purchase subscriptions. Please register or log in first.'
+        )
+
     try:
         checkout_plan = await plan_service.get_checkout_plan(
             db=db,
@@ -99,6 +105,12 @@ async def verify_subscription_payment(
     2. Derives payment, verifies user ownership & order amount.
     3. Executes atomic idempotent settlement via billing_payment_processor.
     """
+    if user.get('role') == 'guest':
+        raise HTTPException(
+            status_code=403,
+            detail='Guest users cannot verify subscription payments.'
+        )
+
     if not settings.RAZORPAY_KEY_SECRET:
         raise HTTPException(
             status_code=500,
