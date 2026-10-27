@@ -74,6 +74,9 @@ class ApiKeyAuthService:
         if not user.is_active:
             return None
 
+        if getattr(user, "role", "").lower() == "guest":
+            return None
+
         user.current_api_key = key_record
 
         return user

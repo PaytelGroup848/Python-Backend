@@ -76,6 +76,9 @@ async def chat_completions(
     )
 ):
 
+    if getattr(current_user, "role", "").lower() == "guest":
+        raise HTTPException(status_code=403, detail="API Key is not authorized for guest accounts. Please register a permanent account.")
+
     if not payload.messages:
         raise HTTPException(
             status_code=400,

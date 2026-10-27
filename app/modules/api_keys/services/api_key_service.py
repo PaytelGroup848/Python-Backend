@@ -27,7 +27,7 @@ class ApiKeyService:
         user_id: int,
         name: str
     ):
-        raw_key = f"sk_live_{secrets.token_hex(24)}"
+        raw_key = f"pt_live_{secrets.token_hex(24)}"
         prefix = raw_key[:14]
         key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
 
@@ -59,7 +59,7 @@ class ApiKeyService:
 
         items = []
         for k in keys:
-            pref = getattr(k, "prefix", None) or "sk_live_"
+            pref = getattr(k, "prefix", None) or "pt_live_"
             masked = f"{pref}••••••••••••••••"
             items.append({
                 "id": k.id,

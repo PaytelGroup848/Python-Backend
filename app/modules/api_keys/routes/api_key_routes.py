@@ -23,6 +23,12 @@ async def create_api_key(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
+    if getattr(current_user, "role", "").lower() == "guest":
+        raise HTTPException(
+            status_code=403,
+            detail="Developer API access requires a registered permanent account. Please sign up or log in."
+        )
+
     return await api_key_service.create_api_key(
         db=db,
         user_id=current_user.id,
@@ -35,6 +41,9 @@ async def get_api_keys(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
+    if getattr(current_user, "role", "").lower() == "guest":
+        return {"api_keys": []}
+
     return await api_key_service.get_user_keys(
         db=db,
         user_id=current_user.id
@@ -46,6 +55,18 @@ async def get_api_key_usage(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
+    if getattr(current_user, "role", "").lower() == "guest":
+        return UserApiKeyUsageResponse(
+            total_tokens=0,
+            prompt_tokens=0,
+            completion_tokens=0,
+            monthly_tokens=0,
+            token_limit=0,
+            remaining_tokens=0,
+            estimated_cost=0.0,
+            plan_name="guest"
+        )
+
     return await api_key_service.get_user_api_key_usage(
         db=db,
         user_id=current_user.id
@@ -58,6 +79,9 @@ async def disable_api_key(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
+    if getattr(current_user, "role", "").lower() == "guest":
+        raise HTTPException(status_code=403, detail="Action unauthorized for guest visitors.")
+
     try:
         return await api_key_service.disable_api_key(
             db=db,
@@ -74,6 +98,9 @@ async def delete_api_key(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
+    if getattr(current_user, "role", "").lower() == "guest":
+        raise HTTPException(status_code=403, detail="Action unauthorized for guest visitors.")
+
     try:
         return await api_key_service.delete_api_key(
             db=db,
