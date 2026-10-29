@@ -158,8 +158,8 @@ async def _run_translation_job(
         })
         await redis_client.set(redis_key, json.dumps(state), ex=86400)
 
-        # Extract structured blocks
-        blocks = translation_service.extract_document(temp_file_path, filename)
+        # Extract structured blocks (with smart OCR fallback for scanned documents)
+        blocks = await translation_service.extract_document(temp_file_path, filename)
         if not blocks:
             raise ValueError("Document appears to be empty or contains no extractable text.")
 
@@ -175,32 +175,37 @@ async def _run_translation_job(
         })
         await redis_client.set(redis_key, json.dumps(state), ex=86400)
 
-        # Milestone 2: Translating chunks with measurable progress
-        translated_blocks = []
-        total_prompt_tokens = 0
-        total_completion_tokens = 0
+        # Milestone 2: Translating chunks concurrently (bounded semaphore) with measurable progress
+        running_prompt_tokens = 0
+        running_completion_tokens = 0
+        running_blocks_completed = 0
 
-        for chunk_idx, chunk in enumerate(chunks):
-            chunk_result = await translation_service.translate_chunk(
-                chunk=chunk,
-                target_language=target_language,
-                source_language=source_language
-            )
-            translated_blocks.extend(chunk_result["blocks"])
-            total_prompt_tokens += chunk_result["prompt_tokens"]
-            total_completion_tokens += chunk_result["completion_tokens"]
+        async def _progress_callback(chunk_result, chunk_idx, done_chunks, num_chunks):
+            nonlocal running_prompt_tokens, running_completion_tokens, running_blocks_completed
+            running_prompt_tokens += chunk_result.get("prompt_tokens", 0)
+            running_completion_tokens += chunk_result.get("completion_tokens", 0)
+            running_blocks_completed += len(chunk_result.get("blocks", []))
 
             # Measurable progress calculation (20% to 90%)
-            progress = 20 + int(70 * ((chunk_idx + 1) / total_chunks))
+            progress = 20 + int(70 * (done_chunks / num_chunks))
             state.update({
                 "progress_percent": min(progress, 90),
-                "blocks_completed": len(translated_blocks),
-                "prompt_tokens_used": total_prompt_tokens,
-                "completion_tokens_used": total_completion_tokens,
-                "total_tokens_used": total_prompt_tokens + total_completion_tokens,
+                "blocks_completed": running_blocks_completed,
+                "prompt_tokens_used": running_prompt_tokens,
+                "completion_tokens_used": running_completion_tokens,
+                "total_tokens_used": running_prompt_tokens + running_completion_tokens,
                 "last_heartbeat_at": datetime.now(timezone.utc).isoformat()
             })
             await redis_client.set(redis_key, json.dumps(state), ex=86400)
+
+        parallel_res = await translation_service.translate_chunks_parallel(
+            chunks=chunks,
+            target_language=target_language,
+            source_language=source_language,
+            max_concurrency=3,
+            on_chunk_completed=_progress_callback
+        )
+        translated_blocks = parallel_res["blocks"]
 
         # Milestone 3: Exporting artifacts
         state.update({
