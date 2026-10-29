@@ -270,12 +270,12 @@ class DocumentTranslationService:
                 from google import genai
                 client = genai.Client(api_key=raw_gemini_key)
 
-                configured_model = getattr(settings, "GEMINI_MODEL", "") or os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
-                if "3.6" in configured_model or "preview" in configured_model:
-                    configured_model = "gemini-1.5-flash"
+                configured_model = getattr(settings, "GEMINI_MODEL", "") or os.getenv("GEMINI_MODEL", "gemini-flash-latest")
+                if "3.6" in configured_model or "preview" in configured_model or "1.5" in configured_model:
+                    configured_model = "gemini-flash-latest"
 
                 gemini_models = [configured_model]
-                for fallback in ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]:
+                for fallback in ["gemini-flash-latest", "gemini-2.0-flash", "gemini-2.5-flash"]:
                     if fallback not in gemini_models:
                         gemini_models.append(fallback)
 
@@ -328,7 +328,7 @@ class DocumentTranslationService:
                     base_url="https://api.groq.com/openai/v1",
                     api_key=raw_groq_key
                 )
-                for groq_model in ["qwen/qwen3.8-27b", "llama-3.1-8b-instant", "llama3-70b-8192"]:
+                for groq_model in ["qwen/qwen3.8-27b", "openai/gpt-oss-120b", "openai/gpt-oss-20b"]:
                     try:
                         resp = groq_client.chat.completions.create(
                             model=groq_model,
