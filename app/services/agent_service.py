@@ -507,6 +507,26 @@ class ContextBuilderService:
             "   Assistant instructions define your persona, domain, and boundaries, but the language used in those prompt descriptions must NEVER force the user to receive a response in a language other than their query language."
         )
 
+        # Check if the query is a greeting or casual opener
+        normalized_query = (query or "").strip().lower().rstrip("!.,? ")
+        is_greeting = normalized_query in {
+            "hi", "hii", "hiii", "hello", "helloo", "hey", "heyy", "hey there",
+            "namaste", "namaskar", "kaise ho", "kya haal hai", "kya hal hai", "kya chal raha hai",
+            "good morning", "good afternoon", "good evening", "good night", "sup", "yo", "wassup",
+            "hola", "bonjour"
+        }
+
+        greeting_conversational_directive = (
+            "CONVERSATIONAL GREETINGS & SHORT OPENERS (CRITICAL UX RULE):\n"
+            "If the user's message is a greeting, salutation, or brief opener (e.g. 'hi', 'hii', 'hello', 'hey', 'namaste', 'kaise ho', 'good morning'):\n"
+            "1. NEVER treat the message as an encyclopedia topic or dictionary word. DO NOT explain, define, or discuss the history/etymology of the word 'hi' or greeting words under any circumstances!\n"
+            "2. Respond warmly, naturally, and concisely in 1 to 2 friendly conversational sentences as an intelligent assistant.\n"
+            "   - Pure English: 'Hello! How can I help you today?' or 'Hi there! What are you working on today?'\n"
+            "   - Romanized Hinglish: 'Namaste! Main aaj aapki kya madad kar sakta hoon?'\n"
+            "   - Hindi (Devanagari): 'नमस्ते! मैं आज आपकी क्या सहायता कर सकता हूँ?'\n"
+            "3. For the follow-up suggestions at the end of a greeting, provide practical starter questions showcasing your capabilities (e.g. asking to help write an email, debug code, search web facts, or summarize a document). NEVER generate suggestions about the origin or linguistics of greeting words!"
+        )
+
         suggestions_directive = (
             "FOLLOW-UP SUGGESTIONS DIRECTIVE (STRICT 3-4 SHORT ITEMS):\n"
             f"At the very end of your response, output 3 to 4 short, natural follow-up questions that the user might want to say or ask next in {target_label}.\n"
@@ -523,13 +543,28 @@ class ContextBuilderService:
         )
 
         # Priority 1: System Instructions (Guaranteed)
-        system_section = f"{brand_directive}\n\n{central_language_directive}\n\n{suggestions_directive}\n\nAssistant Role & Instructions:\n{active_role_prompt}"
+        system_section = (
+            f"{brand_directive}\n\n"
+            f"{central_language_directive}\n\n"
+            f"{greeting_conversational_directive}\n\n"
+            f"{suggestions_directive}\n\n"
+            f"Assistant Role & Instructions:\n{active_role_prompt}"
+        )
+
+        greeting_user_prompt = (
+            "\nSPECIAL MANDATE FOR GREETING:\n"
+            "The user sent a greeting. DO NOT define or explain the word 'hi'. "
+            "Reply warmly and naturally in 1-2 friendly sentences offering your assistance, "
+            "and provide 3-4 capability starter suggestions at the end.\n\n"
+            if is_greeting else ""
+        )
 
         # Priority 2: User Question Block (Guaranteed 100% intact, NEVER truncated)
         user_section = (
             f"USER QUESTION:\n{query}\n\n"
             f"LANGUAGE DIRECTIVE REMINDER:\n"
             f"Respond strictly in {target_label} matching the USER QUESTION above unless the user explicitly requested a different language.\n\n"
+            f"{greeting_user_prompt}"
             f"FOLLOW-UP SUGGESTIONS MANDATE:\n"
             f"At the very end of your response, you MUST provide 3 to 4 short, natural follow-up questions that the user might say next in {target_label} (matching your answer language).\n"
             f"Rules: Output ONLY the direct question on each bullet point without prefix labels like 'Suggestion:' or 'Follow-up:'.\n"

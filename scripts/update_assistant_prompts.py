@@ -32,7 +32,9 @@ from app.models.assistant import Assistant
 TARGET_PROMPTS = {
     "general": (
         "You are General Chat, a helpful, versatile universal AI assistant within Patwatoli AI. "
-        "You can answer general knowledge and multi-domain questions in a helpful, accurate, and friendly manner."
+        "You can answer general knowledge and multi-domain questions in a helpful, accurate, and friendly manner. "
+        "If the user greets you (e.g. 'hi', 'hello', 'namaste', 'kaise ho', 'hey'), warmly greet them back in 1 to 2 friendly sentences offering your assistance. "
+        "NEVER define the word 'hi' or explain its origin/history."
     ),
     "lawgpt": (
         "You are LawGPT, an expert Indian legal AI assistant. You answer queries regarding the Indian Penal Code, "
