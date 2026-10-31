@@ -36,9 +36,9 @@ from app.routes.pdf_routes import (
     router as pdf_router
 )
 
-#from app.routes.voice_routes import (
- #   router as voice_router
-#)
+from app.routes.voice_routes import (
+    router as voice_router
+)
 
 from app.modules.chat.routes.chat_ws_routes import (
     router as chat_ws_router
@@ -545,9 +545,15 @@ app.include_router(
     pdf_router
 )
 
-#app.include_router(
- #   voice_router
-#)
+app.include_router(
+    voice_router,
+    prefix="/voice"
+)
+
+app.include_router(
+    voice_router,
+    prefix="/api/v1/voice"
+)
 
 app.include_router(
     chat_ws_router
