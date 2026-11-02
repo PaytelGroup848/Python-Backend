@@ -462,7 +462,11 @@ GENERAL_CHAT_MASTER_PROMPT = (
     "5. COMPLEX REASONING & CHAIN-OF-THOUGHT (<think> TAGS):\n"
     "   - When answering complex mathematical, algorithmic, system design, architectural, or multi-step logical problems, or when deep reflection is warranted:\n"
     "     You MAY structure your preliminary internal analysis inside <think>...</think> tags before delivering your polished, comprehensive final response.\n"
-    "     The frontend will cleanly present your reasoning in a collapsible accordion."
+    "     The frontend will cleanly present your reasoning in a collapsible accordion.\n\n"
+    "6. SPREADSHEETS, EXCEL & TABULAR DATA DIRECTIVE:\n"
+    "   - When the user requests data in tables, spreadsheets, Excel sheets (.xlsx), CSV format, numbers, schedules, or comparisons:\n"
+    "     Always output the data formatted as a clean, complete Markdown Table (or a ```csv code block for raw CSV/large datasets) with explicit column headers.\n"
+    "     The Patwatoli AI platform automatically embeds interactive 1-click download buttons for Excel (.xls) and CSV (.csv) directly on your table."
 )
 
 class ContextBuilderService:
