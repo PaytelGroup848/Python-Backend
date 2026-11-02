@@ -83,7 +83,14 @@ class GeminiProvider(
         max_tokens: int = 4096,
     ):
         resolved_model = model or MODEL_NAME
-        prompt = messages[-1]["content"] if isinstance(messages, list) and messages else str(messages)
+        if isinstance(messages, list):
+            parts = []
+            for m in messages:
+                role = "User" if m.get("role") in ("user", "human") else ("System" if m.get("role") == "system" else "Model")
+                parts.append(f"{role}: {m.get('content', '')}")
+            prompt = "\n\n".join(parts)
+        else:
+            prompt = str(messages)
 
         try:
             stream = self.client.models.generate_content_stream(

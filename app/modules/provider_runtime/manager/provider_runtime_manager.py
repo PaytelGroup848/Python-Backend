@@ -1,5 +1,6 @@
 import logging
 import time
+from typing import Union, List, Dict, Any
 
 from app.modules.providers.openai_provider import OpenAIProvider
 
@@ -51,8 +52,8 @@ class ProviderRuntimeManager:
 
     async def stream_response(
         self,
-        message: str,
-        temperature: float = 0.2,
+        message: Union[str, list],
+        temperature: float = 0.65,
         model: str | None = None,
     ):
         await metrics_service.increment_requests()
@@ -225,12 +226,15 @@ class ProviderRuntimeManager:
         stream: bool = False,
     ):
 
-        messages = [
-            {
-                "role": "user",
-                "content": prompt,
-            }
-        ]
+        if isinstance(prompt, list):
+            messages = prompt
+        else:
+            messages = [
+                {
+                    "role": "user",
+                    "content": str(prompt),
+                }
+            ]
 
         provider_name = await (
             provider_health_service
