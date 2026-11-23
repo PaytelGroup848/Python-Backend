@@ -487,6 +487,14 @@ def is_conversational_memory_query(query: str) -> bool:
     ]
     return any(re.search(p, q) for p in patterns)
 
+CONVERSATIONAL_MEMORY_DIRECTIVE = (
+    "CONVERSATIONAL MEMORY & MULTI-TURN CONTEXT AWARENESS (CRITICAL PRIORITY):\n"
+    "You have direct access to the preceding turns of this conversation in the message history below.\n"
+    "1. When the user asks what was previously discussed, what they asked earlier, or refers back to prior topics (e.g. 'piche kya baat kiye', 'what did we talk about', 'what is my name', 'summarize our conversation'), you MUST actively inspect the conversation history and answer their question accurately, completely, and naturally.\n"
+    "2. NEVER state, claim, or imply that you cannot remember or do not have access to previous messages when the history is present in the conversation turns.\n"
+    "3. Seamlessly maintain continuity across multi-turn exchanges."
+)
+
 class ContextBuilderService:
 
     @staticmethod
@@ -612,20 +620,12 @@ class ContextBuilderService:
             "- <Direct question 4>"
         )
 
-        memory_directive = (
-            "CONVERSATIONAL MEMORY & MULTI-TURN CONTEXT AWARENESS (CRITICAL PRIORITY):\n"
-            "You have direct access to the preceding turns of this conversation in the message history below.\n"
-            "1. When the user asks what was previously discussed, what they asked earlier, or refers back to prior topics (e.g. 'piche kya baat kiye', 'what did we talk about', 'what is my name', 'summarize our conversation'), you MUST actively inspect the conversation history and answer their question accurately, completely, and naturally.\n"
-            "2. NEVER state, claim, or imply that you cannot remember or do not have access to previous messages when the history is present in the conversation turns.\n"
-            "3. Seamlessly maintain continuity across multi-turn exchanges."
-        )
-
         system_content = (
             f"{brand_directive}\n\n"
             f"{active_role_prompt}\n\n"
             f"{central_language_directive}\n\n"
             f"{greeting_conversational_directive}\n\n"
-            f"{memory_directive}\n\n"
+            f"{CONVERSATIONAL_MEMORY_DIRECTIVE}\n\n"
             f"{suggestions_directive}"
         )
         if plan:
@@ -766,7 +766,7 @@ class ContextBuilderService:
             f"{brand_directive}\n\n"
             f"{central_language_directive}\n\n"
             f"{greeting_conversational_directive}\n\n"
-            f"{memory_directive}\n\n"
+            f"{CONVERSATIONAL_MEMORY_DIRECTIVE}\n\n"
             f"{suggestions_directive}\n\n"
             f"Assistant Role & Instructions:\n{active_role_prompt}"
         )
