@@ -469,6 +469,24 @@ GENERAL_CHAT_MASTER_PROMPT = (
     "     The Patwatoli AI platform automatically embeds interactive 1-click download buttons for Excel (.xls) and CSV (.csv) directly on your table."
 )
 
+def is_conversational_memory_query(query: str) -> bool:
+    """
+    Detects if a user query refers to preceding conversational context, past turns,
+    identity, or memory (e.g. 'piche humne kya baat ki', 'what did we discuss', 'who am I').
+    """
+    if not query or not isinstance(query, str):
+        return False
+    q = query.lower().strip()
+    patterns = [
+        r"\b(piche|pehle|earlier|previous|previously)\b.{0,35}\b(baat|kaha|bola|discuss|discussed|talked|chat|conversation|poocha|bolatha|pucha|discuss\s+kiya)\b",
+        r"\b(what\s+did\s+we\s+discuss|what\s+were\s+we\s+talking\s+about|our\s+previous\s+chat|summarize\s+our\s+chat)\b",
+        r"\b(what\s+did\s+i\s+(say|ask|tell)|what\s+did\s+you\s+(say|answer|tell))\b",
+        r"\b(mera\s+naam|what\s+is\s+my\s+name|who\s+am\s+i|kya\s+naam\s+hai\s+mera|naam\s+kya\s+hai)\b",
+        r"\b(remember\s+what|do\s+you\s+remember|kya\s+yaad\s+hai|yaad\s+hai\s+kuch)\b",
+        r"\b(repeat\s+that|what\s+did\s+you\s+just\s+say|what\s+did\s+i\s+just\s+say)\b"
+    ]
+    return any(re.search(p, q) for p in patterns)
+
 class ContextBuilderService:
 
     @staticmethod
@@ -594,11 +612,20 @@ class ContextBuilderService:
             "- <Direct question 4>"
         )
 
+        memory_directive = (
+            "CONVERSATIONAL MEMORY & MULTI-TURN CONTEXT AWARENESS (CRITICAL PRIORITY):\n"
+            "You have direct access to the preceding turns of this conversation in the message history below.\n"
+            "1. When the user asks what was previously discussed, what they asked earlier, or refers back to prior topics (e.g. 'piche kya baat kiye', 'what did we talk about', 'what is my name', 'summarize our conversation'), you MUST actively inspect the conversation history and answer their question accurately, completely, and naturally.\n"
+            "2. NEVER state, claim, or imply that you cannot remember or do not have access to previous messages when the history is present in the conversation turns.\n"
+            "3. Seamlessly maintain continuity across multi-turn exchanges."
+        )
+
         system_content = (
             f"{brand_directive}\n\n"
             f"{active_role_prompt}\n\n"
             f"{central_language_directive}\n\n"
             f"{greeting_conversational_directive}\n\n"
+            f"{memory_directive}\n\n"
             f"{suggestions_directive}"
         )
         if plan:
@@ -619,6 +646,9 @@ class ContextBuilderService:
         # Multi-turn history (sliding window up to 10 recent turns)
         if memory:
             history_turns = ContextBuilderService.parse_memory_to_messages(memory)
+            # Defensive deduplication: if the last history turn is already the active user query, drop it to avoid duplicating the active turn
+            if history_turns and history_turns[-1].get("role") == "user" and history_turns[-1].get("content", "").strip() == query.strip():
+                history_turns = history_turns[:-1]
             messages.extend(history_turns[-10:])
 
         # Active User Turn
@@ -736,6 +766,7 @@ class ContextBuilderService:
             f"{brand_directive}\n\n"
             f"{central_language_directive}\n\n"
             f"{greeting_conversational_directive}\n\n"
+            f"{memory_directive}\n\n"
             f"{suggestions_directive}\n\n"
             f"Assistant Role & Instructions:\n{active_role_prompt}"
         )
@@ -783,6 +814,11 @@ class ContextBuilderService:
         # Priority 3: Memory (up to 4000 chars of recent history)
         memory_budget = min(len(memory), 4000) if memory else 0
         safe_memory = memory[-memory_budget:] if memory else ""
+        if safe_memory:
+            trimmed_mem = safe_memory.rstrip()
+            target_user_trail = f"user: {query.strip()}"
+            if trimmed_mem.endswith(target_user_trail):
+                safe_memory = trimmed_mem[:-len(target_user_trail)].rstrip()
         budget_remaining = max(0, budget_remaining - len(safe_memory))
 
         # Priority 4: Retrieved Context (takes remaining budget, preserving top chunks)
@@ -1131,12 +1167,18 @@ async def preprocessing_node(state: AgentState):
         clean_query = re.sub(r"^\/search\s*", "", clean_query, flags=re.IGNORECASE)
         clean_query = re.sub(r"--search", "", clean_query, flags=re.IGNORECASE).strip()
 
+    # Conversational memory guard: Never rewrite conversation/history queries into search keywords
+    is_conv_memory = is_conversational_memory_query(clean_query)
+
     # Conditional Query Rewrite (BUG-07 Fix):
     # Only rewrite query into search keywords if web search or RAG retrieval is actually needed!
     needs_rewrite = (
-        is_web_search
-        or bool(state.get("rag_enabled", False))
-        or state.get("intent") in (IntentType.SEARCH.value, IntentType.RAG.value)
+        not is_conv_memory
+        and (
+            is_web_search
+            or bool(state.get("rag_enabled", False))
+            or state.get("intent") in (IntentType.SEARCH.value, IntentType.RAG.value)
+        )
     )
 
     if needs_rewrite:
@@ -1770,6 +1812,10 @@ def router(state: AgentState):
 
     has_doc = bool(state.get("attached_docs") or state.get("documents"))
     is_rag = bool(state.get("rag_enabled", False)) or intent == IntentType.RAG.value
+
+    # Conversational memory guard: route queries referencing past conversation history directly to generate
+    if is_conversational_memory_query(state.get("query", "")) and not has_doc:
+        return "generate"
 
     # Only route to retrieve if RAG is explicitly enabled or a document is attached to this request
     if is_rag or has_doc:

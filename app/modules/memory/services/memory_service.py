@@ -4,7 +4,10 @@ import logging
 from datetime import datetime
 from typing import List, Dict, Any
 
+from sqlalchemy import select, desc
+from app.db.database import AsyncSessionLocal
 from app.db.redis_client import redis_client
+from app.models.message import Message
 
 logger = logging.getLogger(__name__)
 
@@ -109,16 +112,76 @@ class MemoryService:
                 -1
             )
 
-            if not memory:
+            if memory:
+                return [
+                    json.loads(item)
+                    for item in memory
+                ]
 
-                return []
+            # Cache miss: Production Cache-Aside fallback to PostgreSQL
+            conv_id = None
+            if isinstance(session_id, int):
+                conv_id = session_id
+            elif isinstance(session_id, str) and session_id.isdigit():
+                conv_id = int(session_id)
 
-            return [
+            if conv_id is not None:
+                try:
+                    async with AsyncSessionLocal() as session:
+                        # Fetch the most recent N messages from DB
+                        stmt = (
+                            select(Message.role, Message.content, Message.created_at)
+                            .where(Message.conversation_id == conv_id)
+                            .order_by(desc(Message.id))
+                            .limit(MAX_MEMORY_MESSAGES + 1)
+                        )
+                        result = await session.execute(stmt)
+                        rows = result.all()
 
-                json.loads(item)
+                        if rows:
+                            # If the very last message in DB is an active user turn, exclude it from history
+                            # because the active turn is explicitly appended by ContextBuilderService
+                            if rows[0].role == "user":
+                                candidate_rows = rows[1:MAX_MEMORY_MESSAGES + 1]
+                            else:
+                                candidate_rows = rows[:MAX_MEMORY_MESSAGES]
 
-                for item in memory
-            ]
+                            if candidate_rows:
+                                chronological_rows = list(reversed(candidate_rows))
+                                db_memory = []
+                                pipe = redis_client.pipeline()
+
+                                for r in chronological_rows:
+                                    payload = {
+                                        "role": r.role,
+                                        "content": r.content or "",
+                                        "timestamp": (
+                                            r.created_at.isoformat()
+                                            if r.created_at
+                                            else datetime.utcnow().isoformat()
+                                        )
+                                    }
+                                    db_memory.append(payload)
+                                    pipe.rpush(key, json.dumps(payload))
+
+                                pipe.ltrim(key, -MAX_MEMORY_MESSAGES, -1)
+                                pipe.expire(key, MEMORY_TTL)
+                                try:
+                                    await pipe.execute()
+                                except Exception as pipe_err:
+                                    logger.warning(
+                                        f"Failed to warm Redis memory cache for session {session_id}: {pipe_err}"
+                                    )
+
+                                return db_memory
+
+                except Exception as db_err:
+                    logger.exception(
+                        "PostgreSQL memory fallback failed",
+                        extra={"session_id": session_id, "error": str(db_err)}
+                    )
+
+            return []
 
         except Exception:
 
