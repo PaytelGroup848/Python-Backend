@@ -57,6 +57,7 @@ from app.services.guest_service import (
     initialize_guest_user,
     transfer_guest_data
 )
+from app.services.geoip_service import resolve_geoip
 
 logger = logging.getLogger(__name__)
 
@@ -80,10 +81,13 @@ async def guest_session(
     db: AsyncSession = Depends(get_db)
 ):
     guest_init_id = request.headers.get("x-guest-init-id") or request.cookies.get("guest_init_id")
+    city, country = await resolve_geoip(request)
     try:
         guest_user, access_token, refresh_token = await initialize_guest_user(
             db=db,
-            guest_init_id=guest_init_id
+            guest_init_id=guest_init_id,
+            city=city,
+            country=country
         )
         return {
             "access_token": access_token,
@@ -109,11 +113,13 @@ async def guest_session(
 )
 async def signup(
     req: RegisterRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
 
     clean_email = req.email.strip().lower()
     clean_name = req.name.strip()
+    city, country = await resolve_geoip(request)
 
     try:
 
@@ -121,7 +127,9 @@ async def signup(
             db=db,
             name=clean_name,
             email=clean_email,
-            password=req.password
+            password=req.password,
+            city=city,
+            country=country
         )
 
         user_id = int(user.id)
@@ -251,6 +259,18 @@ async def login(
     logger.info(
         f"Login success: {user.id}"
     )
+
+    # Seamless location backfill if user was created before GeoIP tracking
+    if not getattr(user, "city", None) or not getattr(user, "country", None):
+        try:
+            city, country = await resolve_geoip(request)
+            if city and not getattr(user, "city", None):
+                user.city = city
+            if country and not getattr(user, "country", None):
+                user.country = country
+            await db.commit()
+        except Exception:
+            await db.rollback()
 
     # create access token
     access_token = create_access_token({
@@ -394,12 +414,15 @@ async def google_auth(
     await clear_failed_attempts(rate_limit_key, ip)
 
     # 3. Authenticate or create user under verified-email policy (password hash untouched)
+    city, country = await resolve_geoip(request)
     try:
         user = await auth_service.authenticate_or_create_google_user(
             db=db,
             email=email,
             name=name,
-            google_sub=google_sub
+            google_sub=google_sub,
+            city=city,
+            country=country
         )
     except ValueError as e:
         raise HTTPException(

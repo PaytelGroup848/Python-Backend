@@ -47,6 +47,16 @@ class User(Base):
         nullable=False
     )
 
+    city = Column(
+        String(100),
+        nullable=True
+    )
+
+    country = Column(
+        String(10),
+        nullable=True
+    )
+
     @property
     def full_name(self) -> str:
         return self.name or (self.email.split("@")[0].capitalize() if self.email else "")

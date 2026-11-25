@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,7 +55,9 @@ class AuthService:
         db: AsyncSession,
         name: str,
         email: str,
-        password: str
+        password: str,
+        city: Optional[str] = None,
+        country: Optional[str] = None
     ) -> User:
 
         clean_email = email.strip().lower() if email else ""
@@ -76,7 +79,9 @@ class AuthService:
             name=clean_name,
             email=clean_email,
             password=hashed_password,
-            role="employee"
+            role="employee",
+            city=city,
+            country=country
         )
 
         try:
@@ -106,12 +111,12 @@ class AuthService:
             email=clean_email
         )
 
-        if not user or not user.password:
+        if user is None or not getattr(user, "password", None):
             return None
 
         is_valid = self.verify_password(
             password,
-            user.password
+            str(user.password)
         )
 
         if not is_valid:
@@ -124,7 +129,9 @@ class AuthService:
         db: AsyncSession,
         email: str,
         name: str,
-        google_sub: str
+        google_sub: str,
+        city: Optional[str] = None,
+        country: Optional[str] = None
     ) -> User:
 
         user = await self.user_repository.get_by_email(
@@ -133,8 +140,18 @@ class AuthService:
         )
 
         if user:
-            if not user.is_active:
+            if not getattr(user, "is_active", True):
                 raise ValueError("Account is inactive")
+            if (not getattr(user, "city", None) or not getattr(user, "country", None)) and (city or country):
+                if city and not getattr(user, "city", None):
+                    setattr(user, "city", city)
+                if country and not getattr(user, "country", None):
+                    setattr(user, "country", country)
+                try:
+                    await db.commit()
+                    await db.refresh(user)
+                except Exception:
+                    await db.rollback()
             return user
 
         # First-time Google user creation
@@ -143,7 +160,9 @@ class AuthService:
             email=email,
             password=None,
             role="employee",
-            is_active=True
+            is_active=True,
+            city=city,
+            country=country
         )
 
         try:
@@ -159,8 +178,18 @@ class AuthService:
                 email=email
             )
             if existing_user:
-                if not existing_user.is_active:
+                if not getattr(existing_user, "is_active", True):
                     raise ValueError("Account is inactive")
+                if (not getattr(existing_user, "city", None) or not getattr(existing_user, "country", None)) and (city or country):
+                    if city and not getattr(existing_user, "city", None):
+                        setattr(existing_user, "city", city)
+                    if country and not getattr(existing_user, "country", None):
+                        setattr(existing_user, "country", country)
+                    try:
+                        await db.commit()
+                        await db.refresh(existing_user)
+                    except Exception:
+                        await db.rollback()
                 return existing_user
 
             # If not an email collision, re-raise the true database exception

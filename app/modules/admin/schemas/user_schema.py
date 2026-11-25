@@ -24,6 +24,10 @@ class UserResponse(BaseModel):
 
     created_at: datetime | None = None
 
+    city: str | None = None
+
+    country: str | None = None
+
     class Config:
         from_attributes = True
 

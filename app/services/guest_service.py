@@ -1,6 +1,6 @@
 import logging
 import uuid
-from typing import Optional, Tuple
+from typing import Optional, Tuple, cast, Any
 
 from jose import jwt, JWTError
 from datetime import datetime
@@ -8,7 +8,6 @@ from sqlalchemy import select, update, delete
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -118,7 +117,7 @@ async def reserve_guest_credit(user_id: int | str) -> Tuple[int, int]:
     """
     quota_key = f"guest:credits:{user_id}"
     try:
-        res = await redis_client.eval(RESERVE_CREDIT_LUA, 1, quota_key)
+        res = await cast(Any, redis_client).eval(RESERVE_CREDIT_LUA, 1, quota_key)
         if isinstance(res, (list, tuple)) and len(res) >= 2:
             return int(res[0]), int(res[1])
         return 0, 0
@@ -203,7 +202,7 @@ async def refund_guest_credit(
     quota_key = f"guest:credits:{user_id}"
     marker_key = f"guest:refunded:{request_id}"
     try:
-        res = await redis_client.eval(
+        res = await cast(Any, redis_client).eval(
             REFUND_CREDIT_LUA,
             2,
             quota_key,
@@ -229,7 +228,9 @@ async def refund_guest_credit(
 
 async def initialize_guest_user(
     db: AsyncSession,
-    guest_init_id: Optional[str] = None
+    guest_init_id: Optional[str] = None,
+    city: Optional[str] = None,
+    country: Optional[str] = None
 ) -> Tuple[User, str, str]:
     """
     Provisions or re-identifies a guest session with fail-safe initialization.
@@ -248,29 +249,38 @@ async def initialize_guest_user(
         try:
             cached_id = await redis_client.get(f"guest:init_map:{clean_init_id}")
             if cached_id:
+                guest_uid = int(cached_id)
                 user_res = await db.execute(
-                    select(User).where(User.id == int(cached_id))
+                    select(User).where(User.id == guest_uid)
                 )
                 existing_user = user_res.scalar_one_or_none()
-                if existing_user and existing_user.role == "guest":
-                    quota = await get_guest_credits(existing_user.id)
+                if existing_user is not None and str(existing_user.role) == "guest":
+                    quota = await get_guest_credits(guest_uid)
                     if quota is not None:
                         # Existing guest session is still valid
                         access_token = create_access_token({
-                            "sub": str(existing_user.id),
+                            "sub": str(guest_uid),
                             "role": "guest"
                         })
                         refresh_token = create_refresh_token({
-                            "sub": str(existing_user.id),
+                            "sub": str(guest_uid),
                             "role": "guest"
                         })
                         # Ensure session row exists
                         session_res = await db.execute(
-                            select(UserSession).where(UserSession.user_id == existing_user.id)
+                            select(UserSession).where(UserSession.user_id == guest_uid)
                         )
                         if not session_res.scalars().first():
-                            db.add(UserSession(user_id=existing_user.id, refresh_token=refresh_token))
-                            await db.commit()
+                            db.add(UserSession(user_id=guest_uid, refresh_token=refresh_token))
+
+                        # Seamless backfill for existing guest if location was missing
+                        if (not getattr(existing_user, "city", None) or not getattr(existing_user, "country", None)) and (city or country):
+                            if city and not getattr(existing_user, "city", None):
+                                setattr(existing_user, "city", city)
+                            if country and not getattr(existing_user, "country", None):
+                                setattr(existing_user, "country", country)
+
+                        await db.commit()
 
                         return existing_user, access_token, refresh_token
         except Exception as lookup_err:
@@ -284,7 +294,9 @@ async def initialize_guest_user(
         email=shadow_email,
         password=None,
         role="guest",
-        is_active=True
+        is_active=True,
+        city=city,
+        country=country
     )
 
     db.add(guest_user)
@@ -412,7 +424,7 @@ async def transfer_guest_data(
             select(User).where(User.id == guest_user_id).with_for_update()
         )
         guest_user = guest_user_res.scalar_one_or_none()
-        if not guest_user or guest_user.role != "guest":
+        if guest_user is None or str(guest_user.role) != "guest":
             logger.warning(f"Guest migration: Guest user {guest_user_id} not found or role != guest")
             return False
 
