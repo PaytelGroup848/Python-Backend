@@ -9,7 +9,7 @@ from app.modules.providers.base_provider import (
     BaseProvider
 )
 
-MODEL_NAME = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+MODEL_NAME = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
 
 
 class GroqProvider(
@@ -17,28 +17,20 @@ class GroqProvider(
 ):
 
     async def generate(
-
         self,
-
-        messages: list,
-
+        messages: list | None = None,
         model: str | None = None,
-
         temperature: float = 0.7,
-
         max_tokens: int = 4096,
-
         stream: bool = False,
-
         tools: list | None = None,
-
         metadata: dict | None = None,
     ):
 
-        resolved_model = model or MODEL_NAME
+        resolved_model = model or getattr(settings, "GROQ_MODEL", None) or os.getenv("GROQ_MODEL") or "qwen/qwen3.8-27b"
 
         safe_messages = []
-        for msg in messages:
+        for msg in (messages or []):
             content = msg.get("content", "")
             if isinstance(content, str) and len(content) > 100000:
                 content = content[:100000] + "\n...[truncated for length]"
@@ -115,7 +107,7 @@ class GroqProvider(
         max_tokens: int = 4096,
     ):
         import json
-        resolved_model = model or MODEL_NAME
+        resolved_model = model or getattr(settings, "GROQ_MODEL", None) or os.getenv("GROQ_MODEL") or "qwen/qwen3.8-27b"
         msg_list = messages if isinstance(messages, list) else [{"role": "user", "content": str(messages)}]
 
         api_key = getattr(settings, "GROQ_API_KEY", "") or os.getenv("GROQ_API_KEY")

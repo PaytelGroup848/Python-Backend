@@ -37,6 +37,8 @@ class Settings(BaseSettings):
 
     GROQ_API_KEY: str
 
+    GROQ_MODEL: str = "qwen/qwen3.8-27b"
+
     GEMINI_API_KEY: str
 
     DATABASE_URL: str
@@ -68,7 +70,7 @@ class Settings(BaseSettings):
 settings = Settings()
 
 import os
-for _k in ["OPENAI_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY", "MISTRAL_API_KEY", "SECRET_KEY"]:
+for _k in ["OPENAI_API_KEY", "GROQ_API_KEY", "GROQ_MODEL", "GEMINI_API_KEY", "MISTRAL_API_KEY", "SECRET_KEY"]:
     _v = getattr(settings, _k, None)
     if _v:
         os.environ[_k] = str(_v).strip("\"' \t\r\n")

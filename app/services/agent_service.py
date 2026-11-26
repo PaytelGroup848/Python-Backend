@@ -1458,9 +1458,18 @@ async def finance_node(state: AgentState):
     else:
         combined_context = current_context
 
+    # Direct card streaming delivery for zero-latency response
+    stream_handler = state.get("stream_handler")
+    if market_context and stream_handler and callable(stream_handler):
+        try:
+            await stream_handler({"type": "chunk", "content": market_context})
+        except Exception:
+            pass
+
     return {
         **state,
         "context": combined_context,
+        "response": market_context if market_context else state.get("response", ""),
         "tool_result": {"finance_data": market_context} if market_context else {}
     }
 
@@ -1468,6 +1477,10 @@ async def finance_node(state: AgentState):
 async def generation_node(state: AgentState):
 
     if state.get("cag_hit"):
+        return state
+
+    # If finance_node or another specialized node already produced the complete direct response
+    if state.get("response") and str(state.get("response")).strip():
         return state
 
     asst_code = str(state.get("assistant_code") or "").lower()
@@ -2056,7 +2069,7 @@ class AgentRuntime:
 
             "memory_enabled": True,
 
-            "rag_enabled": True,
+            "rag_enabled": bool(attached_docs),
 
             "cag_enabled": False,
 
