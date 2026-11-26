@@ -1458,18 +1458,9 @@ async def finance_node(state: AgentState):
     else:
         combined_context = current_context
 
-    # Direct card streaming delivery for zero-latency response
-    stream_handler = state.get("stream_handler")
-    if market_context and stream_handler and callable(stream_handler):
-        try:
-            await stream_handler({"type": "chunk", "content": market_context})
-        except Exception:
-            pass
-
     return {
         **state,
         "context": combined_context,
-        "response": market_context if market_context else state.get("response", ""),
         "tool_result": {"finance_data": market_context} if market_context else {}
     }
 
@@ -1479,12 +1470,8 @@ async def generation_node(state: AgentState):
     if state.get("cag_hit"):
         return state
 
-    # If finance_node or another specialized node already produced the complete direct response
-    if state.get("response") and str(state.get("response")).strip():
-        return state
-
     asst_code = str(state.get("assistant_code") or "").lower()
-    allow_external_fallback = asst_code in ["general", "coder"] or "code" in asst_code or "general" in asst_code
+    allow_external_fallback = asst_code in ["", "general", "coder"] or "code" in asst_code or "general" in asst_code or not state.get("assistant_id")
 
     if state.get("needs_general_knowledge") and not allow_external_fallback:
         return state
@@ -1866,8 +1853,8 @@ def router(state: AgentState):
     if is_conversational_memory_query(state.get("query", "")) and not has_doc:
         return "generate"
 
-    # Only route to retrieve if RAG is explicitly enabled or a document is attached to this request
-    if is_rag or has_doc:
+    # Only route to retrieve if a document is attached or explicit RAG intent
+    if has_doc or (intent == IntentType.RAG.value):
         return "retrieve"
 
     # BUG-05 Fix: General Chat routes directly to generate without entering retrieval!
