@@ -80,6 +80,7 @@ class IntentType(str, Enum):
     MULTISTEP = "multistep"
     IMAGE_GEN = "image_gen"
     IMAGE_EDIT = "image_edit"
+    FINANCE = "finance"
 
 
 # =========================================================
@@ -284,7 +285,15 @@ class IntentClassifierService:
         if any(re.search(p, q) for p in analytics_patterns):
             return IntentType.ANALYTICS
 
-        # 3. Explicit Web Search / Real-time live info detection
+        # 3. Real-time Financial & Stock Market intelligence detection
+        try:
+            from app.modules.finance.finance_service import finance_service
+            if finance_service.is_finance_query(query):
+                return IntentType.FINANCE
+        except Exception as exc:
+            logger.debug(f"Finance intent detection bypassed: {exc}")
+
+        # 4. Explicit Web Search / Real-time live info detection
         web_search_explicit_terms = [
             "search the web", "search online", "search internet", "browse the web", "google this", "web search",
             "latest news", "current news", "recent news", "today's news",
@@ -1432,6 +1441,30 @@ async def search_node(state: AgentState):
     }
 
 
+async def finance_node(state: AgentState):
+
+    query = (state.get("rewritten_query") or "").strip() or state["query"]
+
+    from app.modules.finance.finance_service import finance_service
+    market_context = None
+    try:
+        market_context = await finance_service.get_market_context(query)
+    except Exception as exc:
+        logger.warning(f"Market context retrieval error in finance_node: {exc}")
+
+    current_context = state.get("context", "")
+    if market_context:
+        combined_context = f"{current_context}\n\n{market_context}".strip() if current_context else market_context
+    else:
+        combined_context = current_context
+
+    return {
+        **state,
+        "context": combined_context,
+        "tool_result": {"finance_data": market_context} if market_context else {}
+    }
+
+
 async def generation_node(state: AgentState):
 
     if state.get("cag_hit"):
@@ -1807,6 +1840,9 @@ def router(state: AgentState):
     if intent == IntentType.ANALYTICS.value:
         return "analytics"
 
+    if intent == IntentType.FINANCE.value:
+        return "finance"
+
     if intent == IntentType.SEARCH.value or state.get("web_search"):
         return "search"
 
@@ -1880,6 +1916,11 @@ graph.add_node(
     image_gen_node
 )
 
+graph.add_node(
+    "finance",
+    finance_node
+)
+
 graph.set_entry_point("classify")
 
 graph.add_edge(
@@ -1911,7 +1952,13 @@ graph.add_conditional_edges(
         "retrieve": "retrieve",
         "generate": "generate",
         "image_gen": "image_gen",
+        "finance": "finance",
     }
+)
+
+graph.add_edge(
+    "finance",
+    "generate"
 )
 
 graph.add_edge(
