@@ -15,6 +15,8 @@ class AssistantResolverService:
 
         assistant_id: int,
 
+        user_id: int | None = None,
+
     ):
 
         return await (
@@ -26,6 +28,8 @@ class AssistantResolverService:
                 db=db,
 
                 assistant_id=assistant_id,
+
+                user_id=user_id,
 
             )
 

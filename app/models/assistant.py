@@ -1,7 +1,7 @@
 # app/models/assistant.py
 
 from datetime import datetime
-
+from typing import Optional
 
 from sqlalchemy import (
     Column,
@@ -9,10 +9,15 @@ from sqlalchemy import (
     String,
     Boolean,
     DateTime,
-    Text
+    ForeignKey,
+    Text,
+    text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 
 from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
     relationship,
 )
 
@@ -49,6 +54,51 @@ class Assistant(Base):
     system_prompt = Column(
         Text,
         nullable=True
+    )
+
+    owner_user_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("users.id", name="fk_assistants_owner_user_id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+
+    is_custom: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default=text("false"),
+        nullable=False,
+    )
+
+    share_slug: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        unique=True,
+        nullable=True,
+        index=True,
+    )
+
+    is_public: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default=text("false"),
+        nullable=False,
+    )
+
+    strict_rag: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default=text("false"),
+        nullable=False,
+    )
+
+    allowed_domains: Mapped[Optional[list[str]]] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
+    welcome_message: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
     )
 
     is_active = Column(

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
 
-from app.core.security import verify_token
+from app.core.security import get_optional_current_user, verify_token
 from app.modules.assistants.schemas.assistant_schema import (
     AssistantCreate,
     AssistantResponse
@@ -75,13 +75,15 @@ async def list_assistants(
 
     db: AsyncSession = Depends(
         get_db
-    )
+    ),
+    current_user=Depends(get_optional_current_user),
 ):
 
     return await (
         assistant_service
         .list_assistants(
-            db
+            db,
+            user_id=current_user.id if current_user else None,
         )
     )
 
@@ -96,7 +98,8 @@ async def get_assistant(
 
     db: AsyncSession = Depends(
         get_db
-    )
+    ),
+    current_user=Depends(get_optional_current_user),
 ):
 
     assistant = await (
@@ -112,6 +115,15 @@ async def get_assistant(
         raise HTTPException(
             status_code=404,
             detail="Assistant not found"
+        )
+
+    if (
+        assistant.owner_user_id is not None
+        and (not current_user or assistant.owner_user_id != current_user.id)
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied to this custom Mini AI",
         )
 
     return assistant

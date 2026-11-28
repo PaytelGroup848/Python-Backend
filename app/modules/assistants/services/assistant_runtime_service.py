@@ -33,7 +33,9 @@ class AssistantRuntimeService:
 
         db: AsyncSession,
 
-        assistant_id: int
+        assistant_id: int,
+
+        user_id: int | None = None,
 
     ) -> AssistantRuntime:
 
@@ -49,6 +51,14 @@ class AssistantRuntimeService:
 
             raise ValueError(
                 "Assistant not found"
+            )
+
+        if (
+            assistant.owner_user_id is not None
+            and (user_id is None or int(assistant.owner_user_id) != int(user_id))
+        ):
+            raise PermissionError(
+                "Access denied to this custom Mini AI"
             )
 
         mappings = await (
@@ -120,6 +130,12 @@ class AssistantRuntimeService:
 
             assistant_code=
                 assistant.code,
+
+            is_custom=
+                bool(getattr(assistant, "is_custom", False)),
+
+            strict_rag=
+                bool(getattr(assistant, "strict_rag", False)),
 
             system_prompt=
                 assistant.system_prompt,

@@ -204,7 +204,6 @@ async def websocket_chat(
                     f"Stop generation signal received from user={user_id} conv={stop_conv_id}"
                 )
                 if stop_conv_id:
-                    from app.shared.redis.client import redis_client
                     await redis_client.set(f"chat:stopped:{stop_conv_id}", "1", ex=60)
 
                 await websocket.send_json({
@@ -266,6 +265,25 @@ async def websocket_chat(
 
            
 
+            if assistant_id is not None:
+                from app.modules.assistants.repositories.assistant_repository import (
+                    assistant_repository,
+                )
+                async with AsyncSessionLocal() as auth_db:
+                    target_assistant = await assistant_repository.get_by_id(
+                        auth_db, int(assistant_id)
+                    )
+                if (
+                    target_assistant is not None
+                    and target_assistant.owner_user_id is not None
+                    and int(target_assistant.owner_user_id) != int(user_id)
+                ):
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "Access denied to this custom Mini AI",
+                    })
+                    continue
+
             if not conversation_id:
 
                 await websocket.send_json({
@@ -290,7 +308,6 @@ async def websocket_chat(
             if attached_docs and isinstance(attached_docs, list):
                 try:
                     import json
-                    from app.shared.redis.client import redis_client
                     await redis_client.set(f"conversation_pdf:{conversation_id}", json.dumps(attached_docs), ex=7200)
                     if len(attached_docs) > 0:
                         await redis_client.set(f"latest_pdf:{user_id}", str(attached_docs[0]), ex=7200)
@@ -339,7 +356,7 @@ async def websocket_chat(
                 if (
                     not conversation
                     or
-                    conversation.user_id
+                    getattr(conversation, "user_id", None)
                     !=
                     int(user_id)
                 ):

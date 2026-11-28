@@ -1,11 +1,12 @@
+from typing import Any, Optional
 from sqlalchemy import Column
 from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy import Text
 from sqlalchemy import DateTime
 from sqlalchemy import ForeignKey
-
-from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from datetime import datetime
 
@@ -39,6 +40,11 @@ class Message(Base):
     content = Column(
         Text,
         nullable=False
+    )
+
+    metadata_json: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=True,
     )
 
     created_at = Column(

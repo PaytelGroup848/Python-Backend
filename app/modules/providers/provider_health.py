@@ -222,122 +222,72 @@ class ProviderHealthService:
     async def record_failure(
         self,
         provider: str,
+        is_billing_or_auth: bool = False,
+        cooldown_seconds: int | None = None,
     ) -> None:
 
         async with self.lock:
 
-            provider_data = (
-                self.providers.get(provider)
-            )
+            provider_data = self.providers.get(provider)
 
             if not provider_data:
-
-                logger.warning(
-                    f"Unknown provider: "
-                    f"{provider}"
-                )
-
+                logger.warning(f"Unknown provider: {provider}")
                 return
 
-            provider_data[
-                "failures"
-            ] += 1
+            provider_data["failures"] += 1
+            failures = provider_data["failures"]
 
-            failures = (
-                provider_data[
-                    "failures"
-                ]
-            )
+            logger.warning(f"Provider failure: {provider} count={failures}")
 
-            logger.warning(
-                f"Provider failure: "
-                f"{provider} "
-                f"count={failures}"
-            )
-
-            if (
-                failures
-                >=
-                settings.PROVIDER_FAILURE_THRESHOLD
-            ):
-
-                provider_data[
-                    "healthy"
-                ] = False
-
-                provider_data[
-                    "cooldown_until"
-                ] = (
-                    time.time()
-                    +
-                    settings.PROVIDER_COOLDOWN_SECONDS
+            if is_billing_or_auth or failures >= settings.PROVIDER_FAILURE_THRESHOLD:
+                cooldown = (
+                    cooldown_seconds
+                    if cooldown_seconds is not None
+                    else (1800 if is_billing_or_auth else settings.PROVIDER_COOLDOWN_SECONDS)
                 )
+                provider_data["healthy"] = False
+                provider_data["cooldown_until"] = time.time() + cooldown
 
-                logger.warning(
-                    f"Provider cooldown: "
-                    f"{provider}"
-                )
-
+                logger.warning(f"Provider cooldown ({cooldown}s): {provider}")
                 await self.persist_state()
 
     # -----------------------------
-    # GET BEST PROVIDER
+    # GET RANKED / BEST PROVIDERS
     # -----------------------------
 
-    async def get_best_provider(
+    async def get_ranked_providers(
         self,
         providers: list[str],
-    ) -> str | None:
+    ) -> list[str]:
 
         async with self.lock:
 
             available = []
 
             for provider in providers:
-
-                if self.is_available(
-                    provider
-                ):
-
-                    latency = (
-                        self.providers[
-                            provider
-                        ].get(
-                            "latency_ms",
-                            float("inf")
-                        )
-                    )
-
-                    available.append(
-                        (
-                            provider,
-                            latency
-                        )
-                    )
+                if self.is_available(provider):
+                    latency = self.providers[provider].get("latency_ms", float("inf"))
+                    available.append((provider, latency))
 
             if not available:
+                logger.warning("No healthy providers available")
+                return []
 
-                logger.warning(
-                    "No healthy providers "
-                    "available"
-                )
+            available.sort(key=lambda x: x[1])
+            return [p for p, _ in available]
 
-                return None
+    async def get_best_provider(
+        self,
+        providers: list[str],
+    ) -> str | None:
 
-            available.sort(
-                key=lambda x: x[1]
-            )
+        ranked = await self.get_ranked_providers(providers)
+        if not ranked:
+            return None
 
-            selected = (
-                available[0][0]
-            )
-
-            logger.info(
-                f"Selected provider: "
-                f"{selected}"
-            )
-
-            return selected
+        selected = ranked[0]
+        logger.info(f"Selected provider: {selected}")
+        return selected
 
     # -----------------------------
     # PROVIDER STATUS

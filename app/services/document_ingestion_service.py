@@ -19,8 +19,8 @@ from app.modules.chat.services.rag.chunking_service import (
 )
 
 from app.services.job_service import (
-    update_job_status,
-    update_job_chunks
+    complete_job,
+    fail_job
 )
 
 from app.shared.constants.streams import (
@@ -97,26 +97,18 @@ async def ingest_document_file(
                         }
                     )
 
-            await update_job_chunks(
+            await complete_job(
                 db=db,
                 job_id=job_id,
                 chunks_stored=total_chunks
             )
-
-            await update_job_status(
-                db=db,
-                job_id=job_id,
-                status="completed"
-            )
-
-            await db.commit()
 
             logger.info(
                 f"Document ingestion completed: "
                 f"{file_path}"
             )
 
-        except Exception:
+        except Exception as exc:
 
             logger.exception(
                 f"Document ingestion failed: "
@@ -127,13 +119,11 @@ async def ingest_document_file(
 
             try:
 
-                await update_job_status(
+                await fail_job(
                     db=db,
                     job_id=job_id,
-                    status="failed"
+                    error=str(exc)
                 )
-
-                await db.commit()
 
             except Exception:
 

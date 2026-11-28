@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import logging
 import uuid
 from datetime import datetime, timedelta
@@ -113,7 +114,7 @@ async def claim_and_process_refund_batch(
                 marker_key = f"guest:refunded:{job.request_id}"
 
                 # Execute authoritative marker-first idempotent Lua script
-                res = await redis_client.eval(
+                eval_res = redis_client.eval(
                     REFUND_CREDIT_LUA,
                     2,
                     quota_key,
@@ -121,6 +122,7 @@ async def claim_and_process_refund_batch(
                     str(GUEST_MAX_CREDITS),
                     str(GUEST_REFUND_MARKER_TTL)
                 )
+                res = await eval_res if inspect.isawaitable(eval_res) else eval_res
 
                 op_status = int(res[0]) if isinstance(res, (list, tuple)) and len(res) >= 1 else 0
                 new_val = int(res[1]) if isinstance(res, (list, tuple)) and len(res) >= 2 else 0

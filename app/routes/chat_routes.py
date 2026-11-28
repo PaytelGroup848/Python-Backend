@@ -6,7 +6,8 @@ import logging
 from fastapi import (
     APIRouter,
     Depends,
-    Request
+    HTTPException,
+    Request,
 )
 
 from fastapi.responses import (
@@ -118,6 +119,26 @@ async def chat(
     }
 
 
+async def _assert_assistant_access(assistant_id: int | None, user_id: int) -> None:
+    if assistant_id is None:
+        return
+    from app.db.database import AsyncSessionLocal
+    from app.modules.assistants.repositories.assistant_repository import (
+        assistant_repository,
+    )
+    async with AsyncSessionLocal() as db:
+        assistant = await assistant_repository.get_by_id(db, assistant_id)
+    if (
+        assistant is not None
+        and assistant.owner_user_id is not None
+        and assistant.owner_user_id != user_id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied to this custom Mini AI",
+        )
+
+
 @router.post("/agent-chat")
 async def agent_chat(
 
@@ -127,6 +148,7 @@ async def agent_chat(
         verify_token
     )
 ):
+    await _assert_assistant_access(req.assistant_id, user["user_id"])
 
     if not req.session_id:
 
@@ -176,6 +198,7 @@ async def agent_chat_stream(
     req: ChatRequest,
     user=Depends(verify_token)
 ):
+    await _assert_assistant_access(req.assistant_id, user["user_id"])
     if not req.session_id:
         req.session_id = str(uuid.uuid4())
 

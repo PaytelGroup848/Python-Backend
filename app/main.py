@@ -736,12 +736,23 @@ app.include_router(
     dataset_builder_router
 )
 
+from app.modules.mini_ai.public_routes import router as mini_ai_public_router
+from app.modules.mini_ai.routes import router as mini_ai_router
+
 app.include_router(
     dataset_router
 )
 
 app.include_router(
     tokenizer_router,
+)
+
+app.include_router(
+    mini_ai_router
+)
+
+app.include_router(
+    mini_ai_public_router
 )
 
 app.include_router(

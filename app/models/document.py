@@ -1,19 +1,17 @@
 from sqlalchemy import (
     Column,
+    Computed,
     Integer,
     Text,
     String,
     DateTime,
-    Boolean
+    Boolean,
+    ForeignKey,
 )
-
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.sql import func
-
 from pgvector.sqlalchemy import Vector
-
 from app.db.database import Base
-
-from sqlalchemy import ForeignKey
 
 
 class Document(Base):
@@ -33,6 +31,12 @@ class Document(Base):
     content = Column(
         Text,
         nullable=False
+    )
+
+    content_tsv = Column(
+        TSVECTOR,
+        Computed("to_tsvector('simple', coalesce(content, ''))", persisted=True),
+        nullable=True,
     )
 
     # -----------------------------

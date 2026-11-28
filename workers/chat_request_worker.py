@@ -48,6 +48,7 @@ async def handle_single_chat_request(message_id: str, payload: dict):
         request_id = None
         conversation_id = None
         user_id = None
+        first_token_emitted = False
 
         try:
             raw_data = payload.get("data")
@@ -93,14 +94,23 @@ async def handle_single_chat_request(message_id: str, payload: dict):
                     return
 
             # Token streaming callback for run_agent
-            first_token_emitted = False
+            captured_images: list[dict] = []
+            captured_sources: list[dict] = []
 
             async def stream_callback(event: dict):
-                nonlocal first_token_emitted
+                nonlocal first_token_emitted, captured_images, captured_sources
                 # Check user cancellation mid-stream
                 if conversation_id:
                     if await redis_client.get(f"chat:stopped:{conversation_id}"):
                         raise asyncio.CancelledError(f"User stopped conversation {conversation_id}")
+
+                if event.get("type") == "sources":
+                    imgs = event.get("images")
+                    srcs = event.get("sources")
+                    if isinstance(imgs, list) and imgs:
+                        captured_images = imgs[:8]
+                    if isinstance(srcs, list) and srcs:
+                        captured_sources = srcs[:10]
 
                 # Transition to CONSUMED before publishing first token chunk
                 if not first_token_emitted and event.get("type") == "chunk":
@@ -135,7 +145,11 @@ async def handle_single_chat_request(message_id: str, payload: dict):
                 attached_docs=attached_docs,
             )
 
-            response_text = response["response"] if isinstance(response, dict) else str(response)
+            response_text = (
+                str(response.get("response", ""))
+                if isinstance(response, dict)
+                else str(response)
+            )
 
             # Check cancellation post-generation
             if conversation_id and await redis_client.get(f"chat:stopped:{conversation_id}"):
@@ -156,10 +170,19 @@ async def handle_single_chat_request(message_id: str, payload: dict):
             if conversation_id and response_text:
                 try:
                     async with AsyncSessionLocal() as db:
+                        msg_metadata = (
+                            {
+                                "images": captured_images,
+                                "sources": captured_sources,
+                            }
+                            if (captured_images or captured_sources)
+                            else None
+                        )
                         assistant_msg = Message(
                             conversation_id=int(conversation_id),
                             role="assistant",
-                            content=response_text
+                            content=response_text,
+                            metadata_json=msg_metadata,
                         )
                         db.add(assistant_msg)
 
@@ -222,7 +245,7 @@ async def handle_single_chat_request(message_id: str, payload: dict):
             if request_id and not first_token_emitted:
                 try:
                     prompt_state = await redis_client.get(f"guest:prompt_state:{request_id}")
-                    if prompt_state == "RESERVED":
+                    if prompt_state == "RESERVED" and user_id is not None:
                         await redis_client.set(f"guest:prompt_state:{request_id}", "REFUNDED", ex=86400)
                         res_status, new_val = await refund_guest_credit(user_id, request_id)
                         if res_status == 1:
@@ -259,7 +282,7 @@ async def handle_single_chat_request(message_id: str, payload: dict):
             if request_id and not first_token_emitted:
                 try:
                     prompt_state = await redis_client.get(f"guest:prompt_state:{request_id}")
-                    if prompt_state == "RESERVED":
+                    if prompt_state == "RESERVED" and user_id is not None:
                         await redis_client.set(f"guest:prompt_state:{request_id}", "REFUNDED", ex=86400)
                         res_status, new_val = await refund_guest_credit(user_id, request_id)
                         if res_status == 1:

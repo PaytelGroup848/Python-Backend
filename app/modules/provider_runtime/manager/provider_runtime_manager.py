@@ -1,54 +1,70 @@
+from __future__ import annotations
+
 import logging
 import time
-from typing import Union, List, Dict, Any
+from typing import Any, Dict, List, Union
 
-from app.modules.providers.openai_provider import OpenAIProvider
-
+from app.db.database import AsyncSessionLocal
+from app.modules.providers.gemini_provider import GeminiProvider
 from app.modules.providers.groq_provider import GroqProvider
-
-from app.modules.providers.provider_health import (
-    provider_health_service
-)
-from app.shared.metrics.metrics_service import (
-    metrics_service
-)
-
-from app.db.database import (
-    AsyncSessionLocal
-)
-
-from app.modules.usage.services.usage_tracker import (
-    usage_tracker
-)
-
-from app.modules.providers.gemini_provider import (
-    GeminiProvider
-)
+from app.modules.providers.mistral_provider import MistralProvider
+from app.modules.providers.openai_provider import OpenAIProvider
+from app.modules.providers.provider_health import provider_health_service
+from app.modules.usage.services.usage_tracker import usage_tracker
+from app.shared.metrics.metrics_service import metrics_service
 
 logger = logging.getLogger(__name__)
 
+_BILLING_OR_AUTH_MARKERS = (
+    "401",
+    "402",
+    "credit_balance_exhausted",
+    "insufficient_quota",
+    "billing_no_api_budget_configured",
+    "invalid_api_key",
+    "payment required",
+    "unauthorized",
+)
+
+
+def _is_billing_or_auth_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return any(marker in msg for marker in _BILLING_OR_AUTH_MARKERS)
+
+
+async def _track_usage(
+    user_id: int,
+    provider_name: str,
+    result: Dict[str, Any],
+    latency_ms: int,
+) -> None:
+    usage = result.get("usage", {}) or {}
+    async with AsyncSessionLocal() as db:
+        await usage_tracker.track(
+            db=db,
+            user_id=user_id,
+            api_key_id=None,
+            model_name=result.get("model", "unknown"),
+            provider=provider_name,
+            source="chat",
+            prompt_tokens=usage.get("prompt_tokens", 0),
+            completion_tokens=usage.get("completion_tokens", 0),
+            total_tokens=usage.get("total_tokens", 0),
+            latency_ms=latency_ms,
+        )
+    logger.info(f"USAGE TRACKED ({provider_name}): {usage}")
+
 
 class ProviderRuntimeManager:
+    """Orchestrates multi-provider LLM streaming and batch execution with full fallback cascade."""
 
-    def __init__(self):
-
-        from app.modules.providers.mistral_provider import (
-            MistralProvider
-        )
-
+    def __init__(self) -> None:
         self.providers = {
-
             "openai": OpenAIProvider(),
-
             "mistral": MistralProvider(),
-
             "groq": GroqProvider(),
-
             "gemini": GeminiProvider(),
         }
-
-    
-
 
     async def stream_response(
         self,
@@ -58,389 +74,78 @@ class ProviderRuntimeManager:
     ):
         await metrics_service.increment_requests()
 
-        provider_name = await (
-            provider_health_service
-            .get_best_provider(
-                list(
-                    self.providers.keys()
-                )
-            )
-        )
+        candidates = await provider_health_service.get_ranked_providers(list(self.providers.keys()))
+        if not candidates:
+            raise RuntimeError("No healthy providers available")
 
-        if not provider_name:
-            raise RuntimeError(
-                "No healthy providers available"
-            )
+        last_err: Exception | None = None
+        for idx, provider_name in enumerate(candidates):
+            provider = self.providers[provider_name]
+            logger.info(f"Selected provider ({'primary' if idx == 0 else f'fallback #{idx}'}): {provider_name}")
 
-        provider = (
-            self.providers[
-                provider_name
-            ]
-        )
-
-        logger.info(
-            f"Selected provider: "
-            f"{provider_name}"
-        )
-
-        start_time = (
-            time.perf_counter()
-        )
-
-        try:
-            async for chunk in (
-                provider.stream_chat(
-                    message,
-                    model=model,
-                    temperature=temperature
-                )
-            ):
-                yield chunk
-
-            latency = (
-                (
-                    time.perf_counter()
-                    -
-                    start_time
-                ) * 1000
-            )
-
-            await (
-                provider_health_service
-                .record_success(
-                    provider_name,
-                    latency,
-                )
-            )
-            await metrics_service.record_provider_latency(
-                provider_name,
-                latency,
-            )
-
-        except Exception as e:
-            logger.exception(
-                f"Provider failed: "
-                f"{provider_name}"
-            )
-     
-            await (
-                provider_health_service
-                .record_failure(
-                    provider_name
-                )
-            )
-            await metrics_service.record_provider_failure(
-               provider_name
-            )
-
-            failed_latency = (
-                (
-                    time.perf_counter()
-                    -
-                    start_time
-                ) * 1000
-            )
-            await metrics_service.record_provider_latency(
-                provider_name,
-                failed_latency,
-            )
-
-            fallback_providers = [
-                p
-                for p in self.providers.keys()
-                if p != provider_name
-            ]
-
-            fallback_provider_name = await (
-                provider_health_service
-                .get_best_provider(
-                    fallback_providers
-                )
-            )
-
-            await metrics_service.increment_failures()
-
-            if not fallback_provider_name:
-                raise RuntimeError(f"Primary provider {provider_name} failed and no fallback available") from e
-
-            logger.warning(
-                f"Fallback provider used: "
-                f"{fallback_provider_name}"
-            )
-
-            fallback_provider = (
-                self.providers[
-                    fallback_provider_name
-                ]
-            )
-
-            fallback_start = (
-                time.perf_counter()
-            )
-
+            start_time = time.perf_counter()
+            yielded_any = False
             try:
-                async for chunk in (
-                    fallback_provider.stream_chat(
-                        message,
-                        model=model,
-                        temperature=temperature
-                    )
-                ):
+                async for chunk in provider.stream_chat(message, model=model, temperature=temperature):
+                    yielded_any = True
                     yield chunk
 
-                fallback_latency = (
-                    (
-                        time.perf_counter()
-                        -
-                        fallback_start
-                    ) * 1000
-                )
+                latency_ms = (time.perf_counter() - start_time) * 1000
+                await provider_health_service.record_success(provider_name, latency_ms)
+                await metrics_service.record_provider_latency(provider_name, latency_ms)
+                return
+            except Exception as exc:
+                last_err = exc
+                failed_ms = (time.perf_counter() - start_time) * 1000
+                is_billing = _is_billing_or_auth_error(exc)
+                logger.warning(f"Provider {provider_name} failed (billing/auth={is_billing}): {exc}")
+                await provider_health_service.record_failure(provider_name, is_billing_or_auth=is_billing)
+                await metrics_service.record_provider_failure(provider_name)
+                await metrics_service.record_provider_latency(provider_name, failed_ms)
 
-                await (
-                    provider_health_service
-                    .record_success(
-                        fallback_provider_name,
-                        fallback_latency,
-                    )
-                )
-                await metrics_service.record_provider_latency(
-                    fallback_provider_name,
-                    fallback_latency,
-                )
-            except Exception as fallback_err:
-                logger.exception(f"Fallback provider {fallback_provider_name} failed: {fallback_err}")
-                await provider_health_service.record_failure(fallback_provider_name)
-                await metrics_service.record_provider_failure(fallback_provider_name)
-                raise RuntimeError("All AI providers are currently unavailable. Please try again shortly.") from fallback_err
+                if yielded_any:
+                    await metrics_service.increment_failures()
+                    raise
+
+        await metrics_service.increment_failures()
+        raise RuntimeError("All AI providers are currently unavailable. Please try again shortly.") from last_err
 
     async def generate_response(
-
         self,
-
-        prompt: str,
-
+        prompt: Union[str, List[Dict[str, Any]]],
         user_id: int = 0,
-
         temperature: float = 0.3,
-
         stream: bool = False,
-    ):
-
-        if isinstance(prompt, list):
-            messages = prompt
-        else:
-            messages = [
-                {
-                    "role": "user",
-                    "content": str(prompt),
-                }
-            ]
-
-        provider_name = await (
-            provider_health_service
-            .get_best_provider(
-                list(
-                    self.providers.keys()
-                )
-            )
+    ) -> Dict[str, Any]:
+        messages = (
+            prompt
+            if isinstance(prompt, list)
+            else [{"role": "user", "content": str(prompt)}]
         )
 
-        if not provider_name:
+        candidates = await provider_health_service.get_ranked_providers(list(self.providers.keys()))
+        if not candidates:
+            raise RuntimeError("No healthy providers available")
 
-            raise Exception(
-                "No healthy providers available"
-            )
-        provider = (
-            self.providers[
-                provider_name
-            ]
-        )
+        last_err: Exception | None = None
+        for idx, provider_name in enumerate(candidates):
+            provider = self.providers[provider_name]
+            logger.info(f"Batch selected provider ({'primary' if idx == 0 else f'fallback #{idx}'}): {provider_name}")
 
-        try:
-
-            start_time = (
-                time.perf_counter()
-            )
-
-            result = await provider.generate(
-                messages=messages,
-                temperature=temperature,
-            )
-            latency_ms = int(
-                (
-                    time.perf_counter()
-                    - start_time
-                ) * 1000
-            )
-
-            usage = result.get(
-                "usage",
-                {}
-            )
-
-            async with AsyncSessionLocal() as db:
-
-                await usage_tracker.track(
-
-                    db=db,
-
-                    user_id=user_id,
-
-                    api_key_id=None,
-
-                    model_name=result.get(
-                        "model",
-                        "unknown"
-                    ),
-
-                    provider=provider_name,
-
-                    source="chat",
-
-                    prompt_tokens=usage.get(
-                        "prompt_tokens",
-                        0
-                    ),
-
-                    completion_tokens=usage.get(
-                        "completion_tokens",
-                        0
-                    ),
-
-                    total_tokens=usage.get(
-                        "total_tokens",
-                        0
-                    ),
-
-                    latency_ms=latency_ms
-                )
-
-            logger.info(
-                f"USAGE TRACKED: "
-                f"{usage}"
-            )
-
-            return result
-
-
-        except Exception as e:
-
-
-            logger.exception(
-                f"Provider failed: {provider_name}"
-            )
-
-            await (
-                provider_health_service
-                .record_failure(
-                provider_name
-            )
-        )
-
-            fallback_providers = [
-
-                p
-
-                for p in self.providers.keys()
-
-                if p != provider_name
-            ]
-
-            fallback_provider_name = await (
-                provider_health_service
-                .get_best_provider(
-                    fallback_providers
-                )
-            )
-
-            if not fallback_provider_name:
-
-               raise e
-
-            logger.warning(
-                f"Fallback provider used: "
-                f"{fallback_provider_name}"
-            )
-
-            fallback_provider = (
-                self.providers[
-                    fallback_provider_name
-                ]
-            )
-
-            fallback_start = (
-                time.perf_counter()
-            )
-
+            start_time = time.perf_counter()
             try:
-                result = await (
-                    fallback_provider.generate(
-                        messages=messages,
-                        temperature=temperature,
-                    )
-                )
-            except Exception as fallback_err:
-                logger.exception(f"Fallback provider {fallback_provider_name} failed: {fallback_err}")
-                await provider_health_service.record_failure(fallback_provider_name)
-                raise RuntimeError("All AI providers are currently unavailable. Please try again shortly.") from fallback_err
+                result = await provider.generate(messages=messages, temperature=temperature)
+                latency_ms = int((time.perf_counter() - start_time) * 1000)
+                await provider_health_service.record_success(provider_name, float(latency_ms))
+                await _track_usage(user_id, provider_name, result, latency_ms)
+                return result
+            except Exception as exc:
+                last_err = exc
+                is_billing = _is_billing_or_auth_error(exc)
+                logger.warning(f"Batch provider {provider_name} failed (billing/auth={is_billing}): {exc}")
+                await provider_health_service.record_failure(provider_name, is_billing_or_auth=is_billing)
 
-            fallback_latency_ms = int(
-                (
-                    time.perf_counter()
-                    - fallback_start
-                ) * 1000
-            )
-
-            usage = result.get(
-                "usage",
-                {}
-            )
-
-            async with AsyncSessionLocal() as db:
-
-                await usage_tracker.track(
-
-                    db=db,
-
-                    user_id=user_id,
-
-                    api_key_id=None,
-
-                    model_name=result.get(
-                        "model",
-                        "unknown"
-                    ),
-
-                    provider=fallback_provider_name,
-
-                    source="chat",
-
-                    prompt_tokens=usage.get(
-                        "prompt_tokens",
-                        0
-                    ),
-
-                    completion_tokens=usage.get(
-                        "completion_tokens",
-                        0
-                    ),
-
-                    total_tokens=usage.get(
-                        "total_tokens",
-                    0
-                    ),
-
-                    latency_ms=fallback_latency_ms
-                )
-
-            logger.info(
-                f"USAGE TRACKED FALLBACK: "
-                f"{usage}"
-            )
-
-            return result
-
-
+        raise RuntimeError("All AI providers are currently unavailable. Please try again shortly.") from last_err
 
 
 provider_runtime_manager = ProviderRuntimeManager()

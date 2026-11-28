@@ -79,12 +79,14 @@ class AssistantService:
 
     async def list_assistants(
         self,
-        db: AsyncSession
+        db: AsyncSession,
+        user_id: int | None = None,
     ):
 
         return await (
             assistant_repository.list_active(
-                db
+                db,
+                user_id=user_id,
             )
         )
 

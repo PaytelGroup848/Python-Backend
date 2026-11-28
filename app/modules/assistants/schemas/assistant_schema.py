@@ -37,6 +37,10 @@ class AssistantResponse(BaseModel):
 
     is_active: bool
 
+    owner_user_id: int | None = None
+
+    is_custom: bool = False
+
     created_at: datetime
 
     updated_at: datetime

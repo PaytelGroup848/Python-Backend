@@ -82,6 +82,11 @@ async def store_document(
     return doc
 
 
+from app.modules.mini_ai.cache import get_kb_cache_version
+
+RRF_K = 60
+
+
 async def semantic_search(
 
     db: AsyncSession,
@@ -121,9 +126,12 @@ async def semantic_search(
     # CACHE KEY
     # =========================
 
+    kb_version = await get_kb_cache_version(knowledge_base_ids)
+
     cache_key = (
 
         f"semantic_search:"
+        f"v{kb_version}:"
         f"{query}:"
         f"{sorted(knowledge_base_ids)}:"
         f"{user_department}:"
@@ -230,7 +238,7 @@ async def semantic_search(
     """)
 
     # =========================
-    # KEYWORD SEARCH SQL
+    # KEYWORD SEARCH SQL (PostgreSQL FTS BM25)
     # =========================
 
     keyword_sql = text("""
@@ -241,7 +249,7 @@ async def semantic_search(
             d.source_file,
             d.page_number,
 
-            0.0 AS distance
+            (1.0 / (1.0 + ts_rank_cd(d.content_tsv, plainto_tsquery('simple', :raw_query)))) AS distance
 
         FROM documents d
 
@@ -261,7 +269,7 @@ async def semantic_search(
 
             AND
 
-            d.content ILIKE :keyword
+            d.content_tsv @@ plainto_tsquery('simple', :raw_query)
 
             AND (
                 d.department = :user_department
@@ -270,6 +278,8 @@ async def semantic_search(
                 OR :user_role = 'admin'
                 OR :user_role = 'employee'
             )
+
+        ORDER BY ts_rank_cd(d.content_tsv, plainto_tsquery('simple', :raw_query)) DESC
 
         LIMIT :limit
     """)
@@ -320,21 +330,8 @@ async def semantic_search(
         vector_results = []
 
     # =========================
-    # KEYWORD SEARCH
+    # KEYWORD SEARCH (FTS)
     # =========================
-
-    stop_words = {
-        "what", "is", "the", "significance", "importance", "meaning", "overview", "definition",
-        "describe", "explain", "tell", "give", "about", "with", "case", "law", "under", "this",
-        "that", "from", "into", "during", "which", "where", "when", "who", "whom", "whose"
-    }
-    raw_tokens = [t for t in re.sub(r'[^\w\s]', ' ', query).split() if len(t) > 2]
-    key_tokens = [t for t in raw_tokens if t.lower() not in stop_words]
-
-    if key_tokens:
-        keyword_param = f"%{'%'.join(key_tokens[:3])}%"
-    else:
-        keyword_param = f"%{query.strip()}%"
 
     try:
 
@@ -345,20 +342,15 @@ async def semantic_search(
                 keyword_sql,
 
                 {
-                    "keyword":
-                    keyword_param,
+                    "raw_query": query,
 
-                    "limit":
-                    limit,
+                    "limit": limit,
 
-                    "user_department":
-                    user_department,
+                    "user_department": user_department,
 
-                    "knowledge_base_ids":
-                        knowledge_base_ids,
+                    "knowledge_base_ids": knowledge_base_ids,
 
-                    "user_role":
-                    user_role
+                    "user_role": user_role,
                 }
             ),
 
@@ -380,22 +372,24 @@ async def semantic_search(
         keyword_results = []
 
     # =========================
-    # MERGE RESULTS
+    # RECIPROCAL RANK FUSION (RRF)
     # =========================
 
-    combined = {}
+    from typing import Any
+    rrf_scores: dict[int, float] = {}
+    combined_rows: dict[int, Any] = {}
 
-    for row in vector_results:
+    for rank, row in enumerate(vector_results, start=1):
+        rrf_scores[row.id] = rrf_scores.get(row.id, 0.0) + 1.0 / (RRF_K + rank)
+        combined_rows[row.id] = row
 
-        combined[row.id] = row
+    for rank, row in enumerate(keyword_results, start=1):
+        rrf_scores[row.id] = rrf_scores.get(row.id, 0.0) + 1.0 / (RRF_K + rank)
+        if row.id not in combined_rows:
+            combined_rows[row.id] = row
 
-    for row in keyword_results:
-
-        combined[row.id] = row
-
-    final_results = list(
-        combined.values()
-    )
+    ranked_ids = sorted(rrf_scores.keys(), key=lambda doc_id: rrf_scores[doc_id], reverse=True)
+    final_results = [combined_rows[doc_id] for doc_id in ranked_ids[:limit]]
 
     # =========================
     # CACHE RESULTS

@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.assistant import Assistant
@@ -73,8 +73,18 @@ class AssistantRepository:
 
     async def list_active(
         self,
-        db: AsyncSession
+        db: AsyncSession,
+        user_id: int | None = None,
     ):
+        visibility_filter = (
+            or_(
+                Assistant.owner_user_id.is_(None),
+                Assistant.owner_user_id == user_id,
+            )
+            if user_id is not None
+            else Assistant.owner_user_id.is_(None)
+        )
+
         result = await db.execute(
             select(
                 Assistant
@@ -85,7 +95,8 @@ class AssistantRepository:
             )
 
             ).where(
-                Assistant.is_active == True
+                Assistant.is_active == True,
+                visibility_filter,
             )
         )
 

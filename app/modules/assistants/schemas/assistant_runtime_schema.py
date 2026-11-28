@@ -11,6 +11,10 @@ class AssistantRuntime(
 
     assistant_code: str
 
+    is_custom: bool = False
+
+    strict_rag: bool = False
+
     system_prompt: str | None
 
     knowledge_base_ids: list[int]

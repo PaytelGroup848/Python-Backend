@@ -30,6 +30,17 @@ logger = logging.getLogger("image_generation_service")
 IMAGE_TOKEN_COST = 1000
 
 
+def _to_png_bytes(output_bytes: Any) -> bytes:
+    """Normalizes rembg/PIL image output into raw PNG bytes."""
+    if isinstance(output_bytes, bytes):
+        return output_bytes
+    if isinstance(output_bytes, Image.Image):
+        buf = io.BytesIO()
+        output_bytes.save(buf, format="PNG")
+        return buf.getvalue()
+    return bytes(output_bytes)
+
+
 class ImageGenerationService:
     def __init__(self):
         self.primary_provider: BaseImageProvider = OpenAIImageProvider()
@@ -334,7 +345,7 @@ class ImageGenerationService:
         new_file_url = f"/media/generated/images/{year_str}/{month_str}/{image_uuid}_nobg.png"
 
         with open(final_file_path, "wb") as f:
-            f.write(output_bytes)
+            f.write(_to_png_bytes(output_bytes))
 
         # Insert record into database
         new_id = None
@@ -447,7 +458,7 @@ class ImageGenerationService:
         new_file_url = f"/media/generated/images/{year_str}/{month_str}/{image_uuid}_4k.png"
 
         with open(final_file_path, "wb") as f:
-            f.write(output_bytes)
+            f.write(_to_png_bytes(output_bytes))
 
         new_id = None
         async with AsyncSessionLocal() as db:

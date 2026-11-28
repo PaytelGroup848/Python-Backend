@@ -52,6 +52,21 @@ class ConversationService:
 
             )
 
+        if data.assistant_id is not None:
+            from app.modules.assistants.repositories.assistant_repository import (
+                assistant_repository,
+            )
+            assistant = await assistant_repository.get_by_id(db, data.assistant_id)
+            if (
+                assistant is not None
+                and assistant.owner_user_id is not None
+                and assistant.owner_user_id != context.user.id
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied to this custom Mini AI",
+                )
+
         conversation = Conversation(
 
             organization_id=context.organization.id,

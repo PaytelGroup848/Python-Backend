@@ -114,6 +114,7 @@ async def get_fastest_response(
        rag_result = await retrieve_context(
            db=db,
            query=query,
+           assistant_id=None,
            user_department=user_department,
            user_role=user_role,
            top_k=3

@@ -25,6 +25,7 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 #  Auth scheme
 security = HTTPBearer()
+optional_security = HTTPBearer(auto_error=False)
 
 
 # =========================
@@ -151,4 +152,25 @@ async def get_current_user(
             "role": user["role"],
         },
     )()
+
+
+async def get_optional_current_user(token=Depends(optional_security)):
+    if token is None:
+        return None
+    try:
+        payload = jwt.decode(token.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        sub = payload.get("sub")
+        role = payload.get("role")
+        if not sub or not role:
+            return None
+        return type(
+            "CurrentUser",
+            (object,),
+            {
+                "id": int(sub),
+                "role": role,
+            },
+        )()
+    except (JWTError, ValueError, TypeError):
+        return None
 

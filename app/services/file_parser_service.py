@@ -255,15 +255,10 @@ def parse_pptx(file_path: str):
 
                 try:
 
-                    if hasattr(
-                        shape,
-                        "text"
-                    ):
+                    raw_text = getattr(shape, "text", None)
+                    if isinstance(raw_text, str):
 
-                        text = (
-                            shape.text
-                            or ""
-                        )
+                        text = raw_text
 
                         if text.strip():
 

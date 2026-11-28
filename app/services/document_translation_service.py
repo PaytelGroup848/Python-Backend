@@ -102,7 +102,7 @@ class DocumentTranslationService:
             if not text:
                 continue
 
-            style_name = (p.style.name if p.style else "").lower()
+            style_name = (p.style.name or "").lower() if p.style else ""
             if "heading" in style_name:
                 level_match = re.search(r"\d", style_name)
                 level = int(level_match.group(0)) if level_match else 1
@@ -144,12 +144,13 @@ class DocumentTranslationService:
         block_id = 0
 
         for page_num in range(len(doc)):
-            page = doc[page_num]
+            page = doc.load_page(page_num)
             tables_found = []
 
             # 1. Attempt table detection with graceful fallback
             try:
-                table_finder = page.find_tables()
+                from pymupdf.table import find_tables as pymupdf_find_tables
+                table_finder = pymupdf_find_tables(page)
                 if table_finder and table_finder.tables:
                     for tbl in table_finder.tables:
                         extracted = tbl.extract()
@@ -170,7 +171,7 @@ class DocumentTranslationService:
 
             # 2. Extract non-table text blocks
             try:
-                text_page_blocks = page.get_text("blocks")
+                text_page_blocks = fitz.utils.get_text(page, "blocks")
                 for b in text_page_blocks:
                     # b format: (x0, y0, x1, y1, "text", block_no, block_type)
                     if len(b) >= 5 and b[4].strip():
@@ -224,8 +225,8 @@ class DocumentTranslationService:
             # Process up to 20 pages
             for page_num in range(min(total_pages, 20)):
                 try:
-                    page = doc[page_num]
-                    pix = page.get_pixmap(dpi=150)
+                    page = doc.load_page(page_num)
+                    pix = fitz.utils.get_pixmap(page, dpi=150)
                     png_bytes = pix.tobytes("png")
 
                     part = types.Part.from_bytes(data=png_bytes, mime_type="image/png")
@@ -247,10 +248,10 @@ class DocumentTranslationService:
                     response = client.models.generate_content(
                         model="gemini-flash-latest",
                         contents=[part, ocr_prompt],
-                        config=types.GenerateContentConfig(
-                            response_mime_type="application/json",
-                            temperature=0.1
-                        )
+                        config=types.GenerateContentConfig.model_validate({
+                            "response_mime_type": "application/json",
+                            "temperature": 0.1
+                        })
                     )
 
                     if response and response.text:
@@ -395,10 +396,10 @@ class DocumentTranslationService:
                     if fallback not in gemini_models:
                         gemini_models.append(fallback)
 
-                gen_config = types.GenerateContentConfig(
-                    temperature=temperature,
-                    response_mime_type="application/json" if response_mime_type == "application/json" else None
-                )
+                gen_config = types.GenerateContentConfig.model_validate({
+                    "temperature": temperature,
+                    "response_mime_type": "application/json" if response_mime_type == "application/json" else None
+                })
 
                 for model_name in gemini_models:
                     for attempt in range(2):

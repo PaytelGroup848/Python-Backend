@@ -38,7 +38,7 @@ def clean_text(
 async def retrieve_context(
     db: AsyncSession,
     query: str,
-    assistant_id: int,
+    assistant_id: int | None,
     user_department: str,
     user_role: str,
     top_k: int = 10

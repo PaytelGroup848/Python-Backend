@@ -61,9 +61,10 @@ async def extract_text_from_scanned_pdf(
 
             for page_index in range(total_pages):
 
-                page = pdf[page_index]
+                page = pdf.load_page(page_index)
 
-                pix = page.get_pixmap(
+                pix = fitz.utils.get_pixmap(
+                    page,
                     matrix=fitz.Matrix(1, 1)
                 )
 
